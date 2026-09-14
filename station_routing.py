@@ -261,9 +261,13 @@ def describe_path(scorer, path: list[str]) -> list[dict]:
            "stations": [station_of(real[0])], "n_stops": 0, "minutes": 0.0,
            "max_congestion": 0.0, "dirs": [], "branches": []}
 
-    for u, v in zip(real, real[1:]):
+    for i, (u, v) in enumerate(zip(real, real[1:])):
         e = next((x for x in scorer.adj.get(u, []) if x["to"] == v), None)
         if e is None:
+            continue
+        if e["kind"] == "transfer" and _is_through_pass(scorer, real, i, u, v):
+            # 직결 분기 통과. 같은 열차이므로 segment 를 끊지 않는다.
+            # 분기역은 중간 정차역으로 남는다.
             continue
         if e["kind"] == "transfer":
             cur["to"] = station_of(u)
@@ -532,3 +536,14 @@ def _dwell_min(scorer) -> float:
         return float(g.get("DEFAULT_DWELL_TIME_MIN", 0.0))
     except (TypeError, ValueError):
         return 0.0
+
+
+def _is_through_pass(scorer, path, i, u, v) -> bool:
+    """분기 직결 통과 판정. scorer 모듈의 규칙을 그대로 쓴다.
+
+    load_scorer_class() 가 만든 모듈은 sys.modules 에 등록되지 않으므로
+    클래스의 __globals__ 를 통해 읽는다(_dwell_min 과 같은 방식).
+    """
+    g = getattr(type(scorer).evaluate, "__globals__", {})
+    fn = g.get("is_through_pass")
+    return bool(fn(path, i, u, v)) if fn else False

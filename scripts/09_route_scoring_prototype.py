@@ -65,6 +65,43 @@ KAPPA = 0.5
 # 노선·시간대별 실제 정차시간은 다르므로 v1 한계로 남긴다.
 DEFAULT_DWELL_TIME_MIN = 0.5
 
+# 직결 분기역.
+# 5호선은 방화~하남검단산 / 방화~마천 이 하나의 계통으로 직결 운행한다
+# (열차운행현황 구간 표기 "방화~하남검단산/마천", 시격·운행횟수 단일 집계).
+# 2호선 성수·신도림 지선은 별도 셔틀이라 환승이 필수지만
+# (구간 표기 "성수~성수[성수지선/신정지선]", 시격·운행횟수 분리 집계),
+# 강동은 본선에서 온 열차가 그대로 지선으로 들어간다.
+#
+# 그래프는 강동을 본선/지선 노드로 나누고 그 사이에 환승 엣지를 두었다.
+# 이 엣지는 경로에 따라 의미가 다르다.
+#   천호(본선) <-> 둔촌동(마천)  : 같은 열차로 통과. 환승 아님
+#   길동(하남) <-> 둔촌동(마천)  : 강동에서 갈아타야 함. 환승 맞음
+# 엣지 하나로는 구분할 수 없으므로 경로의 앞뒤 노드를 보고 판정한다.
+# value 는 본선(trunk) 쪽 인접 노드다.
+THROUGH_JUNCTIONS = {
+    frozenset(("5_강동", "5_강동@macheon_branch")): "5_천호",
+}
+
+
+def through_junction_trunk(u: str, v: str):
+    """(u, v) 가 직결 분기 엣지면 본선 쪽 인접 노드를, 아니면 None 을 돌려준다."""
+    return THROUGH_JUNCTIONS.get(frozenset((u, v)))
+
+
+def is_through_pass(path, i: int, u: str, v: str) -> bool:
+    """경로의 i 번째 엣지 (u, v) 가 '같은 열차로 통과' 인지 판정한다.
+
+    분기 엣지의 바로 앞 또는 바로 뒤 노드가 본선 쪽이면 통과다.
+    최초 승차 전 대기는 이 프로젝트에서 반영하지 않으므로,
+    통과 시에는 환승 횟수·도보·대기를 모두 더하지 않는다.
+    """
+    trunk = through_junction_trunk(u, v)
+    if trunk is None:
+        return False
+    prev_n = path[i - 1] if i > 0 else None
+    next_n = path[i + 2] if i + 2 < len(path) else None
+    return trunk in (prev_n, next_n)
+
 # 환승 혼잡 페널티: 5만 명당 1분, 최대 3분
 TRANSFER_CROWD_PENALTY_RATE = 50000.0
 TRANSFER_CROWD_PENALTY_MAX = 3.0
@@ -414,7 +451,7 @@ class RouteScorer:
         # 이 정의에서 자동으로 빠진다.
         seg_edges = 0
         dwell_stops = 0
-        for u, v in zip(path, path[1:]):
+        for i, (u, v) in enumerate(zip(path, path[1:])):
             e = next(x for x in self.adj[u] if x["to"] == v)
             if e["kind"] == "ride":
                 seg_edges += 1
@@ -422,6 +459,10 @@ class RouteScorer:
                 p += e["cost"]
                 congs.append(e["cong"])
                 ev += e.get("event", 0.0)
+            elif e["kind"] == "transfer" and is_through_pass(path, i, u, v):
+                # 같은 열차로 통과한다. 승차 구간을 끊지 않으므로
+                # 분기역은 중간 정차역으로 계산된다.
+                continue
             else:
                 dwell_stops += max(seg_edges - 1, 0)
                 seg_edges = 0
