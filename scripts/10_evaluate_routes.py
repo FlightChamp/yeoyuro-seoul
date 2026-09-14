@@ -204,42 +204,60 @@ class RouteEvaluator:
         return out
 
     def evaluate_path(self, path):
-        t = p = tpen = ev = 0.0
-        congs, n_tr, tstations, violation = [], 0, [], []
+        """경로 평가. 비용 계산은 RouteScorer.evaluate() 하나만 쓴다.
+
+        과거에는 이 메서드가 edge_meta 로 같은 계산을 따로 했다. 그 결과
+        09 쪽에 중간역 정차시간과 강동 직결 분기 통과를 반영했을 때
+        리포트만 옛 값을 유지해, 앱과 리포트가 갈라진 적이 있다
+        (방화->마천 앱 0회 88.7분 vs 마트 1회 69.25분).
+        계산을 한 곳에 두어 같은 종류의 불일치를 구조적으로 막는다.
+
+        여기서는 10 스크립트에만 필요한 필드를 덧붙이는 일만 한다.
+        """
+        ev = self.rs.evaluate(path)
+
+        violation = []
         for u, v in zip(path, path[1:]):
-            m = self.edge_meta.get((u, v))
-            if m is None:
+            if self.edge_meta.get((u, v)) is None:
                 violation.append("missing_edge:%s->%s" % (u, v))
-                continue
-            t += m["travel_time"]
-            ev += m["event_risk"]
-            p += m["perceived"]
-            if m["kind"] == "ride":
-                congs.append(m["congestion"])
-            else:
-                tpen += m["transfer_penalty"]
-                n_tr += 1
-                tstations.append(station_of(u))
         for n in path:
             if line_of(n) not in VALID_LINES:
                 violation.append("out_of_scope_line:" + n)
-        congs = [c for c in congs if not (isinstance(c, float) and np.isnan(c))]
-        return {
+
+        # 환승역 목록. evaluate() 와 같은 규칙(직결 분기 통과는 환승 아님)을 쓴다.
+        g = getattr(type(self.rs).evaluate, "__globals__", {})
+        is_through = g.get("is_through_pass")
+        tstations = []
+        for i, (u, v) in enumerate(zip(path, path[1:])):
+            m = self.edge_meta.get((u, v))
+            if m is None or m["kind"] == "ride":
+                continue
+            if is_through and is_through(path, i, u, v):
+                continue
+            tstations.append(station_of(u))
+
+        out = {
             "path_nodes": " -> ".join(path),
             "path_edges": len(path) - 1,
-            "actual_time_min": round(t, 2),
-            "perceived_time_min": round(p, 2),
-            "avg_congestion": round(float(np.mean(congs)), 2) if congs else np.nan,
-            "max_congestion": round(float(np.max(congs)), 2) if congs else np.nan,
-            "transfer_count": n_tr,
+            "actual_time_min": ev["actual_time_min"],
+            "perceived_time_min": ev["perceived_time_min"],
+            "running_time_min": ev["running_time_min"],
+            "dwell_time_min": ev["dwell_time_min"],
+            "avg_congestion": ev["avg_congestion"],
+            "max_congestion": ev["max_congestion"],
+            "transfer_count": ev["transfer_count"],
             "transfer_stations": ";".join(tstations),
-            "transfer_penalty_min": round(tpen, 3),
-            "event_risk_min": round(ev, 3),
-            "seat_chance_score": round(self.rs._seat_score(path), 3),
-            "high_congestion_exposure_count": int(sum(c >= self.p95_cong for c in congs)),
+            "transfer_penalty_min": ev["transfer_penalty_min"],
+            "event_risk_min": ev["event_risk_min"],
+            "seat_chance_score": ev["seat_chance_score"],
+            "high_congestion_exposure_count": ev["p95_exposure_count"],
             "constraint_violation": ";".join(sorted(set(violation))),
             "_edges": set(self.path_edges(path)),
         }
+        assert out["transfer_count"] == len(tstations), (
+            "환승 횟수(%d)와 환승역 수(%d)가 다르다: %s"
+            % (out["transfer_count"], len(tstations), out["path_nodes"]))
+        return out
 
     # ---------- 3축 Pareto ----------
     @staticmethod
