@@ -52,8 +52,8 @@ edge_cost      = perceived_time + transfer_penalty + event_risk
 
 | # | 발견 | 근거 |
 |---|---|---|
-| 1 | **오전엔 경로를 바꾸고, 저녁엔 시간을 바꿔야 한다** | 08:30 경로 대안 3/13 → 18:00 **0/13** |
-| 2 | **이벤트성 혼잡은 국소적이라 우회 가능, 출퇴근 혼잡은 광역적이라 우회 불가** | 평시 토요일 저녁 0/13 → 불꽃축제일 **2/13** 로 회복 |
+| 1 | **쾌적 대안은 일부 OD 에서만 나타나고, 저녁의 병목은 혼잡 감소폭이다** | 08:30 **3/13** · 18:00 **2/13**. 저녁에 걸러내는 조건은 `cong_drop` 28건 단일 |
+| 2 | **이벤트는 대안의 개수가 아니라 구성을 바꾼다** | 불꽃축제일 18:00 은 선호 모드별로 결과가 갈린다(calm 2/13, 그 외 3/13) |
 | 3 | **LightGBM이 groupby 평균 baseline을 이기지 못했다** | Skill Score **−0.464**, 사전 등록한 조건대로 baseline 채택 |
 | 4 | **전후 비교는 이벤트 효과를 과대추정한다** | 불꽃축제 3.674배 → DiD 순효과 **3.403배** |
 
@@ -148,11 +148,12 @@ U턴은 **배차가 긴 낮 시간대에만** 나타나 08:30 검증에서는 �
 
 | 계층 | 대상 | 결과 |
 |---|---|---|
-| 전체 pytest | `tests/` 4개 파일 | **99 passed** |
+| 전체 pytest | `tests/` 5개 파일 | **116 passed** |
 | ├ 경로 탐색 regression | `test_station_routing.py` | 41 |
 | ├ 중간역 정차시간 | `test_dwell_time.py` | 18 |
 | ├ 환승 방면 표기 | `test_transfer_direction.py` | 27 |
-| └ 표시값 정합성 | `test_timeline_consistency.py` | 13 |
+| ├ 표시값 정합성 | `test_timeline_consistency.py` | 13 |
+| └ 직결 분기 통과 | `test_through_junction.py` | 17 |
 | 그래프 구조 | `06b_smoke_test_graph.py` | 9/9 PASS |
 | 스키마·교차검증 | `11_validate_schemas.py` | PASS 17 |
 

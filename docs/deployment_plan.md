@@ -176,7 +176,7 @@ def _now_defaults():
 1. `.gitignore` 수정 → `git status` 로 의도한 마트만 추가 대상인지 확인
 2. `requirements.txt` / `requirements-dev.txt` 교체
 3. 타임존 수정 (`app/streamlit/yeoyuro_seoul_app.py`, `station_routing.py` 동일본 유지 확인)
-4. `pytest tests/ -q` → 99 passed 확인
+4. `pytest tests/ -q` → 116 passed 확인
 5. 로컬 실행 검증 (§7)
 6. 마트 커밋 → push, 레포 크기 확인
 7. share.streamlit.io 에서 New app
@@ -202,7 +202,7 @@ def _now_defaults():
 ## 7. 로컬 검증 결과
 
 ```
-pytest tests/ -q                          → 99 passed
+pytest tests/ -q                          → 116 passed
 streamlit run app/streamlit/yeoyuro_seoul_app.py   (인자 없이)
 ```
 
