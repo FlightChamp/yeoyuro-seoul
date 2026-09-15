@@ -437,8 +437,12 @@ def find_route_by_station(scorer, display: pd.DataFrame,
 
     fastest = min(cands, key=lambda c: c["actual_time_min"])
     alt = None
+    recommended_path = kept[0]["path"]
     for c in kept:
-        if c["path"] == fastest["path"]:
+        # 최속 경로 자신도, 이미 추천으로 뽑힌 경로도 '대안' 이 될 수 없다.
+        # calm 모드처럼 추천이 최속과 다를 때, 추천 경로가 최속 대비 조건을
+        # 만족해 대안 자리에 다시 들어가던 문제를 막는다.
+        if c["path"] == fastest["path"] or c["path"] == recommended_path:
             continue
         tl = c["actual_time_min"] - fastest["actual_time_min"]
         cd = (fastest["max_congestion"] or 0) - (c["max_congestion"] or 0)

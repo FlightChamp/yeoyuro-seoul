@@ -829,7 +829,181 @@ def route_summary_line(ev, o, d_):
         ev.get("max_congestion") or 0)
 
 
-def route_card(title, ev, o, d_, note=None, tone="normal"):
+CONG_REF_LINES = ((80.0, "체감 가중 시작 80%", "#9CA3AF"),
+                  (100.0, "정원 100%", "#E8A33D"),
+                  (130.0, "혼잡 주의 130%", "#D9534F"))
+
+PROFILE_COLORS = {"current": "#1F4E79", "recommended": "#2E7D5B"}
+
+
+def _current_scorer():
+    """경로 검색에 쓴 것과 같은 인자로 scorer 를 얻는다.
+
+    get_scorer 는 @st.cache_resource 라 같은 인자면 이미 만들어진 객체를 준다.
+    여기서 새로 계산하는 것은 없다.
+    """
+    dow = pd.Timestamp(st.session_state["q_date"]).dayofweek
+    day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
+    hhmm = "%02d:%02d" % (st.session_state["q_time"].hour,
+                          st.session_state["q_time"].minute)
+    return get_scorer(day_type, hhmm, str(st.session_state["q_date"]))
+
+
+def build_route_congestion_profile(scorer, path, time_bin=None):
+    """경로를 승차 구간(segment)별로 나눠 기대 혼잡도 계열을 만든다.
+
+    혼잡도는 역이 아니라 **구간**의 값이다. 재차율(X→Y)은 X 와 Y 사이 열차의
+    혼잡도이므로, 역에 값을 붙이려면 규칙이 필요하다.
+
+        구간의 중간역   그 역을 떠나는 엣지의 값
+        구간의 마지막역 그 역에 도착하는 엣지의 값
+
+    이렇게 하면 두 가지가 해결된다.
+      - 도착역까지 선이 이어진다(마지막 역도 값을 갖는다)
+      - 환승역에서 두 호선의 값이 각각 표시된다
+        (예: 4호선 사당 = 이수→사당 구간, 2호선 사당 = 사당→방배 구간)
+
+    직결 분기 통과(5호선 강동)는 환승이 아니므로 구간을 끊지 않는다.
+
+    time_bin 을 주면 그 시간대로 조회한다. 경로가 같으므로 x축이 그대로 맞는다.
+    이벤트 배수는 time_alternative() 와 같은 방식으로 적용해, 화면 문구의
+    최대값과 그래프 최대값이 어긋나지 않게 한다.
+
+    반환: [{"line_id", "stations": [...], "values": [...]}, ...]
+    """
+    sr = sr_module()
+    ride_idx = {(r.from_node, r.to_node): (str(r.line_id), r.direction)
+                for r in scorer.ride.itertuples()}
+
+    tb = time_bin or scorer.time_bin
+    lk = scorer.lookup[(scorer.lookup["day_type"] == scorer.day_type)
+                       & (scorer.lookup["time_bin"] == tb)]
+    key = lk.set_index(["station_uid", "direction"])["congestion_median"].to_dict()
+
+    eff = {}
+    if getattr(scorer, "event_effect_by_hour", None):
+        eff = scorer.event_effect_by_hour.get(int(str(tb)[:2]), {}) or {}
+
+    def cong(u, v):
+        _, direction = ride_idx.get((u, v), ("", None))
+        c = key.get((u, direction))
+        if c is None or pd.isna(c):
+            return None
+        return float(c) * float(eff.get(sr.station_of(u), {}).get("mult", 1.0))
+
+    segments, cur = [], None
+    for i, (u, v) in enumerate(zip(path, path[1:])):
+        e = next((x for x in scorer.adj.get(u, []) if x["to"] == v), None)
+        if e is None:
+            continue
+        if e["kind"] != "ride":
+            # 직결 분기 통과는 같은 열차이므로 구간을 끊지 않는다.
+            if e["kind"] == "transfer" and not sr._is_through_pass(scorer, path, i, u, v):
+                cur = None
+            continue
+        line_id = ride_idx.get((u, v), ("", None))[0]
+        c = cong(u, v)
+        if cur is None:
+            cur = {"line_id": line_id, "stations": [], "values": []}
+            segments.append(cur)
+            cur["stations"].append(sr.station_of(u))
+            cur["values"].append(c)
+        else:
+            # 직전 역은 '떠나는 구간' 값으로 갱신한다.
+            cur["values"][-1] = c
+        cur["stations"].append(sr.station_of(v))
+        cur["values"].append(c)      # 마지막 역은 '도착하는 구간' 값
+
+    return [s for s in segments if len(s["stations"]) >= 2]
+
+
+def render_route_congestion_profile(ev, time_alt=None, key=None):
+    """추천 경로의 기대 혼잡도 흐름을 하나의 그래프로 그린다."""
+    import plotly.graph_objects as go
+
+    try:
+        scorer = _current_scorer()
+        cur_segs = build_route_congestion_profile(scorer, ev["path"])
+    except Exception:
+        return
+    if not cur_segs:
+        return
+
+    names = []
+    for sg in cur_segs:
+        for s in sg["stations"]:
+            if not names or names[-1] != s:
+                names.append(s)
+
+    fig = go.Figure()
+
+    def add_series(segs, label, color, dash, width, marker):
+        first = True
+        for sg in segs:
+            fig.add_trace(go.Scatter(
+                x=sg["stations"], y=sg["values"], mode="lines+markers",
+                name=label, legendgroup=label, showlegend=first,
+                line=dict(color=color, width=width, dash=dash),
+                marker=dict(size=marker),
+                customdata=[[sg["line_id"], label]] * len(sg["stations"]),
+                hovertemplate=("역: %{x}<br>호선: %{customdata[0]}호선"
+                               "<br>기대 혼잡도: %{y:.0f}%"
+                               "<br>시간: %{customdata[1]}<extra></extra>")))
+            first = False
+
+    # 추천 시간대 곡선. 경로가 같을 때만 겹친다.
+    alt_label = None
+    if time_alt and time_alt.get("best_time_bin"):
+        try:
+            alt_segs = build_route_congestion_profile(
+                scorer, ev["path"], time_bin=time_alt["best_time_bin"])
+        except Exception:
+            alt_segs = []
+        same = (len(alt_segs) == len(cur_segs)
+                and all(a["stations"] == b["stations"]
+                        for a, b in zip(alt_segs, cur_segs)))
+        if same:
+            alt_label = "추천 출발 %s" % str(time_alt["best_time_bin"])[:5]
+            add_series(alt_segs, alt_label, PROFILE_COLORS["recommended"],
+                       "dot", 2, 5)
+
+    cur_label = "현재 출발 %s" % str(scorer.time_bin)[:5]
+    add_series(cur_segs, cur_label, PROFILE_COLORS["current"], None, 2.4, 6)
+
+    for val, label, color in CONG_REF_LINES:
+        fig.add_hline(y=val, line=dict(color=color, width=1, dash="dot"),
+                      annotation_text=label, annotation_position="top left",
+                      annotation_font=dict(size=10, color=color))
+
+    # 환승 지점 수직 점선. segments 에서 뽑으므로 강동 직결 분기처럼
+    # 환승으로 세지 않는 통과 지점은 자동으로 빠진다.
+    for sg in ev.get("segments") or []:
+        if sg.get("kind") != "transfer" or sg.get("at") not in names:
+            continue
+        fig.add_vline(x=names.index(sg["at"]),
+                      line=dict(color="#8D7150", width=1, dash="dash"),
+                      annotation_text="환승 %s→%s호선" % (sg.get("from_line", ""),
+                                                     sg.get("to_line", "")),
+                      annotation_position="top",
+                      annotation_font=dict(size=10, color="#8D7150"))
+
+    fig.update_layout(
+        height=380, margin=dict(l=10, r=10, t=46, b=10),
+        plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF", dragmode=False,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        showlegend=bool(alt_label),
+        xaxis=dict(fixedrange=True, tickangle=-45, automargin=True,
+                   tickfont=dict(size=10), gridcolor="#F3F4F6",
+                   categoryorder="array", categoryarray=names),
+        yaxis=dict(fixedrange=True, title="기대 혼잡도(%)",
+                   rangemode="tozero", gridcolor="#EEF0F2"))
+    st.plotly_chart(fig, width="stretch", key=key,
+                    config={"displayModeBar": False, "scrollZoom": False})
+
+
+
+def route_card(title, ev, o, d_, note=None, tone="normal",
+               show_profile=False, time_alt=None, profile_key=None):
     with st.container(border=True):
         st.markdown("**%s**" % title)
         st.caption(route_summary_line(ev, o, d_))
@@ -843,12 +1017,9 @@ def route_card(title, ev, o, d_, note=None, tone="normal"):
         render_timeline(ev["segments"])
         if ev.get("event_risk_min"):
             st.caption("이벤트 영향으로 쾌적 체감시간 +%.1f분 가산" % ev["event_risk_min"])
-        for sg in ev["segments"]:
-            if sg.get("kind") != "ride" or not sg.get("stations"):
-                continue
-            with st.expander("%s호선 전체 정차역 보기 (%d개 역)"
-                             % (sg["line"], len(sg["stations"]))):
-                st.write(" → ".join(sg["stations"]))
+        if show_profile:
+            st.markdown("**📊 구간별 기대 혼잡도**")
+            render_route_congestion_profile(ev, time_alt, key=profile_key)
         if note:
             (st.success if tone == "good" else st.caption)(note)
 
@@ -1003,8 +1174,6 @@ def page_route():
     if not ready:
         if o and d_ and o == d_:
             st.info("출발역과 도착역이 같습니다. 다른 역을 선택해 주세요.")
-        else:
-            st.caption("출발역과 도착역을 선택한 뒤 [경로 검색] 을 누르세요.")
         return
 
     result = st.session_state.get("route_result")
@@ -1026,13 +1195,16 @@ def _render_route_result(result, fallback, o, d_):
 
     rec, alt = result["recommended"], result.get("alternative")
     st.subheader("추천 경로")
-    route_card("%s 모드 추천" % MODE_LABEL[st.session_state["q_mode"]], rec, o, d_)
+    route_card("%s 모드 추천" % MODE_LABEL[st.session_state["q_mode"]], rec, o, d_,
+               show_profile=True, time_alt=result.get("time_alternative"),
+               profile_key="profile_recommended")
 
     if alt:
         st.subheader("최단경로 대비 쾌적 대안")
         route_card("대안 경로", alt, o, d_,
                    "예상 소요시간은 %.1f분 늘어나지만, 최대 기대 혼잡도는 %.1f%%p 낮습니다."
-                   % (alt["time_loss_vs_fastest"], alt["comfort_gain_vs_fastest"]), "good")
+                   % (alt["time_loss_vs_fastest"], alt["comfort_gain_vs_fastest"]), "good",
+                   show_profile=True, profile_key="profile_alternative")
     else:
         st.warning("현재 최단 경로 외에 **유의미한 쾌적 대안 경로가 없습니다.** "
                    "대신, 같은 경로에서 더 여유로운 출발 시간을 추천합니다.")
