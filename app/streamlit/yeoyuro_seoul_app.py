@@ -443,7 +443,7 @@ DEFAULTS = {
 for k, v in DEFAULTS.items():
     st.session_state.setdefault(k, v)
 
-MENUS = ["쾌적 경로 찾기", "시간 분산", "시간대별 혼잡 조회", "빠른 환승 안내",
+MENUS = ["쾌적 경로 찾기", "시간 분산", "혼잡 분산 지도", "이벤트 시나리오", "시간대별 혼잡 조회", "빠른 환승 안내",
          "이벤트 혼잡 경보", "프로젝트 소개 및 검증 리포트"]
 
 
@@ -502,7 +502,7 @@ def path_to_visual_nodes(path, vn: pd.DataFrame):
     return xs, ys
 
 
-def draw_map(bundle: dict, highlight_path=None):
+def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
     """벡터 노선도. 레이어 순서:
     노선 → 환승 connector → 역 marker → 역명 label → 경로 highlight → 출도착 halo → 클릭영역
     """
@@ -576,7 +576,7 @@ def draw_map(bundle: dict, highlight_path=None):
                                      opacity=0.38, showlegend=False))
 
     # 6. 출발/도착 halo
-    if ca is not None:
+    if ca is not None and show_endpoints:
         for key, color in ((st.session_state["origin_station_key"], "#1B7F3B"),
                            (st.session_state["destination_station_key"], DANGER)):
             if not key:
@@ -1511,6 +1511,196 @@ def page_time_shift():
 
 
 # --------------------------------------------------------------------------
+# 페이지. 혼잡 분산 지도 (v2.4 Mobility Atlas)
+# --------------------------------------------------------------------------
+ATLAS_DIMS = {
+    "congestion_exposure": ("통과 1회당 100%+ 노출(분)", "bad",
+                            "표본 이동이 이 구간을 지날 때 기대 혼잡도 100% 이상인 시간의 평균"),
+    "exposed_traversal_share": ("100%+ 를 겪은 통과 비율", "bad",
+                                "이 구간을 지난 표본 이동 중, 이 구간에서 100% 이상을 겪은 비율"),
+    "structural_share": ("구조적 혼잡 비율", "bad",
+                         "이 구간에서 100%+ 를 겪은 이동 중, 경로·시간 조정 모두 효과가 없는 이동의 비율"),
+    "alternative_opportunity": ("경로 변경으로 피할 수 있는 비율", "good",
+                                "이 구간에서 100%+ 를 겪은 이동 중, 기준을 만족하는 우회 경로가 있는 비율"),
+    "temporal_shift_benefit": ("시간 조정으로 피할 수 있는 비율", "good",
+                               "이 구간에서 100%+ 를 겪은 이동 중, ±60분 출발 조정으로 피할 수 있는 비율"),
+    "demand_weighted_exposure": ("수요 proxy 가중 노출(분)", "bad",
+                                 "통과 1회당 노출을 승하차 기반 수요 proxy 로 가중한 값 (실제 이동량 아님)"),
+}
+ATLAS_BAD = ["#FDE7D7", "#F9B98F", "#F0844F", "#D9481F", "#9E2A0E"]
+ATLAS_GOOD = ["#E3F0E6", "#B5D9BE", "#7CBC8E", "#3F9A5E", "#1B6B3A"]
+TYPE_KO_APP = {"calm": "여유 (Calm)", "time_shiftable": "시간 조정으로 해결", "dual": "경로·시간 모두 가능",
+               "route_shiftable": "경로 변경으로만 해결", "structural": "구조적 혼잡"}
+
+
+def page_atlas():
+    import plotly.graph_objects as go
+    st.title("혼잡 분산 지도")
+    st.caption("평일 출퇴근 시간대의 혼잡이 어디에서 경로로, 시간으로 피할 수 있고 어디는 둘 다 어려운지 보여줍니다.")
+    st.info(DISCLAIMER + " 무작위로 뽑은 역 쌍 620개 × 평일 기준 출발 6개(3,720건) 표본의 집계이며, "
+            "구간을 지나는 모든 승객의 값이 아닙니다.")
+    atlas = load_mart("mobility_atlas_mart", "data/marts/v2")
+    odm = load_mart("od_shiftability_mart", "data/marts/v2")
+    bundle = load_map_bundle()
+    if atlas is None or odm is None or bundle is None:
+        st.warning("v2 mart 가 없습니다. `scripts/v2/23_build_od_shiftability.py` 와 "
+                   "`scripts/v2/24_build_mobility_atlas.py` 를 먼저 실행하세요.")
+        return
+
+    c1, c2, c3 = st.columns([1.1, 1.6, 1.1])
+    grp = c1.radio("시간대", ["am", "pm", "all"], horizontal=True, key="atlas_grp",
+                   format_func=lambda x: {"am": "오전 피크", "pm": "오후 피크", "all": "전체"}[x])
+    dim = c2.selectbox("지표", list(ATLAS_DIMS), key="atlas_dim",
+                       format_func=lambda k: ATLAS_DIMS[k][0])
+    weight = c3.radio("유형 비율 기준", ["count", "proxy"], horizontal=True, key="atlas_w",
+                      format_func=lambda x: {"count": "역 쌍 수", "proxy": "수요 proxy"}[x])
+
+    # ---- 유형 분포
+    times = {"am": ("07:30", "08:00", "08:30"), "pm": ("17:30", "18:00", "18:30")}
+    sub = odm if grp == "all" else odm[odm.base_time.isin(times[grp])]
+    w = sub.demand_proxy_w if weight == "proxy" else pd.Series(1.0, index=sub.index)
+    tot_hot = w[sub.final_shiftability_type != "calm"].sum()
+    m = st.columns(5)
+    for i, k in enumerate(["calm", "time_shiftable", "dual", "route_shiftable", "structural"]):
+        if k == "calm":
+            m[i].metric(TYPE_KO_APP[k], "%.1f%%" % (100 * w[sub.final_shiftability_type == k].sum() / w.sum()),
+                        help="전체 이동 대비. 기준 경로가 100% 이상 구간을 지나지 않음")
+        else:
+            m[i].metric(TYPE_KO_APP[k], "%.1f%%" % (100 * w[sub.final_shiftability_type == k].sum()
+                                                    / max(tot_hot, 1e-9)),
+                        help="혼잡 이동(여유 제외) 대비")
+    st.caption("유형 판정 기준은 분석 전에 고정했습니다 (docs/v2/preregistration_v23.md, T1). "
+               "'경로 변경'은 한 사람이 옮길 때 기준이며, 많은 사람이 함께 옮기는 효과는 반영하지 않습니다.")
+
+    # ---- 지도
+    a = atlas[(atlas.time_group == grp) & (atlas.atlas_dimension == dim)].copy()
+    label, tone, desc = ATLAS_DIMS[dim]
+    a = a[a.value.notna()]
+    if dim in ("congestion_exposure", "demand_weighted_exposure", "exposed_traversal_share"):
+        a = a[a.value > 0]
+    a["pair"] = a.apply(lambda r: tuple(sorted([r.from_node, r.to_node])), axis=1)
+    worst = a.sort_values("value", ascending=(tone == "good")).drop_duplicates("pair")
+    palette = ATLAS_BAD if tone == "bad" else ATLAS_GOOD
+    if dim.endswith("_share") or dim in ("alternative_opportunity", "temporal_shift_benefit"):
+        edges = [0, 0.2, 0.4, 0.6, 0.8, 1.0001]
+        fmt = lambda v: "%.0f%%" % (100 * v)
+    else:
+        q = worst.value.quantile([0, .2, .4, .6, .8]).tolist() + [worst.value.max() + 1e-9]
+        edges = sorted(set(round(x, 3) for x in q))
+        fmt = lambda v: "%.2f분" % v
+    fig = draw_map(bundle, None, show_endpoints=False)
+    vn = bundle["map_visual_nodes"]
+    for i in range(len(edges) - 1):
+        lo, hi = edges[i], edges[i + 1]
+        part = worst[(worst.value >= lo) & (worst.value < hi)]
+        if part.empty:
+            continue
+        xs, ys, hx, hy, ht = [], [], [], [], []
+        for r in part.itertuples():
+            px, py = path_to_visual_nodes([r.from_node, r.to_node], vn)
+            if len(px) < 2:
+                continue
+            xs += px + [None]
+            ys += py + [None]
+            hx.append(sum(px) / len(px))
+            hy.append(sum(py) / len(py))
+            ht.append("<b>%s</b><br>%s: %s<br>통과 %d · 이 구간 100%%+ %d"
+                      % (r.section, label, fmt(r.value), r.n_traversals, r.n_hot_traversals))
+        col = palette[min(i, len(palette) - 1)]
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", hoverinfo="skip", showlegend=True,
+                                 name="%s ~ %s" % (fmt(lo), fmt(min(hi, worst.value.max()))),
+                                 line=dict(color=col, width=11), opacity=0.92))
+        fig.add_trace(go.Scatter(x=hx, y=hy, mode="markers", marker=dict(size=14, color="rgba(0,0,0,0)"),
+                                 hovertext=ht, hoverinfo="text", showlegend=False))
+    fig.update_layout(height=760, showlegend=True,
+                      legend=dict(orientation="h", y=1.02, x=0, title=dict(text=label + "  ")))
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="atlas_map")
+    st.caption("%s. 양방향 중 %s 쪽 값을 칠했습니다. 비율 지표는 그 구간에서 100%%+ 를 겪은 표본이 5건 이상인 구간만 "
+               "표시합니다." % (desc, "더 나쁜" if tone == "bad" else "더 낮은"))
+
+    # ---- 표
+    st.subheader("상위 구간")
+    top = a.sort_values("value", ascending=(tone == "good")).head(10)
+    st.dataframe(pd.DataFrame({
+        "구간": top.section, label: [fmt(v) for v in top.value],
+        "통과(표본)": top.n_traversals, "이 구간 100%+ 통과": top.n_hot_traversals}),
+        hide_index=True, width="stretch")
+    with st.expander("이 화면을 읽는 법"):
+        st.markdown(
+            "- **종합 점수는 없습니다.** 피로도 정답 데이터가 없어 지표를 하나로 합치면 가중치를 정당화할 수 "
+            "없기 때문에, 지표를 따로 보여줍니다.\n"
+            "- 구조적 혼잡 비율은 시간 조정 창(±60분) 선택에 민감합니다. ±30분이면 커지고 ±90분이면 거의 사라집니다. "
+            "숫자의 크기보다 **어느 구간에 몰려 있는가**를 보세요.\n"
+            "- 수요 proxy 는 역별 승하차로 만든 추정이며 실제 출발-도착 이동량이 아닙니다.")
+
+
+# --------------------------------------------------------------------------
+# 페이지. 이벤트 시나리오 (v2.5 Event Stress Test)
+# --------------------------------------------------------------------------
+EVENT_SCENARIOS = {"FW_2025": "서울세계불꽃축제 2025 (9/27 토, 17~19시 출발)",
+                   "NYB_2025": "제야의 종 2025 (12/31 수, 21~23시 출발)",
+                   "HW_2025": "핼러윈 2025 (10/31 금, 19~21시 출발)",
+                   "CB_2025": "여의도 벚꽃 2025 (4/11 금, 12·15·18시 출발)"}
+TYPE_SHORT = {"calm": "여유", "time_shiftable": "시간 조정", "dual": "경로·시간",
+              "route_shiftable": "경로 변경", "structural": "구조적"}
+
+
+def page_event_scenario():
+    import plotly.graph_objects as go
+    st.title("이벤트 시나리오")
+    st.caption("평소에는 경로나 시간 조정으로 피할 수 있던 이동이, 대형 이벤트 날에는 어떻게 바뀌는지 봅니다.")
+    st.warning("이벤트 날의 차내 혼잡은 관측 자료가 없습니다. 이벤트 당일 승하차 급증(실측)을 "
+               "혼잡 배수로 바꾸는 가정(λ=0.3)으로 만든 **시나리오**입니다.")
+    df = load_mart("event_scenario_mart", "data/marts/v2")
+    if df is None:
+        st.warning("event_scenario_mart 가 없습니다. `scripts/v2/25_event_stress_test.py` 를 먼저 실행하세요.")
+        return
+    eid = st.selectbox("이벤트", list(EVENT_SCENARIOS), format_func=lambda k: EVENT_SCENARIOS[k],
+                       key="evs_event")
+    g = df[df.event_id == eid]
+    t = g[g.treated]
+    c = st.columns(4)
+    c[0].metric("표본 이동", "%d" % len(g), help="무작위 이동 150쌍 + 이벤트 방문 이동 약 100쌍 × 출발 3개")
+    c[1].metric("이벤트 구간을 지나는 이동", "%d" % len(t))
+    c[2].metric("그중 유형이 바뀐 이동", "%.0f%%" % (100 * (t.baseline_type != t.event_shiftability_type).mean())
+                if len(t) else "-")
+    c[3].metric("이벤트 날 구조적 혼잡", "%d건" % int((t.event_shiftability_type == "structural").sum()),
+                help="평시 %d건" % int((t.baseline_type == "structural").sum()))
+
+    if len(t):
+        order = ["calm", "time_shiftable", "dual", "route_shiftable", "structural"]
+        ct = pd.crosstab(t.baseline_type, t.event_shiftability_type).reindex(
+            index=order, columns=order, fill_value=0)
+        fig = go.Figure(go.Heatmap(
+            z=ct.values, x=[TYPE_SHORT[k] for k in order], y=[TYPE_SHORT[k] for k in order],
+            colorscale="Oranges", text=ct.values, texttemplate="%{text}", showscale=False,
+            hovertemplate="평시 %{y} → 이벤트 %{x}: %{z}건<extra></extra>"))
+        fig.update_layout(height=360, margin=dict(l=10, r=10, t=30, b=10),
+                          xaxis=dict(title="이벤트 날 유형", side="top"),
+                          yaxis=dict(title="평시 유형", autorange="reversed"))
+        st.subheader("유형 전이 (이벤트 구간을 지나는 이동)")
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="evs_heat")
+        st.caption("대각선 밖의 칸이 이벤트 때문에 대응 방법이 바뀐 이동입니다. "
+                   "예: 평시 '시간 조정' → 이벤트 '구조적' = 평소엔 조금 일찍 나서면 됐지만 이벤트 날엔 그것도 안 됨.")
+        changed = t[t.baseline_type != t.event_shiftability_type]
+        if len(changed):
+            st.subheader("대응 방법이 바뀐 이동 예시")
+            ex = changed.sort_values("event_max_congestion_l03", ascending=False).head(10)
+            st.dataframe(pd.DataFrame({
+                "출발": ex.origin, "도착": ex.destination, "출발 시각": ex.base_time,
+                "평시": ex.baseline_type.map(TYPE_SHORT), "이벤트": ex.event_shiftability_type.map(TYPE_SHORT),
+                "최대 기대 혼잡도 평시→이벤트": ["%.0f%% → %.0f%%" % (a, b) for a, b in
+                                         zip(ex.baseline_max_congestion, ex.event_max_congestion_l03)]}),
+                hide_index=True, width="stretch")
+    with st.expander("가정과 한계"):
+        st.markdown(
+            "- 혼잡 배수 = 1 + 검증 가중치 × (승하차 급증 배율 − 1) × λ. λ=0.3 은 v1 에서 정한 값이며 관측으로 "
+            "보정된 값이 아닙니다. 리포트에 λ=0.15·0.6 결과도 함께 있습니다.\n"
+            "- 배수는 이벤트 역에서 출발하는 구간에만, 이벤트 시간대에만 적용합니다.\n"
+            "- 판정 기준과 가설은 계산 전에 고정했습니다 (docs/v2/preregistration_v25.md).")
+
+
+# --------------------------------------------------------------------------
 # 페이지 2. 혼잡 조회
 # --------------------------------------------------------------------------
 def show_station_info(station_key: str):
@@ -2092,6 +2282,8 @@ def main():
     # 이름 기반 dispatch. 메뉴 순서를 바꿔도 연결이 어긋나지 않는다.
     {"쾌적 경로 찾기": page_route,
      "시간 분산": page_time_shift,
+     "혼잡 분산 지도": page_atlas,
+     "이벤트 시나리오": page_event_scenario,
      "시간대별 혼잡 조회": page_congestion,
      "빠른 환승 안내": page_transfer,
      "이벤트 혼잡 경보": page_event,

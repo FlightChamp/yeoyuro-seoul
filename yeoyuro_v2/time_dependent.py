@@ -157,13 +157,15 @@ class TimeDependentEvaluator:
     """
 
     def __init__(self, scorer, headway: dict, policy: str = "step",
-                 include_initial_wait: bool = False):
+                 include_initial_wait: bool = False, event_scale: float = 1.0):
         if policy not in BIN_POLICIES:
             raise ValueError(f"policy 는 {BIN_POLICIES} 중 하나여야 합니다: {policy}")
         self.s = scorer
         self.headway = headway
         self.policy = policy
         self.include_initial_wait = include_initial_wait
+        # v2.5: 이벤트 배수 m 을 1 + (m-1)*event_scale 로 조정 (λ sensitivity. 1.0 = v1 λ=0.3 그대로)
+        self.event_scale = float(event_scale)
         self.day_type = scorer.day_type
         self._g = type(scorer).evaluate.__globals__     # v1 모듈 상수 (C0, KAPPA, DWELL ...)
         self.C0 = float(self._g["C0"])
@@ -219,7 +221,8 @@ class TimeDependentEvaluator:
             eff = self.s.event_effect          # v1: 출발 시각의 hour 고정
         else:
             eff = by_hour.get(int(minute // 60), {})
-        return float(eff.get(station, {}).get("mult", 1.0))
+        m = float(eff.get(station, {}).get("mult", 1.0))
+        return 1.0 + (m - 1.0) * self.event_scale
 
     def _pieces(self, u: str, v: str, t0: float, dur: float):
         """edge 구간 [t0, t0+dur] 을 (분, 혼잡median, 혼잡p90, bin) 조각 리스트로 나눈다."""
@@ -387,7 +390,8 @@ class TDRouter:
 
     def __init__(self, root: Path, scorer_module, station_routing_module,
                  display: pd.DataFrame, day_type: str = "weekday", policy: str = "step",
-                 k: int = 5, multi_bin: bool = True, include_initial_wait: bool = False):
+                 k: int = 5, multi_bin: bool = True, include_initial_wait: bool = False,
+                 query_date: str | None = None, event_scale: float = 1.0):
         self.root = Path(root)
         self.mod = scorer_module
         self.sr = station_routing_module
@@ -397,6 +401,8 @@ class TDRouter:
         self.k = k
         self.multi_bin = multi_bin
         self.include_initial_wait = include_initial_wait
+        self.query_date = query_date          # v2.5: 이벤트 날짜 (None = 평시)
+        self.event_scale = event_scale
         self.headway = self.sr.load_headway(self.root)
         self._scorers: dict[int, object] = {}
         self._evals: dict[tuple, TimeDependentEvaluator] = {}
@@ -405,7 +411,7 @@ class TDRouter:
         b = max(0, min(N_BINS - 1, b))
         if b not in self._scorers:
             hhmm = fmt_min(BIN_START_MIN + b * BIN_WIDTH_MIN)
-            self._scorers[b] = self.mod.RouteScorer(self.root, self.day_type, hhmm)
+            self._scorers[b] = self.mod.RouteScorer(self.root, self.day_type, hhmm, self.query_date)
         return self._scorers[b]
 
     def evaluator(self, depart_bin: int, policy: str | None = None) -> TimeDependentEvaluator:
@@ -413,7 +419,8 @@ class TDRouter:
         key = (max(0, min(N_BINS - 1, depart_bin)), policy)
         if key not in self._evals:
             self._evals[key] = TimeDependentEvaluator(
-                self.scorer(depart_bin), self.headway, policy, self.include_initial_wait)
+                self.scorer(depart_bin), self.headway, policy, self.include_initial_wait,
+                self.event_scale)
         return self._evals[key]
 
     def raw_paths(self, scorer, origin: str, dest: str, k: int) -> list[list[str]]:

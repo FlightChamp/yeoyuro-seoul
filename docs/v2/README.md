@@ -23,4 +23,6 @@
 | [preregistration_v23.md](preregistration_v23.md) | v2.3 | 고정 |
 | [od_shiftability.md](od_shiftability.md) | v2.3 | 초판 |
 | v2_evaluation_strategy.md | v2.3 | 예정 |
-| mobility_atlas.md | v2.4 | 예정 |
+| [mobility_atlas.md](mobility_atlas.md) | v2.4 | 초판 |
+| [preregistration_v25.md](preregistration_v25.md) | v2.5 | 고정 |
+| [event_stress_test.md](event_stress_test.md) | v2.5 | 초판 |
