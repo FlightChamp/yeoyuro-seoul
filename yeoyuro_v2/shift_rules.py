@@ -22,12 +22,52 @@ class ThresholdSet:
     max_extra_transfer: int = 1
     max_edge_jaccard: float = 0.65         # directed-edge 유사도 상한
     calm_gate_exposure_min: float = 3.0    # base exposure_100 < 이 값 AND max < 100 이면 Calm
+    # Time Shift (v2.2). 감소 기준은 Route Shift 와 같은 OR 규칙을 쓴다 (D-016)
+    time_shift_windows: tuple = (30, 60, 90)          # ± 분
+    time_shift_max_time_increase_min: float = 5.0     # 소요시간 증가 상한
+    time_shift_similar_jaccard: float = 0.8           # 경로가 바뀌어도 이 이상이면 '유사 경로'로 인정
+    # v2.3 (T1): 감소 기준 확장. T0 는 (노출 절대 OR 최대혼잡) 이고 T1 은 (노출 절대 OR 노출 상대)
+    min_exposure_drop_rel: float | None = None        # 기준 노출 대비 감소 비율 (예 0.5). None 이면 미사용
+    use_max_cong_drop: bool = True                    # 최대혼잡 감소 OR 조건 사용 여부
+    time_shift_primary_window: int = 90               # 분류에 쓰는 Time Shift 주 창 (≤ 이 값인 후보만)
+    use_p90: bool = False                             # 노출을 중앙값 대신 p90 으로 (sensitivity 전용)
 
     def as_dict(self) -> dict:
         return asdict(self)
 
 
 T0 = ThresholdSet()
+
+# v2.3 사전 등록 기준 (docs/v2/preregistration_v23.md). 결과 계산 전에 고정.
+T1 = ThresholdSet(
+    set_id="T1_prereg_v23",
+    min_exposure_drop_min=5.0,
+    min_exposure_drop_rel=0.5,
+    use_max_cong_drop=False,
+    min_max_cong_drop_pp=15.0,          # 미사용 (use_max_cong_drop=False), 기록용
+    max_time_loss_min=15.0,
+    max_perceived_excess_min=5.0,
+    max_extra_transfer=1,
+    max_edge_jaccard=0.65,
+    calm_gate_exposure_min=3.0,
+    time_shift_windows=(30, 60, 90),     # 90 은 sensitivity 용으로 계산만
+    time_shift_primary_window=60,
+    time_shift_max_time_increase_min=5.0,
+    time_shift_similar_jaccard=0.8,
+)
+
+
+def reduction_ok(base_exp: float, cand_exp: float, base_max: float, cand_max: float,
+                 th: ThresholdSet) -> bool:
+    """Route·Time 공통 감소 판정 (D-016 대칭)."""
+    drop = base_exp - cand_exp
+    if drop >= th.min_exposure_drop_min:
+        return True
+    if th.min_exposure_drop_rel is not None and base_exp > 0 and drop >= th.min_exposure_drop_rel * base_exp:
+        return True
+    if th.use_max_cong_drop and (base_max - cand_max) >= th.min_max_cong_drop_pp:
+        return True
+    return False
 
 
 def edge_jaccard(a: list[str], b: list[str]) -> float:
@@ -55,7 +95,8 @@ def route_shift(base, cands, th: ThresholdSet = T0):
         exp_drop = base.exposure[100] - c.exposure[100]
         cong_drop = base.max_congestion - c.max_congestion
         failed = []
-        if not (exp_drop >= th.min_exposure_drop_min or cong_drop >= th.min_max_cong_drop_pp):
+        if not reduction_ok(base.exposure[100], c.exposure[100], base.max_congestion,
+                            c.max_congestion, th):
             failed.append("insufficient_reduction")
         if c.actual_time_min - base.actual_time_min > th.max_time_loss_min:
             failed.append("time_loss")
