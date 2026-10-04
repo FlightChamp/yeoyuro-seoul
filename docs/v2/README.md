@@ -18,7 +18,7 @@
 | [time_dependent_routing.md](time_dependent_routing.md) | v2.0 | 초판 |
 | v2_roadmap.md | v2.0 | 예정 |
 | service_pattern_master.md | v2.0 설계 / v2.6 구현 | 예정 |
-| exposure_metrics.md | v2.1 | 예정 |
+| [exposure_metrics.md](exposure_metrics.md) | v2.1 | 초판 |
 | od_shiftability.md | v2.3 | 예정 |
 | v2_evaluation_strategy.md | v2.3 | 예정 |
 | mobility_atlas.md | v2.4 | 예정 |

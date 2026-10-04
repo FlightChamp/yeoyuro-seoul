@@ -347,6 +347,40 @@ def sr_module():
     return sr
 
 
+# --------------------------------------------------------------------------
+# v2.1 시간 진행형 평가 (yeoyuro_v2). 실패하면 None -> v1 값 그대로 표시한다.
+# --------------------------------------------------------------------------
+@st.cache_resource(show_spinner=False)
+def get_td_evaluator(day_type: str, depart: str, query_date):
+    try:
+        from yeoyuro_v2.time_dependent import TimeDependentEvaluator
+        scorer = get_scorer(day_type, depart, query_date)
+        return TimeDependentEvaluator(scorer, sr_module().load_headway(ROOT), "step")
+    except Exception:
+        return None
+
+
+def _query_args():
+    dow = pd.Timestamp(st.session_state["q_date"]).dayofweek
+    day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
+    hhmm = "%02d:%02d" % (st.session_state["q_time"].hour, st.session_state["q_time"].minute)
+    return day_type, hhmm, str(st.session_state["q_date"])
+
+
+def retime_with_v2(result):
+    """find_route_by_station 결과를 구간 진입 시각 기준으로 다시 판정한다."""
+    try:
+        from yeoyuro_v2.app_bridge import retime_result
+        from yeoyuro_v2.time_dependent import parse_hhmm
+        day_type, hhmm, qd = _query_args()
+        ev = get_td_evaluator(day_type, hhmm, qd)
+        if ev is None:
+            return result
+        return retime_result(result, lambda b: ev, parse_hhmm(hhmm), st.session_state["q_mode"])
+    except Exception:
+        return result
+
+
 # Streamlit selectbox 는 옵션 텍스트를 평문으로만 렌더링한다(HTML/CSS 미적용).
 # 그래서 리스트 안에서는 색을 쓸 수 없고, 유니코드 문자로만 노선을 구분한다.
 # 컬러가 꼭 필요하면 아래 플래그를 True 로 바꿔 이모지 방식을 쓸 수 있다.
@@ -830,7 +864,7 @@ def route_summary_line(ev, o, d_):
 
 
 CONG_REF_LINES = ((80.0, "체감 가중 시작 80%", "#9CA3AF"),
-                  (100.0, "정원 100%", "#E8A33D"),
+                  (100.0, "기대 혼잡도 100%", "#E8A33D"),
                   (130.0, "혼잡 주의 130%", "#D9534F"))
 
 PROFILE_COLORS = {"current": "#1F4E79", "recommended": "#2E7D5B"}
@@ -849,7 +883,7 @@ def _current_scorer():
     return get_scorer(day_type, hhmm, str(st.session_state["q_date"]))
 
 
-def build_route_congestion_profile(scorer, path, time_bin=None):
+def build_route_congestion_profile(scorer, path, time_bin=None, edge_congestion=None):
     """경로를 승차 구간(segment)별로 나눠 기대 혼잡도 계열을 만든다.
 
     혼잡도는 역이 아니라 **구간**의 값이다. 재차율(X→Y)은 X 와 Y 사이 열차의
@@ -885,6 +919,9 @@ def build_route_congestion_profile(scorer, path, time_bin=None):
         eff = scorer.event_effect_by_hour.get(int(str(tb)[:2]), {}) or {}
 
     def cong(u, v):
+        if edge_congestion is not None:
+            c = edge_congestion.get((u, v))
+            return None if c is None or pd.isna(c) else float(c)
         _, direction = ride_idx.get((u, v), ("", None))
         c = key.get((u, direction))
         if c is None or pd.isna(c):
@@ -923,7 +960,8 @@ def render_route_congestion_profile(ev, time_alt=None, key=None):
 
     try:
         scorer = _current_scorer()
-        cur_segs = build_route_congestion_profile(scorer, ev["path"])
+        cur_segs = build_route_congestion_profile(scorer, ev["path"],
+                                                  edge_congestion=ev.get("edge_congestion"))
     except Exception:
         return
     if not cur_segs:
@@ -955,19 +993,29 @@ def render_route_congestion_profile(ev, time_alt=None, key=None):
     alt_label = None
     if time_alt and time_alt.get("best_time_bin"):
         try:
-            alt_segs = build_route_congestion_profile(
-                scorer, ev["path"], time_bin=time_alt["best_time_bin"])
+            if time_alt.get("td") and ev.get("edge_congestion") is not None:
+                day_type, hhmm, qd = _query_args()
+                tde = get_td_evaluator(day_type, hhmm, qd)
+                r = tde.evaluate(ev["path"], time_alt["best_depart_min"], keep_trace=True)
+                alt_segs = build_route_congestion_profile(
+                    scorer, ev["path"],
+                    edge_congestion={(t.u, t.v): t.congestion for t in r.trace if t.kind == "ride"})
+            else:
+                alt_segs = build_route_congestion_profile(
+                    scorer, ev["path"], time_bin=time_alt["best_time_bin"])
         except Exception:
             alt_segs = []
         same = (len(alt_segs) == len(cur_segs)
                 and all(a["stations"] == b["stations"]
                         for a, b in zip(alt_segs, cur_segs)))
         if same:
-            alt_label = "추천 출발 %s" % str(time_alt["best_time_bin"])[:5]
+            alt_label = "추천 출발 %s" % (time_alt.get("best_depart")
+                                          or str(time_alt["best_time_bin"])[:5])
             add_series(alt_segs, alt_label, PROFILE_COLORS["recommended"],
                        "dot", 2, 5)
 
-    cur_label = "현재 출발 %s" % str(scorer.time_bin)[:5]
+    cur_label = "현재 출발 %s" % (scorer.depart if ev.get("edge_congestion") is not None
+                                  else str(scorer.time_bin)[:5])
     add_series(cur_segs, cur_label, PROFILE_COLORS["current"], None, 2.4, 6)
 
     for val, label, color in CONG_REF_LINES:
@@ -1012,9 +1060,20 @@ def route_card(title, ev, o, d_, note=None, tone="normal",
         c[1].metric("쾌적 체감시간", "%.0f분" % ev["perceived_time_min"])
         c[2].metric("최대 기대 혼잡도", "%.0f%%" % (ev["max_congestion"] or 0))
         c[3].metric("환승", "%d회" % ev["transfer_count"])
-        c[4].metric("혼잡 주의 구간", "%d개" % ev.get("p95_exposure_count", 0))
+        if ev.get("exposure_100_min") is not None:
+            c[4].metric("100%+ 혼잡 노출", "%.0f분" % ev["exposure_100_min"],
+                        help="차내에 있는 시간 중 기대 혼잡도 100%% 이상 구간을 지나는 시간. "
+                             "과거 패턴의 중앙값 기준이며, 붐비는 날(p90) 기준으로는 %.0f분."
+                             % ev.get("exposure_100_min_p90", 0))
+        else:
+            c[4].metric("혼잡 주의 구간", "%d개" % ev.get("p95_exposure_count", 0))
 
         render_timeline(ev["segments"])
+        if ev.get("td_policy"):
+            st.caption("혼잡도는 각 구간에 **실제로 도착하는 시각**의 과거 패턴으로 계산했습니다 "
+                       "(출발 %s → 도착 약 %02d:%02d). 실시간 정보가 아닙니다."
+                       % (_query_args()[1], (int(round(ev["arrive_min"])) // 60) % 24,
+                          int(round(ev["arrive_min"])) % 60))
         if ev.get("event_risk_min"):
             st.caption("이벤트 영향으로 쾌적 체감시간 +%.1f분 가산" % ev["event_risk_min"])
         if show_profile:
@@ -1140,6 +1199,8 @@ def page_route():
                                                   st.session_state["q_mode"])
                 if not result.get("ok"):
                     result = None
+                else:
+                    result = retime_with_v2(result)
             except Exception:
                 result = None
             if result is None:
@@ -1210,10 +1271,20 @@ def _render_route_result(result, fallback, o, d_):
                    "대신, 같은 경로에서 더 여유로운 출발 시간을 추천합니다.")
         ta = result.get("time_alternative")
         if ta:
-            st.info("대신 **%s 출발**을 권장합니다. 같은 경로의 최대 기대 혼잡도가 "
-                    "**%.0f%% → %.0f%%** 로 낮아집니다."
-                    % (ta["best_time_bin"][:5], ta["current_max_congestion"],
-                       ta["best_max_congestion"]))
+            if ta.get("td"):
+                msg = ("대신 **%s 출발**을 권장합니다. 같은 경로의 최대 기대 혼잡도가 "
+                       "**%.0f%% → %.0f%%** 로 낮아집니다."
+                       % (ta["best_depart"], ta["current_max_congestion"],
+                          ta["best_max_congestion"]))
+                if ta["current_exposure_100_min"] > ta["best_exposure_100_min"]:
+                    msg += (" 100%%+ 혼잡 구간을 지나는 시간도 **%.0f분 → %.0f분** 으로 줄어듭니다."
+                            % (ta["current_exposure_100_min"], ta["best_exposure_100_min"]))
+                st.info(msg)
+            else:
+                st.info("대신 **%s 출발**을 권장합니다. 같은 경로의 최대 기대 혼잡도가 "
+                        "**%.0f%% → %.0f%%** 로 낮아집니다."
+                        % (ta["best_time_bin"][:5], ta["current_max_congestion"],
+                           ta["best_max_congestion"]))
 
     with st.expander("후보 경로 비교"):
         rows = []
@@ -1228,7 +1299,7 @@ def _render_route_result(result, fallback, o, d_):
                          "평균 기대 혼잡도": c["avg_congestion"],
                          "최대 기대 혼잡도": c["max_congestion"],
                          "환승": c["transfer_count"],
-                         "혼잡 주의 구간": c.get("p95_exposure_count", 0),
+                         "100%+ 노출(분)": c.get("exposure_100_min"),
                          "경로": " → ".join(
                              s["to"] for s in c["segments"] if s["kind"] == "ride")})
         st.dataframe(round1(pd.DataFrame(rows)), width="stretch", hide_index=True)
