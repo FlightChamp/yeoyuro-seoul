@@ -6,7 +6,7 @@ v2.1 앱 브리지 regression test. Streamlit 없이 검사한다.
 1. retime 후 카드 값(소요시간)은 엔진 결과와 같아야 한다.
 2. 소요시간 분해(승차+정차+도보+대기) 합계 = 카드 소요시간 (화면 타임라인과 카드 일치).
 3. 대안이 있으면 v1 채택 조건을 v2 값으로 만족해야 한다.
-4. 시간대 대안은 ±120분 안이고 최대혼잡 개선이 10%p 이상이어야 한다.
+4. 시간대 대안은 T1 기준(±60분, 노출 감소, 소요 +5분 이하)을 만족해야 한다.
 """
 from __future__ import annotations
 
@@ -57,6 +57,9 @@ def test_retime_consistency(ctx, o, d, dep):
         assert alt["perceived_time_min"] - f["perceived_time_min"] <= 5.0 + 1e-9
     ta = out["time_alternative"]
     if ta:
+        # v2.3: 시간 대안은 사전 등록 기준 T1 (±60분, 노출 5분 또는 50% 감소, 소요 +5분 이하)
         assert alt is None
-        assert abs(ta["best_depart_min"] - t) <= 120
-        assert ta["gain_pp"] >= 10.0
+        assert abs(ta["best_depart_min"] - t) <= 60
+        drop = ta["current_exposure_100_min"] - ta["best_exposure_100_min"]
+        assert drop >= 5.0 - 0.1 or drop >= 0.5 * ta["current_exposure_100_min"] - 0.1
+        assert ta["actual_delta_min"] <= 5.0 + 1e-9

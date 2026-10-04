@@ -443,7 +443,7 @@ DEFAULTS = {
 for k, v in DEFAULTS.items():
     st.session_state.setdefault(k, v)
 
-MENUS = ["쾌적 경로 찾기", "시간대별 혼잡 조회", "빠른 환승 안내",
+MENUS = ["쾌적 경로 찾기", "시간 분산", "시간대별 혼잡 조회", "빠른 환승 안내",
          "이벤트 혼잡 경보", "프로젝트 소개 및 검증 리포트"]
 
 
@@ -1248,6 +1248,54 @@ def page_route():
     _render_route_result(result, bool(st.session_state.get("route_fallback")), o, d_)
 
 
+SHIFT_REASON_KO = {
+    "insufficient_reduction": "혼잡 노출이 충분히 줄지 않음",
+    "time_increase": "소요시간이 5분 넘게 늘어남",
+    "route_changed": "그 시각에는 다른 경로가 최속",
+    "out_of_window": "운행 시간대 밖",
+}
+
+
+def _shift_label(m):
+    m = int(m)
+    return "%d분 %s" % (abs(m), "일찍" if m < 0 else "늦게")
+
+
+def render_time_shift_advice(ts):
+    """v2.2 Time Shift 결과 안내. 경로 대안이 없을 때 쓴다."""
+    if ts["type"] == "calm":
+        st.success("현재 경로는 이미 혼잡 노출이 적은 이동입니다 "
+                   "(100%%+ 구간 %.0f분, 최대 기대 혼잡도 %.0f%%). 경로나 시간을 바꿀 필요가 크지 않습니다."
+                   % (ts["base_exposure_100_min"], ts["base_max_congestion"]))
+        return
+    if ts["type"] == "not_time_shiftable":
+        st.warning("최단 경로 외에 **유의미한 쾌적 대안 경로가 없고**, 출발을 ±60분 안에서 옮겨도 "
+                   "혼잡 노출이 의미 있게 줄지 않습니다 (%s). "
+                   "경로·시간 조정만으로는 피하기 어려운 이동일 수 있습니다."
+                   % SHIFT_REASON_KO.get(ts["binding_constraint"], ts["binding_constraint"]))
+        return
+    top = ts["top"]
+    b = top[0]
+    st.warning("최단 경로 외에 **유의미한 쾌적 대안 경로가 없습니다.** 대신 출발 시간을 조정해 보세요.")
+    parts = []
+    if b["exposure_100_drop_min"] >= 0.5:
+        parts.append("100%%+ 혼잡 구간 **%.0f분 → %.0f분**"
+                     % (ts["base_exposure_100_min"], b["exposure_100_min"]))
+    parts.append("최대 기대 혼잡도 **%.0f%% → %.0f%%**" % (ts["base_max_congestion"], b["max_congestion"]))
+    dt = b["actual_delta_min"]
+    dt_txt = "소요시간 변화 거의 없음" if abs(dt) < 0.5 else "소요시간 %+.0f분" % dt
+    st.info("**%s(%s 출발)** 하면 같은 경로에서 %s · %s."
+            % (_shift_label(b["shift_min"]), b["depart"], ", ".join(parts), dt_txt))
+    if len(top) > 1:
+        st.caption("다른 출발 시각 후보")
+        st.dataframe(pd.DataFrame([{
+            "출발": x["depart"], "조정": _shift_label(x["shift_min"]),
+            "100%+ 노출(분)": x["exposure_100_min"], "최대 기대 혼잡도(%)": x["max_congestion"],
+            "소요시간 변화(분)": x["actual_delta_min"],
+            "경로": "동일" if x["same_route"] else "유사 경로"} for x in top]),
+            hide_index=True, width="stretch")
+
+
 def _render_route_result(result, fallback, o, d_):
 
     if fallback:
@@ -1267,20 +1315,15 @@ def _render_route_result(result, fallback, o, d_):
                    % (alt["time_loss_vs_fastest"], alt["comfort_gain_vs_fastest"]), "good",
                    show_profile=True, profile_key="profile_alternative")
     else:
-        st.warning("현재 최단 경로 외에 **유의미한 쾌적 대안 경로가 없습니다.** "
-                   "대신, 같은 경로에서 더 여유로운 출발 시간을 추천합니다.")
-        ta = result.get("time_alternative")
-        if ta:
-            if ta.get("td"):
-                msg = ("대신 **%s 출발**을 권장합니다. 같은 경로의 최대 기대 혼잡도가 "
-                       "**%.0f%% → %.0f%%** 로 낮아집니다."
-                       % (ta["best_depart"], ta["current_max_congestion"],
-                          ta["best_max_congestion"]))
-                if ta["current_exposure_100_min"] > ta["best_exposure_100_min"]:
-                    msg += (" 100%%+ 혼잡 구간을 지나는 시간도 **%.0f분 → %.0f분** 으로 줄어듭니다."
-                            % (ta["current_exposure_100_min"], ta["best_exposure_100_min"]))
-                st.info(msg)
-            else:
+        ts = result.get("time_shift")
+        if ts is not None:
+            render_time_shift_advice(ts)
+        else:
+            # v1 경로 (precomputed fallback 등)
+            st.warning("현재 최단 경로 외에 **유의미한 쾌적 대안 경로가 없습니다.** "
+                       "대신, 같은 경로에서 더 여유로운 출발 시간을 추천합니다.")
+            ta = result.get("time_alternative")
+            if ta:
                 st.info("대신 **%s 출발**을 권장합니다. 같은 경로의 최대 기대 혼잡도가 "
                         "**%.0f%% → %.0f%%** 로 낮아집니다."
                         % (ta["best_time_bin"][:5], ta["current_max_congestion"],
@@ -1361,6 +1404,110 @@ def fallback_route(o: str, d: str):
                 "alternative": alt, "time_alternative": None,
                 "candidates": cands, "n_origin_nodes": 1}
     return None
+
+
+# --------------------------------------------------------------------------
+# 페이지. 시간 분산 (v2.2 Time Shift)
+# --------------------------------------------------------------------------
+def page_time_shift():
+    import plotly.graph_objects as go
+    from yeoyuro_v2.temporal_shift import evaluate_time_shift, shift_curve
+    from yeoyuro_v2.time_dependent import parse_hhmm
+
+    st.title("시간 분산")
+    st.caption("같은 이동을 조금 일찍 또는 늦게 출발하면 혼잡 노출이 얼마나 줄어드는지 비교합니다.")
+    st.info(DISCLAIMER)
+    disp = load_display_master()
+    keys = sorted(disp["station_key"].tolist())
+    lm = dict(zip(disp["station_key"], disp["available_lines"]))
+    c1, c2 = st.columns(2)
+    o = c1.selectbox("출발역", keys, index=keys.index(st.session_state.get("origin_station_key") or "노원")
+                     if (st.session_state.get("origin_station_key") or "노원") in keys else 0,
+                     format_func=lambda k: short_label(k, lm.get(k, "")), key="ts_origin")
+    d_ = c2.selectbox("도착역", keys, index=keys.index(st.session_state.get("destination_station_key") or "양천구청")
+                      if (st.session_state.get("destination_station_key") or "양천구청") in keys else 1,
+                      format_func=lambda k: short_label(k, lm.get(k, "")), key="ts_dest")
+    c3, c4 = st.columns(2)
+    q_date = c3.date_input("날짜", st.session_state["q_date"], key="ts_date")
+    q_time = c4.time_input("기준 출발 시각", st.session_state["q_time"], key="ts_time")
+    if not st.button("비교하기", type="primary", key="ts_go"):
+        st.caption("[비교하기] 를 누르면 ±90분 곡선과 ±60분 안의 추천 시각을 계산합니다.")
+        return
+    if o == d_:
+        st.info("출발역과 도착역이 같습니다.")
+        return
+
+    dow = pd.Timestamp(q_date).dayofweek
+    day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
+    hhmm = "%02d:%02d" % (q_time.hour, q_time.minute)
+    with st.spinner("시각별로 같은 경로를 다시 계산하는 중입니다..."):
+        try:
+            rs = get_scorer(day_type, hhmm, str(q_date))
+            res = sr_module().find_route_by_station(rs, disp, o, d_, "fast")
+            tde = get_td_evaluator(day_type, hhmm, str(q_date))
+            if not res.get("ok") or tde is None:
+                st.warning("경로를 계산하지 못했습니다.")
+                return
+            t0 = parse_hhmm(hhmm)
+            from yeoyuro_v2.app_bridge import retime_result
+            res = retime_result(res, lambda b: tde, t0, "fast")
+            path = res["fastest"]["path"]
+            from yeoyuro_v2.shift_rules import T1
+            ts = evaluate_time_shift(tde, path, t0, T1)
+            curve = pd.DataFrame(shift_curve(tde, path, t0))
+        except Exception as e:  # noqa: BLE001
+            st.warning("계산 중 문제가 발생했습니다: %s" % e)
+            return
+
+    base = ts["base"]
+    st.caption(route_summary_line(res["fastest"], o, d_) + " · 기준 출발 " + hhmm)
+    m = st.columns(4)
+    m[0].metric("예상 소요시간", "%.0f분" % base.actual_time_min)
+    m[1].metric("100%+ 혼잡 노출", "%.0f분" % base.exposure[100])
+    m[2].metric("최대 기대 혼잡도", "%.0f%%" % base.max_congestion)
+    verdict = {"time_shiftable": "시간 조정 효과 있음", "not_time_shiftable": "시간 조정 효과 작음",
+               "calm": "이미 여유로운 이동"}[ts["type"]]
+    m[3].metric("판정", verdict)
+
+    fig = go.Figure()
+    fig.add_bar(x=curve["depart"], y=curve["exposure_100_min"], name="100%+ 혼잡 노출(분)",
+                marker_color=["#1F4E79" if s == 0 else "#9DB4CC" for s in curve["shift_min"]])
+    fig.add_scatter(x=curve["depart"], y=curve["max_congestion"], name="최대 기대 혼잡도(%)",
+                    yaxis="y2", mode="lines+markers", line=dict(color="#D9534F"))
+    fig.add_scatter(x=curve["depart"], y=curve["actual_time_min"], name="예상 소요시간(분)",
+                    mode="lines", line=dict(color="#6B7280", dash="dot"))
+    fig.update_layout(height=360, margin=dict(l=10, r=10, t=40, b=10), dragmode=False,
+                      plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF",
+                      legend=dict(orientation="h", y=1.1, x=0),
+                      xaxis=dict(title="출발 시각 (진한 막대 = 기준)", fixedrange=True),
+                      yaxis=dict(title="분", rangemode="tozero", fixedrange=True),
+                      yaxis2=dict(title="%", overlaying="y", side="right", rangemode="tozero",
+                                  fixedrange=True, showgrid=False))
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+    if ts["type"] == "time_shiftable":
+        st.subheader("추천 출발 시각")
+        st.dataframe(pd.DataFrame([{
+            "순위": i + 1, "출발": x.depart, "조정": _shift_label(x.shift_min),
+            "100%+ 노출(분)": x.exposure_100_min,
+            "노출 감소(분)": x.exposure_100_drop_min,
+            "최대 기대 혼잡도(%)": x.max_congestion,
+            "소요시간 변화(분)": x.actual_delta_min} for i, x in enumerate(ts["top"])]),
+            hide_index=True, width="stretch")
+        st.caption("순위는 점수가 아니라 규칙입니다: ① 출발을 덜 옮기는 쪽 ② 노출 감소가 큰 쪽 "
+                   "③ 같은 폭이면 늦게 출발하는 쪽.")
+    elif ts["type"] == "not_time_shiftable":
+        st.warning("±30·60분 어느 쪽으로 옮겨도 판정 기준(100%%+ 노출 5분 이상 또는 절반 이상 감소, "
+                   "소요시간 증가 5분 이하)을 만족하지 않습니다. 주된 이유: %s."
+                   % SHIFT_REASON_KO.get(ts["binding_constraint"], ts["binding_constraint"]))
+    with st.expander("판정 기준"):
+        st.markdown(
+            "- 후보: 기준 출발 ±30·60분, 같은 경로를 **각 구간 도착 시각** 기준으로 다시 계산\n"
+            "- 성공: 100%+ 노출이 5분 이상 **또는** 절반 이상 줄고, 소요시간 증가 5분 이하 "
+            "(v2.3 사전 등록 기준 T1)\n"
+            "- 기준 이동의 100%+ 노출이 3분 미만이고 최대 기대 혼잡도가 100% 미만이면 '이미 여유로운 이동'\n"
+            "- 그래프는 15분 간격 참고값이며, 판정에는 30분 간격 후보만 씁니다.\n"
+            "- 실시간 정보가 아니라 과거 혼잡 패턴의 중앙값입니다.")
 
 
 # --------------------------------------------------------------------------
@@ -1944,6 +2091,7 @@ def main():
 
     # 이름 기반 dispatch. 메뉴 순서를 바꿔도 연결이 어긋나지 않는다.
     {"쾌적 경로 찾기": page_route,
+     "시간 분산": page_time_shift,
      "시간대별 혼잡 조회": page_congestion,
      "빠른 환승 안내": page_transfer,
      "이벤트 혼잡 경보": page_event,

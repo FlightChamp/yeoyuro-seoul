@@ -95,3 +95,8 @@ scratch/
 
 # Excel 임시 잠금 파일 (워크북을 열면 생성됨)
 ~$*.xlsx
+
+# v2 — 앱·CI 가 읽는 작은 mart 만 커밋 (재생성 비용이 크거나 원본이 없는 경우)
+!data/marts/v2/
+!data/marts/v2/demand_station_hour.parquet
+!data/marts/v2/od_shiftability_mart.parquet

@@ -9,15 +9,17 @@ v1 앱 흐름은 그대로 둔다:
     retime_result()          ->  같은 후보를 step 정책으로 재평가하고,
                                  최속·추천·대안·시간대안 판정을 v2 값으로 다시 한다.
 
-판정 규칙은 v1 과 같다 (시간손실 ≤15분, 최대혼잡 감소 ≥15%p, 체감 ≤최속+5분 /
-시간대안: ±120분, 개선 ≥10%p). 값만 시간 진행형이다. 규칙 자체의 v2 개편
-(exposure 기준, ±30/60/90)은 v2.2 Temporal Shift 에서 한다.
+경로 대안 판정은 v1 규칙(시간손실 ≤15분, 최대혼잡 감소 ≥15%p, 체감 ≤최속+5분)에 값만 시간 진행형.
+시간 대안은 temporal_shift.evaluate_time_shift 를 v2.3 사전 등록 기준 T1(±30/60, 노출 감소 기준, Top 3)로 쓴다.
+time_alternative_td 는 v2.1 방식 비교용으로 남겨 둔다.
 
 Streamlit 에 의존하지 않으므로 pytest 로 검증할 수 있다.
 """
 
 from __future__ import annotations
 
+from .shift_rules import T1
+from .temporal_shift import evaluate_time_shift
 from .time_dependent import (TimeDependentEvaluator, BIN_START_MIN, BIN_WIDTH_MIN,
                              N_BINS, bin_index_of, bin_label, fmt_min)
 
@@ -139,12 +141,26 @@ def retime_result(result: dict, evaluator_for_bin, depart_min: float, mode: str)
             alt["comfort_gain_vs_fastest"] = round(cd, 1)
             break
 
+    # v2.2: Time Shift 판정은 대안 유무와 상관없이 항상 계산한다 (화면 노출은 대안이 없을 때).
+    ts = evaluate_time_shift(ev0, rec["path"], depart_min, T1)   # v2.3 사전 등록 기준 (D-022)
     time_alt = None
-    if alt is None:
-        time_alt = time_alternative_td(rec["path"], evaluator_for_bin, depart_min)
+    if alt is None and ts["top"]:
+        b = ts["top"][0]
+        time_alt = {"best_time_bin": bin_label(bin_index_of(b.depart_min)), "best_depart": b.depart,
+                    "best_depart_min": b.depart_min, "shift_min": b.shift_min,
+                    "best_max_congestion": b.max_congestion,
+                    "current_max_congestion": round(ts["base"].max_congestion, 1),
+                    "gain_pp": b.max_cong_drop_pp,
+                    "best_exposure_100_min": b.exposure_100_min,
+                    "current_exposure_100_min": round(ts["base"].exposure[100], 1),
+                    "actual_delta_min": b.actual_delta_min, "td": True, "v22": True}
 
     out = dict(result)
     out.update({"recommended": rec, "fastest": fastest, "alternative": alt,
                 "time_alternative": time_alt, "candidates": cands,
+                "time_shift": {"type": ts["type"], "binding_constraint": ts["binding_constraint"],
+                               "top": [x.as_dict() for x in ts["top"]],
+                               "base_exposure_100_min": round(ts["base"].exposure[100], 1),
+                               "base_max_congestion": round(ts["base"].max_congestion, 1)},
                 "engine": "v2_time_dependent", "depart_min": depart_min})
     return out
