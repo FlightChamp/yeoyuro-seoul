@@ -1,6 +1,7 @@
 # 9호선 통합 (v2.6)
 
-Phase A(데이터 감사 + mart) 완료. Phase B(통합 평가)는 [preregistration_v26.md](preregistration_v26.md) 기준으로 진행한다.
+Phase A(데이터 감사 + mart)와 Phase B(통합 평가, [preregistration_v26.md](preregistration_v26.md) 기준) 완료.
+Phase B 수치 출처: [`reports/v2/line9_evaluation_report.md`](../../reports/v2/line9_evaluation_report.md)
 수치 출처: [`reports/v2/line9_data_audit.md`](../../reports/v2/line9_data_audit.md)
 
 ## Phase A 결과
@@ -22,3 +23,22 @@ Phase A(데이터 감사 + mart) 완료. Phase B(통합 평가)는 [preregistrat
 - `scripts/v2/26_build_line9.py` — 감사 리포트 + mart 생성 (원본 필요)
 - 엔진 확장 (`time_dependent.py`, 9호선 mart 가 있는 root 에서만 작동): bin 별 운행시간, 역·시간대별 정차, 일반↔급행 연계 대기, 미운행 시간대 차단, 이벤트 노선 제외
 - v1 코드 수정 없음. 9L/9X 방향은 `register_v1_directions` 로 실행 시점 등록
+
+## Phase B 결과 (사전 등록 기준)
+
+표본: seed 2027, 기존 표본과 겹치지 않는 A군 300쌍(9호선 역 출발/도착) + B군 300쌍(270역 균등) × 평일 6개 시각.
+
+| 단계 | 결과 | 판정 |
+|---|---|---|
+| B1 최초 대기 | 급행 이용 66.6% → 65.8%, 유형 유지 93.4% | 미포함 유지 (D-050) |
+| B2 환승 계수 | 9호선 이용 91.7 / 90.1 / 90.1 / 88.1% (×1.00/1.60/1.81/2.78), ×1.60 유지 97.7% | 민감 표기 불필요 (D-051) |
+| B3 max_3y | 유지 95.7%, Structural 6.5% → 8.6% | 보고 |
+| B4 이벤트 9호선 적용 | 불꽃축제 Structural 44 vs 6 (유형 변화 61/300), 벚꽃 9 vs 8 | 가정에 지배됨 → 범위로만 보고 (D-052) |
+| B5 분류 | 혼잡 이동 중 Structural: A군 7.6%, B군 5.1%. B군 H1 22.8%·H2 93.4%·H3 p<0.001 | v2.3 결론 유지 |
+
+## 해석 시 주의
+
+- **가장 구조적인 회랑이 바뀌었다.** Structural 상위 10구간이 모두 9호선 급행(동작↔노량진↔여의도, 고속터미널↔신논현 등)이며 7호선 상봉~건대입구 회랑은 상위 10 밖으로 밀렸다.
+  9호선 100% 정원(1칸 약 154명)이 1~8호선(160명)보다 약 4% 작아 같은 인원에서 9호선 % 가 높게 나오는 영향은 아직 검증하지 않았다 (D-053). 헤드라인으로 쓰기 전 정원 보정 검사를 사전 등록 후 수행한다.
+- B군 Structural 5.1% 는 v2.3(2.8%)과 직접 비교하지 않는다. B군에는 9호선 역이 출발·도착으로 포함된다.
+- 9호선 환승은 보정 proxy(×1.81), 일반↔급행 도보 0분은 가정, 9호선 p90 은 미정의다.

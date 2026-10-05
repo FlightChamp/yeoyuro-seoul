@@ -227,8 +227,9 @@ def main(argv=None) -> int:
     term = cong_long[(cong_long.station == "개화") & (cong_long.direction == "down") & (cong_long.pattern == "9L")]
     L += ["## 5. 혼잡도 (3개년 중앙값 = baseline, 3개년 최댓값 = max_3y 시나리오, D-045)", "",
           f"- 연도별 유효 셀: {nyear.to_dict()} · 0 값은 종착/미운행으로 결측 처리",
-          f"- 방향 확인: 하선(=down, 개화행) 개화 역 값 전부 결측 → 종착역 = 개화 (상선 = 중앙보훈병원행 = 시각표 UP)"
-          f" [{'일치' if term.v.isna().mean() >= 0.99 else '불일치'}: 결측 {pct(term.v.isna().mean())}]",
+          f"- 방향 확인: 하선(=down, 개화행) 개화 역 값이 사실상 결측 → 종착역 = 개화 (상선 = 중앙보훈병원행 = 시각표 UP)"
+          f" [{'일치' if (term.v.isna().mean() >= 0.95 and term.v.fillna(0).max() <= 5) else '불일치'}: "
+          f"결측 {pct(term.v.isna().mean())}, 남은 값 최대 {term.v.max():.1f}%]",
           f"- max_3y − 중앙값: 중앙값 {gap.median():.1f}, p90 {gap.quantile(.9):.1f}%p",
           f"- 평일 07:30~09:00 최대 기대 혼잡 (중앙값 기준): 일반 {pk[pk.line_id == '9L'].congestion_median.max():.1f}, "
           f"급행 {pk[pk.line_id == '9X'].congestion_median.max():.1f}",

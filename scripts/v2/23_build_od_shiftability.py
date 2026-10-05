@@ -78,14 +78,21 @@ def check_prereg() -> dict:
 _W = {}
 
 
-def _init_worker(day_type: str, k: int = 5, w0: bool = False):
-    """k: Yen 후보 수, w0: 최초 승차 대기 포함 여부 (robustness 검사용, 기본은 v2.3 등록값)."""
+def _init_worker(day_type: str, k: int = 5, w0: bool = False, root: str | None = None,
+                 query_date: str | None = None, event_exclude: tuple = (), base_times: tuple | None = None):
+    """k: Yen 후보 수, w0: 최초 승차 대기 포함 여부. root: 엔진이 읽을 데이터 root (v2.6 shadow root 등).
+    query_date/event_exclude: 이벤트 시나리오. base_times: 기준 출발 시각 (기본 v2.3 의 6개)."""
     from yeoyuro_v2 import load_v1
     from yeoyuro_v2.time_dependent import TDRouter
     mod, sr, disp = load_v1(ROOT)
-    _W["router"] = TDRouter(ROOT, mod, sr, disp, day_type, policy="step", k=k, multi_bin=True,
-                            include_initial_wait=w0)
+    r = Path(root) if root else ROOT
+    if root:
+        disp = sr.load_display_master(r)
+    _W["router"] = TDRouter(r, mod, sr, disp, day_type, policy="step", k=k, multi_bin=True,
+                            include_initial_wait=w0, query_date=query_date,
+                            event_exclude_lines=tuple(event_exclude))
     _W["sr"] = sr
+    _W["base_times"] = tuple(base_times) if base_times else tuple(BASE_TIMES)
 
 
 def _edge_exposure(ev, base) -> dict:
@@ -117,7 +124,7 @@ def _work(task):
         return cache[t]
 
     items = []
-    for bt in BASE_TIMES:
+    for bt in _W.get("base_times", BASE_TIMES):
         tb = parse_hhmm(bt)
         res = fastest_at(tb)
         if not res:
@@ -142,7 +149,8 @@ def _work(task):
 
 
 def collect(ods, workers: int, day_type: str, k: int = 5, w0: bool = False,
-            checkpoint: Path | None = None):
+            checkpoint: Path | None = None, root: str | None = None, query_date: str | None = None,
+            event_exclude: tuple = (), base_times: tuple | None = None):
     """OD 목록의 evidence 를 모은다. checkpoint 를 주면 50 OD 마다 저장하고, 다시 실행하면 이어서 한다."""
     t0 = time.time()
     done = {}
@@ -158,11 +166,12 @@ def collect(ods, workers: int, day_type: str, k: int = 5, w0: bool = False,
                 pickle.dump(done, f)
 
     if workers <= 1:
-        _init_worker(day_type, k, w0)
+        _init_worker(day_type, k, w0, root, query_date, event_exclude, base_times)
         it = ((t, _work(t)) for t in todo)
         pool = None
     else:
-        pool = Pool(workers, initializer=_init_worker, initargs=(day_type, k, w0))
+        pool = Pool(workers, initializer=_init_worker,
+                    initargs=(day_type, k, w0, root, query_date, event_exclude, base_times))
         it = zip(todo, pool.imap(_work, todo, chunksize=4))
     for i, (t, items) in enumerate(it, 1):
         done[(t[0], t[1])] = items

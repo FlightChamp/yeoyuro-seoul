@@ -465,7 +465,8 @@ class TDRouter:
     def __init__(self, root: Path, scorer_module, station_routing_module,
                  display: pd.DataFrame, day_type: str = "weekday", policy: str = "step",
                  k: int = 5, multi_bin: bool = True, include_initial_wait: bool = False,
-                 query_date: str | None = None, event_scale: float = 1.0):
+                 query_date: str | None = None, event_scale: float = 1.0,
+                 event_exclude_lines: tuple = ()):
         self.root = Path(root)
         self.mod = scorer_module
         self.sr = station_routing_module
@@ -477,6 +478,7 @@ class TDRouter:
         self.include_initial_wait = include_initial_wait
         self.query_date = query_date          # v2.5: 이벤트 날짜 (None = 평시)
         self.event_scale = event_scale
+        self.event_exclude_lines = tuple(event_exclude_lines)
         self.headway = self.sr.load_headway(self.root)
         self._scorers: dict[int, object] = {}
         self._evals: dict[tuple, TimeDependentEvaluator] = {}
@@ -494,7 +496,7 @@ class TDRouter:
         if key not in self._evals:
             self._evals[key] = TimeDependentEvaluator(
                 self.scorer(depart_bin), self.headway, policy, self.include_initial_wait,
-                self.event_scale)
+                self.event_scale, self.event_exclude_lines)
         return self._evals[key]
 
     def raw_paths(self, scorer, origin: str, dest: str, k: int) -> list[list[str]]:
