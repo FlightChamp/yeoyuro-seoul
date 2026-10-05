@@ -290,6 +290,8 @@ def main(argv=None) -> int:
 
     # ------------------------------------------------------------ 5. shadow root
     disp9.to_csv(out9 / "station_display_master_with9.csv", index=False, encoding="utf-8-sig")
+    sm[["station", "code", "lat", "lon", "platform_type"]].to_csv(out9 / "station_latlon.csv", index=False,
+                                                                  encoding="utf-8-sig")
     (out9 / "RUN_BY_BIN").unlink(missing_ok=True)
     if not rv["small"]:
         (out9 / "RUN_BY_BIN").write_text("v2_line9_run 사용 (D-040 변동성 기준 미달)", encoding="utf-8")

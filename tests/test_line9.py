@@ -110,3 +110,18 @@ def test_single_s23_module_for_spawn():
     assert m.S27.S23 is s23 and m.S23B.S23 is s23
     import pickle
     assert pickle.loads(pickle.dumps(s23._init_worker)) is s23._init_worker
+
+
+def test_base_map_workbook_has_lines_1_to_9():
+    """v2.6 새 기본 좌표 워크북: 1~9호선, 가져오기 스크립트가 읽는 6개 시트, 좌표 빈칸 없음."""
+    p = ROOT / "data" / "master" / "yeoyuro_seoul_vector_map_coordinate_workbook.xlsx"
+    xl = pd.ExcelFile(p)
+    for s in ("Station_Display_Master", "Station_Visual_Nodes", "Station_Click_Areas", "Station_Labels",
+              "Line_Sequences", "Transfer_Links"):
+        assert s in xl.sheet_names
+    v = xl.parse("Station_Visual_Nodes")
+    assert sorted(v.line_id.unique().tolist()) == list(range(1, 10))
+    assert len(v) == 315 and v.x_px.notna().all() and v.y_px.notna().all()
+    assert (v.line_id == 9).sum() == 38
+    seq = xl.parse("Line_Sequences")
+    assert seq[seq.line_id == 9].path_order.tolist() == list(range(1, 39))
