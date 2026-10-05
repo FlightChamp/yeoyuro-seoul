@@ -1,6 +1,6 @@
 # v2.6 9호선 데이터 감사 리포트
 
-- 원본 폴더: `/mnt/project` · 실행 `python scripts/v2/26_build_line9.py --src <원본>`
+- 원본 폴더: `C:\Users\home\Downloads, C:\Programming\MyProject\yeoyuro_seoul_project\data\raw` · 실행 `python scripts/v2/26_build_line9.py --src <원본>`
 
 ## 1. 출처 무결성
 

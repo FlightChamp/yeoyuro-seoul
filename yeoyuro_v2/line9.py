@@ -64,19 +64,21 @@ def locate(src: Path, name: str) -> Path:
 
     (공공데이터 원본 이름은 공백을 쓰고, 일부 업로드 사본은 공백이 '_' 로 바뀐다)
     """
-    key = (str(src), name)
+    srcs = [Path(x) for x in (src if isinstance(src, (list, tuple)) else [src])]
+    key = (tuple(map(str, srcs)), name)
     if key in _FOUND:
         return _FOUND[key]
     target = _norm(name)
-    direct = Path(src) / name
-    if direct.exists():
-        _FOUND[key] = direct
-        return direct
-    for p in Path(src).rglob("*"):
-        if p.is_file() and _norm(p.name) == target:
-            _FOUND[key] = p
-            return p
-    raise FileNotFoundError(f"원본 파일을 찾지 못했습니다: {name}  (찾은 폴더: {src})")
+    for base in srcs:
+        direct = base / name
+        if direct.exists():
+            _FOUND[key] = direct
+            return direct
+        for p in base.rglob("*"):
+            if p.is_file() and _norm(p.name) == target:
+                _FOUND[key] = p
+                return p
+    raise FileNotFoundError(f"원본 파일을 찾지 못했습니다: {name}  (찾은 폴더: {', '.join(map(str, srcs))})")
 
 
 def missing_sources(src: Path) -> list[str]:

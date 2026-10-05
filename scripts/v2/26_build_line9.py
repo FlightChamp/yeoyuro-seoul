@@ -71,15 +71,15 @@ def pct(x):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", required=True, help="원본 파일 폴더")
+    ap.add_argument("--src", nargs="+", required=True, help="원본 파일 폴더 (여러 개 가능, 하위 폴더까지 탐색)")
     ap.add_argument("--oa-from", type=int, default=202507)
     ap.add_argument("--oa-to", type=int, default=202606)
     args = ap.parse_args(argv)
-    src = Path(args.src)
+    src = [Path(x) for x in args.src]
     t0 = time.time()
     miss = L9.missing_sources(src)
     if miss:
-        print(f"[건너뜀] 원본 폴더 {src} 에서 다음 파일을 찾지 못했습니다:")
+        print(f"[건너뜀] 원본 폴더 {', '.join(map(str, src))} 에서 다음 파일을 찾지 못했습니다:")
         for n in miss:
             print("   -", n)
         print("커밋된 9호선 mart(data/marts/v2/line9)와 감사 리포트는 그대로 사용할 수 있습니다.")
@@ -88,7 +88,7 @@ def main(argv=None) -> int:
     out9 = ROOT / "data" / "marts" / "v2" / "line9"
     out9.mkdir(parents=True, exist_ok=True)
     L = ["# v2.6 9호선 데이터 감사 리포트", "",
-         f"- 원본 폴더: `{src}` · 실행 `python scripts/v2/26_build_line9.py --src <원본>`", ""]
+         f"- 원본 폴더: `{', '.join(map(str, src))}` · 실행 `python scripts/v2/26_build_line9.py --src <원본>`", ""]
 
     # ------------------------------------------------------------ 1. 출처 무결성
     codes = L9.station_codes(src)
