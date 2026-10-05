@@ -405,7 +405,10 @@ def register_v1_directions(mod) -> None:
 
 
 SCENARIOS = {"base": ("tf181", "median"), "tf100": ("tf100", "median"), "tf160": ("tf160", "median"),
-             "tf278": ("tf278", "median"), "max3y": ("tf181", "max_3y")}
+             "tf278": ("tf278", "median"), "max3y": ("tf181", "max_3y"), "cap160": ("tf181", "median_cap160")}
+CAPACITY_9_PER_CAR = 922 / 6          # 9호선 혼잡 100% = 6칸 922명
+CAPACITY_18_PER_CAR = 160             # 1~8호선 혼잡 100% = 1칸 160명
+CAP160_FACTOR = CAPACITY_9_PER_CAR / CAPACITY_18_PER_CAR     # 0.9604 (v2.6c, preregistration_v26c_capacity)
 
 
 def build_shadow_root(root: Path, out: Path, scenario: str = "base") -> Path:
@@ -427,7 +430,12 @@ def build_shadow_root(root: Path, out: Path, scenario: str = "base") -> Path:
         return pd.concat([pd.read_parquet(base / f"{name}.parquet"), pd.read_parquet(m9 / f9)], ignore_index=True)
     cat("route_edge_mart", "route_edges.parquet").to_parquet(out / "data/marts/route_edge_mart.parquet", index=False)
     cat("transfer_edge_mart", f"transfer_{tf}.parquet").to_parquet(out / "data/marts/transfer_edge_mart.parquet", index=False)
-    cat("congestion_edge_lookup", "congestion_median.parquet" if cong == "median" else "congestion_max3y.parquet") \
+    lk9 = pd.read_parquet(m9 / ("congestion_max3y.parquet" if cong == "max_3y" else "congestion_median.parquet"))
+    if cong == "median_cap160":
+        # 9호선 % 를 1~8호선 정원(1칸 160명) 기준으로 환산. 체감 배수도 같은 규칙으로 다시 계산
+        lk9["congestion_median"] = (lk9.congestion_median * CAP160_FACTOR).round(2)
+        lk9["perceived_multiplier"] = 1.0 + 0.5 * np.clip(lk9.congestion_median.fillna(0) - 80.0, 0, None) / 100
+    pd.concat([pd.read_parquet(base / "congestion_edge_lookup.parquet"), lk9], ignore_index=True) \
         .to_parquet(out / "data/marts/congestion_edge_lookup.parquet", index=False)
     cat("headway_station_30min", "headway_station.parquet").to_parquet(out / "data/marts/headway_station_30min.parquet", index=False)
     cat("headway_line_30min", "headway_line.parquet").to_parquet(out / "data/marts/headway_line_30min.parquet", index=False)

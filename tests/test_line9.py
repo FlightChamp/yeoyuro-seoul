@@ -79,3 +79,34 @@ def test_event_exclude_and_service(env):
     ev2 = TimeDependentEvaluator(rs2, sr.load_headway(env["r9"]), "step")
     early = ev2.evaluate(["9X_김포공항", "9X_마곡나루"], parse_hhmm("05:05"))
     assert early.out_of_window                       # 05:05 에는 급행 출발이 없다
+
+
+def test_cap160_scaling(tmp_path):
+    if not (M9 / "route_edges.parquet").exists():
+        pytest.skip("9호선 mart 없음")
+    from yeoyuro_v2 import line9 as L9
+    r = L9.build_shadow_root(ROOT, tmp_path / "cap", "cap160")
+    lk = pd.read_parquet(r / "data/marts/congestion_edge_lookup.parquet")
+    med = pd.read_parquet(M9 / "congestion_median.parquet")
+    a = lk[lk.line_id.isin(["9L", "9X"])].set_index(["station_uid", "direction", "day_type", "time_bin_index"]).congestion_median
+    b = med.set_index(["station_uid", "direction", "day_type", "time_bin_index"]).congestion_median
+    j = pd.concat([a.rename("cap"), b.rename("med")], axis=1).dropna()
+    assert len(j) > 1000
+    assert ((j.cap - j.med * L9.CAP160_FACTOR).abs() <= 0.006).all()   # 소수 둘째 자리 반올림 오차 이내
+    one8 = lk[~lk.line_id.isin(["9L", "9X"])]
+    assert len(one8) == len(pd.read_parquet(ROOT / "data/marts/congestion_edge_lookup.parquet"))
+
+
+def test_single_s23_module_for_spawn():
+    """28 이 27·23b 를 함께 불러와도 s23 모듈은 하나여야 한다 (Windows spawn 피클링 오류 방지)."""
+    import importlib.util
+    for k in ("s23", "s27", "s23b", "s28"):
+        sys.modules.pop(k, None)
+    spec = importlib.util.spec_from_file_location("s28", ROOT / "scripts" / "v2" / "28_line9_capacity_check.py")
+    m = importlib.util.module_from_spec(spec)
+    sys.modules["s28"] = m
+    spec.loader.exec_module(m)
+    s23 = sys.modules["s23"]
+    assert m.S27.S23 is s23 and m.S23B.S23 is s23
+    import pickle
+    assert pickle.loads(pickle.dumps(s23._init_worker)) is s23._init_worker

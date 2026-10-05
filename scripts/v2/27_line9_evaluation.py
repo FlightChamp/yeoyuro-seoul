@@ -47,10 +47,15 @@ from yeoyuro_v2 import line9 as L9                                   # noqa: E40
 from yeoyuro_v2.od_shiftability import TYPES, classify               # noqa: E402
 from yeoyuro_v2.shift_rules import T1                                 # noqa: E402
 
-_spec = importlib.util.spec_from_file_location("s23", ROOT / "scripts" / "v2" / "23_build_od_shiftability.py")
-S23 = importlib.util.module_from_spec(_spec)
-sys.modules["s23"] = S23
-_spec.loader.exec_module(S23)
+# 23 스크립트는 프로세스 안에서 한 번만 불러온다. 여러 스크립트가 각자 불러오면 sys.modules["s23"] 가
+# 서로 다른 객체로 덮어써져 Windows(spawn) 멀티프로세싱에서 worker 함수를 찾지 못한다 (v2.6c 에서 발생).
+if "s23" in sys.modules:
+    S23 = sys.modules["s23"]
+else:
+    _spec = importlib.util.spec_from_file_location("s23", ROOT / "scripts" / "v2" / "23_build_od_shiftability.py")
+    S23 = importlib.util.module_from_spec(_spec)
+    sys.modules["s23"] = S23
+    _spec.loader.exec_module(S23)
 
 PREREG = "docs/v2/preregistration_v26.md"
 MDIR = ROOT / "data" / "marts" / "v2"
@@ -105,6 +110,38 @@ def pct(x):
     return "n/a" if x is None or (isinstance(x, float) and np.isnan(x)) else f"{100 * x:.1f}%"
 
 
+def build_sample(nA: int, nB: int):
+    """Phase B 표본 (seed 2027). v2.3(Tier C + seed 42 600쌍)·v2.3b holdout(seed 2026 600쌍)과 겹치지 않게."""
+    disp18 = pd.read_csv(ROOT / "data" / "master" / "station_display_master.csv").station_key.tolist()
+    disp9 = pd.read_csv(MDIR / "line9" / "station_display_master_with9.csv")
+    keys = disp9.station_key.tolist()
+    st9 = disp9[disp9.available_lines.astype(str).str.contains("9")].station_key.tolist()
+    used = set(S23.TIER_C)
+    r = random.Random(42)
+    while len(used) < 620:
+        a, b = r.sample(disp18, 2)
+        used.add((a, b))
+    r = random.Random(2026)
+    h = 0
+    while h < 600:
+        a, b = r.sample(disp18, 2)
+        if (a, b) not in used:
+            used.add((a, b))
+            h += 1
+    r = random.Random(2027)
+    A, B = set(), set()
+    while len(A) < nA:
+        a, b = r.sample(keys, 2)
+        if (a in st9 or b in st9) and (a, b) not in used:
+            A.add((a, b))
+    while len(B) < nB:
+        a, b = r.sample(keys, 2)
+        if (a, b) not in used and (a, b) not in A:
+            B.add((a, b))
+    tasks = [(o, d, "A") for o, d in sorted(A)] + [(o, d, "B") for o, d in sorted(B)]
+    return tasks, A, B
+
+
 def main(argv=None) -> int:
     global TAG
     ap = argparse.ArgumentParser()
@@ -122,33 +159,7 @@ def main(argv=None) -> int:
     print(f"사전 등록: {'확인 ' + pr['commit'][:8] if pr['ok'] else '미확인'}")
 
     # ------------------------------------------------------------ 표본
-    disp18 = pd.read_csv(ROOT / "data" / "master" / "station_display_master.csv").station_key.tolist()
-    disp9 = pd.read_csv(MDIR / "line9" / "station_display_master_with9.csv")
-    keys = disp9.station_key.tolist()
-    st9 = disp9[disp9.available_lines.astype(str).str.contains("9")].station_key.tolist()
-    used = set(S23.TIER_C)
-    r = random.Random(42)
-    while len(used) < 620:                      # v2.3 (Tier C + seed 42 600쌍)
-        a, b = r.sample(disp18, 2)
-        used.add((a, b))
-    r = random.Random(2026)
-    h = 0
-    while h < 600:                              # v2.3b holdout
-        a, b = r.sample(disp18, 2)
-        if (a, b) not in used:
-            used.add((a, b))
-            h += 1
-    r = random.Random(2027)
-    A, B = set(), set()
-    while len(A) < nA:
-        a, b = r.sample(keys, 2)
-        if (a in st9 or b in st9) and (a, b) not in used:
-            A.add((a, b))
-    while len(B) < nB:
-        a, b = r.sample(keys, 2)
-        if (a, b) not in used and (a, b) not in A:
-            B.add((a, b))
-    tasks = [(o, d, "A") for o, d in sorted(A)] + [(o, d, "B") for o, d in sorted(B)]
+    tasks, A, B = build_sample(nA, nB)
     grp = {(o, d): g for o, d, g in tasks}
     print(f"표본: A {len(A)} + B {len(B)} OD, 기존 표본과 겹침 0")
 

@@ -47,10 +47,15 @@ sys.path.insert(0, str(ROOT))
 from yeoyuro_v2.od_shiftability import TYPES, classify, is_oow              # noqa: E402
 from yeoyuro_v2.shift_rules import T1, reduction_ok                         # noqa: E402
 
-_spec = importlib.util.spec_from_file_location("s23", ROOT / "scripts" / "v2" / "23_build_od_shiftability.py")
-S23 = importlib.util.module_from_spec(_spec)
-sys.modules["s23"] = S23          # Windows(spawn) 멀티프로세싱에서 worker 가 _work 를 찾을 수 있게
-_spec.loader.exec_module(S23)
+# 23 스크립트는 프로세스 안에서 한 번만 불러온다. 여러 스크립트가 각자 불러오면 sys.modules["s23"] 가
+# 서로 다른 객체로 덮어써져 Windows(spawn) 멀티프로세싱에서 worker 함수를 찾지 못한다 (v2.6c 에서 발생).
+if "s23" in sys.modules:
+    S23 = sys.modules["s23"]
+else:
+    _spec = importlib.util.spec_from_file_location("s23", ROOT / "scripts" / "v2" / "23_build_od_shiftability.py")
+    S23 = importlib.util.module_from_spec(_spec)
+    sys.modules["s23"] = S23
+    _spec.loader.exec_module(S23)
 TAG = ""                          # --smoke 시 캐시 파일 이름 구분
 
 PREREG = "docs/v2/preregistration_v23b_robustness.md"
