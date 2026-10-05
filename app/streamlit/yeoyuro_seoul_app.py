@@ -70,7 +70,8 @@ LINE_COLORS = {
     "5": "#996CAC", "6": "#CD7C2F", "7": "#747F00", "8": "#E6186C",
 }
 
-DISCLAIMER = "표시된 혼잡도는 실시간 측정값이 아닌 **과거 패턴 기반 기대 혼잡도**입니다."
+DISCLAIMER = ("표시된 혼잡도는 실시간 측정값이 아닌 **과거 패턴 기반 기대 혼잡도**입니다. "
+              "혼잡도는 정원 대비 승차 인원 비율이며, 100%는 열차 1칸 160명(좌석 54 + 입석 106) 기준입니다.")
 
 MODE_LABEL = {"calm": "혼잡 회피", "fast": "빠른 도착",
               "min_transfer": "환승 최소", "balanced": "균형"}
@@ -864,7 +865,7 @@ def route_summary_line(ev, o, d_):
 
 
 CONG_REF_LINES = ((80.0, "체감 가중 시작 80%", "#9CA3AF"),
-                  (100.0, "기대 혼잡도 100%", "#E8A33D"),
+                  (100.0, "정원 100% (1칸 160명)", "#E8A33D"),
                   (130.0, "혼잡 주의 130%", "#D9534F"))
 
 PROFILE_COLORS = {"current": "#1F4E79", "recommended": "#2E7D5B"}
@@ -1957,7 +1958,7 @@ def page_congestion_line():
                        "<br>기대 혼잡도 %{y:.1f}%<extra></extra>"),
         showlegend=False))
     for y, c, t in ((80, "#9CA3AF", "체감 가중 시작 80%"),
-                    (100, WARN, "정원 100%"), (130, DANGER, "혼잡 주의 130%")):
+                    (100, WARN, "정원 100% (1칸 160명)"), (130, DANGER, "혼잡 주의 130%")):
         if d["congestion_median"].max() >= y * 0.75:
             fig.add_hline(y=y, line_dash="dot", line_color=c, opacity=0.55,
                           annotation_text=t, annotation_position="top left",
@@ -2253,8 +2254,9 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
 1. **고혼잡 구간에서 오차가 6배** — 고혼잡 경고는 절대값이 아니라 상대 순위로 제공합니다.
 2. **`label_high` 기준 불일치** — 미관측 역은 전역 p95 로 대체되어 분류 지표에 편향이 있습니다.
 3. **Pareto front 는 K개 후보 안에서의 front** — Yen's K-shortest 집합에 한정됩니다.
-4. **출발 시각의 time_bin 을 경로 전체에 고정** — 시간 전진을 반영하지 않았습니다.
-5. **미해결**: 혼잡도 산식, 스냅샷 날짜의 의미, 8호선 오차 원인.
+4. **출발 시각의 time_bin 을 경로 전체에 고정** — 시간 전진을 반영하지 않았습니다. (v2 에서 해결)
+5. **확인됨 (v2)**: 혼잡도 = 정원 대비 승차 인원 비율, 100% = 1칸 160명.
+   **미해결**: 스냅샷 날짜의 의미, 8호선 오차 원인.
 """)
         for name, rel in [("평가 전략", "docs/evaluation_strategy.md"),
                           ("모델 카드", "docs/model_card_congestion.md")]:

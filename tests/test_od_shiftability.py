@@ -72,3 +72,14 @@ def test_similar_route_rule():
     t = m(actual=30.0, exp=0.0, mx=80.0, shift=30, same=False, jac=0.5)
     out = classify(ev(time=[t]), T1)
     assert out["type"] == "structural" and out["time_bind"] == "route_changed"
+
+
+def test_out_of_window_base_is_invalid():
+    # 기준 경로가 01:00 이후 도착 → 자료 범위 밖 → 분석 제외 (D-036)
+    assert classify(ev(m(arrive=1510.0)), T1)["type"] == "invalid"
+
+
+def test_out_of_window_candidate_is_ignored():
+    good_but_oow = m(actual=31.0, exp=0.0, mx=80.0, shift=60, same=True, jac=1.0, arrive=1505.0)
+    out = classify(ev(time=[good_but_oow]), T1)
+    assert out["type"] == "structural" and out["time_bind"] == "out_of_window"

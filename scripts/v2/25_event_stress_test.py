@@ -281,6 +281,14 @@ def main(argv=None) -> int:
                       f"event_max_congestion_l{tag}": round(s["base"]["max"], 1)})
         rows.append(r)
     df = pd.DataFrame(rows)
+    # 자료 범위(05:30~01:00) 밖 단위 제외 (D-036): 평시나 어느 λ 에서든 기준 경로가 범위 밖이면 뺀다
+    tcols = ["baseline_type"] + [c for c in df.columns if c.startswith("event_type_l")]
+    inv = df[tcols].eq("invalid").any(axis=1)
+    n_invalid = int(inv.sum())
+    if n_invalid:
+        print(f"  자료 범위 밖 단위 {n_invalid}개 제외 (D-036): "
+              + ", ".join(f"{k} {v}" for k, v in df[inv].event_id.value_counts().items()))
+    df = df[~inv].reset_index(drop=True)
     main_tag = "03"
     df["event_shiftability_type"] = df[f"event_type_l{main_tag}"]
     df["treated"] = df[f"treated_l{main_tag}"]
@@ -323,7 +331,8 @@ def main(argv=None) -> int:
         f"- 사전 등록: `{PREREG}` "
         + (f"커밋 `{pr['commit'][:10]}` ({pr['date']}) 기준" if pr["ok"] else "**미확인**"),
         f"- 분류 기준 `{T1.set_id}` · 이벤트 혼잡 = v1 배수 가정 (λ = 0.3 판정, 0.15·0.6 sensitivity). **관측값 아님.**",
-        f"- 단위 {len(df):,}개 (이벤트 {len(EVENTS)}개 × OD × 기준 시각 3개), 직접 영향 {int(df.treated.sum()):,}개",
+        f"- 단위 {len(df):,}개 (이벤트 {len(EVENTS)}개 × OD × 기준 시각 3개), 직접 영향 {int(df.treated.sum()):,}개, "
+        f"자료 범위(05:30~01:00) 밖 제외 {n_invalid}개 (D-036)",
         f"- 실행 시간: evidence {t_ev / 60:.1f}분, 전체 {(time.time() - t0) / 60:.1f}분",
         "",
         "## 1. 가설 판정 (λ = 0.3, 직접 영향 & 평시 혼잡 이동)",

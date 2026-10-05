@@ -78,11 +78,13 @@ def check_prereg() -> dict:
 _W = {}
 
 
-def _init_worker(day_type: str):
+def _init_worker(day_type: str, k: int = 5, w0: bool = False):
+    """k: Yen 후보 수, w0: 최초 승차 대기 포함 여부 (robustness 검사용, 기본은 v2.3 등록값)."""
     from yeoyuro_v2 import load_v1
     from yeoyuro_v2.time_dependent import TDRouter
     mod, sr, disp = load_v1(ROOT)
-    _W["router"] = TDRouter(ROOT, mod, sr, disp, day_type, policy="step", k=5, multi_bin=True)
+    _W["router"] = TDRouter(ROOT, mod, sr, disp, day_type, policy="step", k=k, multi_bin=True,
+                            include_initial_wait=w0)
     _W["sr"] = sr
 
 
@@ -139,21 +141,39 @@ def _work(task):
     return items
 
 
-def collect(ods, workers: int, day_type: str):
+def collect(ods, workers: int, day_type: str, k: int = 5, w0: bool = False,
+            checkpoint: Path | None = None):
+    """OD 목록의 evidence 를 모은다. checkpoint 를 주면 50 OD 마다 저장하고, 다시 실행하면 이어서 한다."""
     t0 = time.time()
-    out = []
+    done = {}
+    if checkpoint is not None and checkpoint.exists():
+        with gzip.open(checkpoint, "rb") as f:
+            done = pickle.load(f)
+        print(f"  체크포인트에서 이어서: {len(done)}/{len(ods)} OD", flush=True)
+    todo = [t for t in ods if (t[0], t[1]) not in done]
+
+    def save():
+        if checkpoint is not None:
+            with gzip.open(checkpoint, "wb") as f:
+                pickle.dump(done, f)
+
     if workers <= 1:
-        _init_worker(day_type)
-        for i, task in enumerate(ods, 1):
-            out.extend(_work(task))
-            if i % 50 == 0:
-                print(f"  ... OD {i}/{len(ods)}  ({time.time() - t0:.0f}s)", flush=True)
+        _init_worker(day_type, k, w0)
+        it = ((t, _work(t)) for t in todo)
+        pool = None
     else:
-        with Pool(workers, initializer=_init_worker, initargs=(day_type,)) as pool:
-            for i, items in enumerate(pool.imap_unordered(_work, ods, chunksize=4), 1):
-                out.extend(items)
-                if i % 50 == 0:
-                    print(f"  ... OD {i}/{len(ods)}  ({time.time() - t0:.0f}s)", flush=True)
+        pool = Pool(workers, initializer=_init_worker, initargs=(day_type, k, w0))
+        it = zip(todo, pool.imap(_work, todo, chunksize=4))
+    for i, (t, items) in enumerate(it, 1):
+        done[(t[0], t[1])] = items
+        if i % 50 == 0:
+            save()
+            print(f"  ... OD {len(done)}/{len(ods)}  ({time.time() - t0:.0f}s)", flush=True)
+    if pool is not None:
+        pool.close()
+        pool.join()
+    save()
+    out = [x for t in ods for x in done[(t[0], t[1])]]
     out.sort(key=lambda x: (x["origin"], x["destination"], x["base_time"]))
     return out
 
@@ -291,7 +311,12 @@ def main(argv=None) -> int:
 
     # ------------------------------------------------------------------ 2. 분류 (T1)
     print("[2/4] 분류")
-    cls = [classify(it, T1) for it in items]
+    cls_all = [classify(it, T1) for it in items]
+    n_invalid = sum(c["type"] == "invalid" for c in cls_all)
+    if n_invalid:
+        print(f"  자료 범위(05:30~01:00) 밖 단위 {n_invalid}개 제외 (D-036)")
+    items = [it for it, c in zip(items, cls_all) if c["type"] != "invalid"]
+    cls = [c for c in cls_all if c["type"] != "invalid"]
     types = np.array([c["type"] for c in cls])
     od_id = np.array([f"{it['origin']}>{it['destination']}" for it in items])
     w = demand_weights(items)
@@ -429,7 +454,8 @@ def main(argv=None) -> int:
         f"- ThresholdSet `{T1.set_id}` · 실행 `python scripts/v2/23_build_od_shiftability.py "
         f"--n-random {args.n_random} --seed {args.seed}`",
         f"- 단위: OD × 평일 기준 출발 {', '.join(BASE_TIMES)} = {len(items):,}건 "
-        f"(OD {len(set(od_id)):,}개: Tier C {len(tier_c)} + 무작위 {args.n_random}), 혼잡 이동 {int(hot.sum()):,}건",
+        f"(OD {len(set(od_id)):,}개: Tier C {len(tier_c)} + 무작위 {args.n_random}), 혼잡 이동 {int(hot.sum()):,}건, "
+        f"자료 범위 밖 제외 {n_invalid}건",
         f"- 실행 시간: evidence {t_ev / 60:.1f}분, 전체 {(time.time() - t_start) / 60:.1f}분",
         "- 혼잡 = 과거 스냅샷 중앙값 (실시간 아님). Route-shiftable 은 한 사람이 옮길 때 기준이며 수요 재배분은 반영하지 않는다.",
         "- OD-count 비율은 '무작위 역 쌍 기준'이다. 수요 proxy 는 승하차 기반 추정이며 실제 이동량이 아니다.",

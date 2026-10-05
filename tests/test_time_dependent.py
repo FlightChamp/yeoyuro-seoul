@@ -102,3 +102,15 @@ def test_bin_helpers():
     assert td.bin_index_of(td.parse_hhmm("08:29")) == 5
     assert td.bin_index_of(td.parse_hhmm("00:30")) == 38
     assert td.bin_label(38) == "00:30~01:00"
+
+
+def test_out_of_window_flag_late_night(ctx):
+    mod, sr, disp, hw = ctx
+    rs = mod.RouteScorer(ROOT, "weekday", "00:20")
+    r1 = sr.find_route_by_station(rs, disp, "방화", "마천", "fast")
+    path = r1["fastest"]["path"]
+    ev = td.TimeDependentEvaluator(rs, hw, "step")
+    late = ev.evaluate(path, td.parse_hhmm("00:20"))
+    assert late.out_of_window and late.arrive_min > td.BIN_END_MIN
+    early = ev.evaluate(path, td.parse_hhmm("08:00"))
+    assert not early.out_of_window

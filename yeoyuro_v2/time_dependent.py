@@ -51,6 +51,7 @@ import pandas as pd
 BIN_START_MIN = 5 * 60 + 30          # 05:30
 BIN_WIDTH_MIN = 30
 N_BINS = 39                          # 05:30 ~ 01:00
+BIN_END_MIN = BIN_START_MIN + N_BINS * BIN_WIDTH_MIN   # 01:00 (=1500) — 혼잡 자료가 있는 마지막 시각
 EXPOSURE_THRESHOLDS = (80, 100, 130)
 
 # step   : 혼잡도를 bin 안에서 상수(계단함수)로 보고, edge 구간이 bin 경계를 넘으면 분할 적분. [기본값]
@@ -289,10 +290,11 @@ class TimeDependentEvaluator:
             pcs = self._pieces(u, v, t0, dur)
             mult = self._event_mult(self.edge_meta[(u, v)]["from_station"], t0)
             cw, cmax = 0.0, -np.inf
+            # 자료 범위(05:30~01:00) 밖 구간은 _pieces 가 경계 bin 으로 clamp 한다.
+            # 값은 계산하되 out_of_window 로 표시하고, 분석(od_shiftability.classify)에서는 제외한다 (D-036).
+            if self.policy != "fixed" and (t0 < BIN_START_MIN - 1e-9 or t0 + dur > BIN_END_MIN + 1e-9):
+                oow = True
             for d, c, c90, b in pcs:
-                raw_b = bin_index_of(t0)
-                if self.policy != "fixed" and (raw_b < 0 or raw_b >= N_BINS):
-                    oow = True
                 c, c90 = c * mult, c90 * mult
                 bins_used.add(b)
                 cw += d * c
@@ -354,6 +356,8 @@ class TimeDependentEvaluator:
                 nxt = path[i + 2] if i + 2 < len(path) else None
                 if nxt and (v, nxt) in self.edge_meta:
                     m = self.edge_meta[(v, nxt)]
+                    if self.policy != "fixed" and not (BIN_START_MIN <= t < BIN_END_MIN):
+                        oow = True                      # 배차간격도 자료 범위 밖 → clamp 값
                     h = self._wait(m["line"], m["from_station"], m["direction"], t)
                     if keep_trace and h:
                         trace.append(EdgeTrace("transfer_wait", v, v, t, t + h, None, None))
