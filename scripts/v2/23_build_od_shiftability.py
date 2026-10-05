@@ -179,9 +179,10 @@ def collect(ods, workers: int, day_type: str, k: int = 5, w0: bool = False,
 
 
 # ---------------------------------------------------------------------- 수요 proxy
-def demand_weights(items, beta: float = 0.0) -> np.ndarray:
-    dem = pd.read_parquet(ROOT / "data" / "marts" / "v2" / "demand_station_hour.parquet")
-    dem = dem[dem.day_type == "weekday"]
+def demand_weights(items, beta: float = 0.0, path: Path | None = None, day_type: str = "weekday") -> np.ndarray:
+    """path 를 주면 다른 수요 proxy 파일(예: OA-12252 통일본, day_type='all_days')을 쓴다."""
+    dem = pd.read_parquet(path or ROOT / "data" / "marts" / "v2" / "demand_station_hour.parquet")
+    dem = dem[dem.day_type == day_type]
     B = {(r.station_key, r.hour): r.boardings for r in dem.itertuples()}
     A = {(r.station_key, r.hour): r.alightings for r in dem.itertuples()}
     Atot = dem.groupby("hour").alightings.sum().to_dict()

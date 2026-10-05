@@ -102,3 +102,6 @@ scratch/
 !data/marts/v2/od_shiftability_mart.parquet
 !data/marts/v2/mobility_atlas_mart.parquet
 !data/marts/v2/event_scenario_mart.parquet
+!data/marts/v2/line9/
+!data/marts/v2/line9/**
+!data/marts/v2/demand_station_hour_oa.parquet

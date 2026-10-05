@@ -158,7 +158,8 @@ class TimeDependentEvaluator:
     """
 
     def __init__(self, scorer, headway: dict, policy: str = "step",
-                 include_initial_wait: bool = False, event_scale: float = 1.0):
+                 include_initial_wait: bool = False, event_scale: float = 1.0,
+                 event_exclude_lines: tuple = ()):
         if policy not in BIN_POLICIES:
             raise ValueError(f"policy 는 {BIN_POLICIES} 중 하나여야 합니다: {policy}")
         self.s = scorer
@@ -167,7 +168,10 @@ class TimeDependentEvaluator:
         self.include_initial_wait = include_initial_wait
         # v2.5: 이벤트 배수 m 을 1 + (m-1)*event_scale 로 조정 (λ sensitivity. 1.0 = v1 λ=0.3 그대로)
         self.event_scale = float(event_scale)
+        # v2.6: 이벤트 배수를 적용하지 않을 노선 (9호선 적용/미적용 sensitivity, D-047)
+        self.event_exclude_lines = set(event_exclude_lines)
         self.day_type = scorer.day_type
+        self._load_line9_tables(Path(scorer.root))
         self._g = type(scorer).evaluate.__globals__     # v1 모듈 상수 (C0, KAPPA, DWELL ...)
         self.C0 = float(self._g["C0"])
         self.KAPPA = float(self._g["KAPPA"])
@@ -213,8 +217,64 @@ class TimeDependentEvaluator:
         self.fixed_bin = bin_index_of(parse_hhmm(self.s.depart))
         self.fixed_bin = max(0, min(N_BINS - 1, self.fixed_bin))
 
+    # ------------------------------------------------------------ 9호선 확장 표 (v2.6)
+    def _load_line9_tables(self, root: Path) -> None:
+        """9호선 mart 가 있는 root 에서만 켜진다. 1~8호선 root 에서는 아무 영향 없음.
+
+        dwell  : 역·방향·요일·시간대별 정차 (급행 대피 반영)            data/marts/v2_line9_dwell.parquet
+        switch : 같은 역 일반↔급행 갈아타기 실제 연계 대기             data/marts/v2_line9_switch_wait.parquet
+        service: 9L/9X 가 그 시간대에 운행하지 않으면 out_of_window 처리 (headway is_operating)
+        """
+        self.dwell_tab, self.switch_tab, self.service_lines, self.run_tab = {}, {}, set(), {}
+        mart = root / "data" / "marts"
+        f = mart / "v2_line9_run.parquet"
+        if f.exists():
+            r_ = pd.read_parquet(f)
+            r_ = r_[r_.day_type == self.day_type]
+            self.run_tab = {(r.from_node, r.to_node, r.time_bin): float(r.run_min) for r in r_.itertuples()}
+        f = mart / "v2_line9_dwell.parquet"
+        if f.exists():
+            d = pd.read_parquet(f)
+            d = d[d.day_type == self.day_type]
+            self.dwell_tab = {(r.station_uid, r.time_bin): float(r.dwell_min)
+                              for r in d.itertuples()}
+        f = mart / "v2_line9_switch_wait.parquet"
+        if f.exists():
+            w = pd.read_parquet(f)
+            w = w[w.day_type == self.day_type]
+            self.switch_tab = {(r.from_line, r.to_line, r.station, r.direction, r.time_bin): float(r.wait_min)
+                               for r in w.itertuples()}
+        f = mart / "headway_station_30min.parquet"
+        if self.dwell_tab and f.exists():
+            h = pd.read_parquet(f, columns=["line_id", "station_name", "direction", "day_type",
+                                            "time_bin", "is_operating"])
+            h = h[h.line_id.isin(["9L", "9X"]) & (h.day_type == self.day_type)]
+            self.service_lines = {"9L", "9X"}
+            self.operating = {(r.line_id, r.station_name, r.direction, r.time_bin)
+                              for r in h.itertuples() if r.is_operating == 1}
+
+    @staticmethod
+    def _hw_bin(minute: float) -> str:
+        """배차·정차 표의 30분 bin 이름 (05:00 기준)."""
+        s = int((minute - 300) // 30) * 30 + 300
+        e = s + 30
+        return f"{(s // 60) % 24:02d}:{s % 60:02d}~{(e // 60) % 24:02d}:{e % 60:02d}"
+
+    def _run(self, u: str, v: str, minute: float) -> float:
+        """구간 운행시간. 9호선은 요일·시간대별 표 (없으면 평일 중앙값), 나머지는 v1 고정값."""
+        if self.run_tab and self.policy != "fixed":
+            return self.run_tab.get((u, v, self._hw_bin(minute)), self.edge_meta[(u, v)]["time"])
+        return self.edge_meta[(u, v)]["time"]
+
+    def _dwell(self, node: str, minute: float) -> float:
+        if self.dwell_tab and self.policy != "fixed":
+            return self.dwell_tab.get((node, self._hw_bin(minute)), self.DWELL)
+        return self.DWELL
+
     # ------------------------------------------------------------ 혼잡도 조회
-    def _event_mult(self, station: str, minute: float) -> float:
+    def _event_mult(self, station: str, minute: float, line: str | None = None) -> float:
+        if line is not None and line in self.event_exclude_lines:
+            return 1.0
         by_hour = getattr(self.s, "event_effect_by_hour", None) or {}
         if not by_hour:
             return 1.0
@@ -288,7 +348,12 @@ class TimeDependentEvaluator:
         def ride_block(u, v, t0, dur, kind):
             nonlocal perceived, cong_time_sum, cong_time_den, max_c, oow
             pcs = self._pieces(u, v, t0, dur)
-            mult = self._event_mult(self.edge_meta[(u, v)]["from_station"], t0)
+            meta = self.edge_meta[(u, v)]
+            mult = self._event_mult(meta["from_station"], t0, meta["line"])
+            if kind == "ride" and meta["line"] in self.service_lines and self.policy != "fixed":
+                # 9L/9X: 그 시각에 해당 패턴 열차가 없으면 계산은 하되 분석 제외 표시 (D-043)
+                if (meta["line"], meta["from_station"], meta["direction"], self._hw_bin(t0)) not in self.operating:
+                    oow = True
             cw, cmax = 0.0, -np.inf
             # 자료 범위(05:30~01:00) 밖 구간은 _pieces 가 경계 bin 으로 clamp 한다.
             # 값은 계산하되 out_of_window 로 표시하고, 분석(od_shiftability.classify)에서는 제외한다 (D-036).
@@ -327,14 +392,15 @@ class TimeDependentEvaluator:
         for i, (u, v) in enumerate(zip(path, path[1:])):
             e = next(x for x in adj[u] if x["to"] == v)
             if e["kind"] == "ride":
-                if prev_was_ride and self.DWELL > 0:
+                dw = self._dwell(u, t) if prev_was_ride else 0.0
+                if prev_was_ride and dw > 0:
                     # 직전 역 정차: 차내 시간. 정차 중 열차 혼잡 = 다음 구간 출발 혼잡으로 본다.
-                    # 체감시간에는 v1 과 같이 배수 없이 1회만 더한다.
-                    ride_block(u, v, t, self.DWELL, "dwell")
-                    perceived += self.DWELL
-                    dwell += self.DWELL
-                    t += self.DWELL
-                d = self.edge_meta[(u, v)]["time"]
+                    # 체감시간에는 v1 과 같이 배수 없이 1회만 더한다. 9호선은 역·시간대별 정차 (대피 포함).
+                    ride_block(u, v, t, dw, "dwell")
+                    perceived += dw
+                    dwell += dw
+                    t += dw
+                d = self._run(u, v, t)
                 c = ride_block(u, v, t, d, "ride")
                 congs_edge.append(c)
                 running += d
@@ -358,7 +424,11 @@ class TimeDependentEvaluator:
                     m = self.edge_meta[(v, nxt)]
                     if self.policy != "fixed" and not (BIN_START_MIN <= t < BIN_END_MIN):
                         oow = True                      # 배차간격도 자료 범위 밖 → clamp 값
-                    h = self._wait(m["line"], m["from_station"], m["direction"], t)
+                    fl, tl = e.get("from_line") or u.split("_", 1)[0], m["line"]
+                    sw = (self.switch_tab.get((u.split("_", 1)[0], tl, m["from_station"], m["direction"],
+                                               self._hw_bin(t)))
+                          if self.switch_tab and {u.split("_", 1)[0], tl} == {"9L", "9X"} else None)
+                    h = sw if sw is not None else self._wait(m["line"], m["from_station"], m["direction"], t)
                     if keep_trace and h:
                         trace.append(EdgeTrace("transfer_wait", v, v, t, t + h, None, None))
                     wait += h
@@ -452,7 +522,13 @@ class TDRouter:
             scorer.adj, scorer.nodes = orig_adj, orig_nodes
         seen, out = set(), []
         for p in paths:
-            real = tuple(n for n in p if not sr.is_virtual(n))
+            real = [n for n in p if not sr.is_virtual(n)]
+            # 출발·도착역에서의 같은 역 갈아타기(예: 9X_역 → 9L_역)는 의미가 없으므로 잘라낸다
+            while len(real) >= 2 and sr.station_of(real[0]) == sr.station_of(real[1]):
+                real = real[1:]
+            while len(real) >= 2 and sr.station_of(real[-1]) == sr.station_of(real[-2]):
+                real = real[:-1]
+            real = tuple(real)
             if len(real) < 2 or real in seen or sr.has_station_revisit(list(real)):
                 continue
             seen.add(real)
