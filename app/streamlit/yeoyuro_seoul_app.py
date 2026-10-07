@@ -500,22 +500,14 @@ CANVAS_W, CANVAS_H = 5120, 2880
 
 # 역명 라벨 미세 조정 파라미터.
 #   LABEL_FONT_SCALE : 워크북 label_size_px 에 곱하는 배율(약 5~7% 축소)
-#   LABEL_GAP_*      : 마커와 라벨 사이 간격. **데이터 좌표 단위** 라 배율에 따라 함께
-#                      변한다. 화면 픽셀 고정으로 주면 전체보기에서 멀어 보이고
-#                      확대하면 붙어 보이는 문제가 생긴다.
+#   LABEL_DY_*       : 마커와 라벨 사이 간격 (아래 정의). 예전의 LABEL_GAP_*(빈 줄 방식)는 v2.6 에서 제거.
 LABEL_FONT_SCALE = 0.95
-#   간격 = 데이터 좌표 몫(확대 시 커짐) + 화면 픽셀 몫(배율 무관 고정).
-#   데이터 몫을 줄이고 고정 몫을 두면 초기 화면 간격은 유지되면서
-#   확대했을 때 지나치게 벌어지지 않는다.
-LABEL_GAP_NORMAL = 2       # 일반역 데이터 몫
-LABEL_GAP_TRANSFER = 3     # 환승역 데이터 몫
-LABEL_GAP_FIXED_PX = 1     # 화면 고정 몫(빈 줄 높이)
 
-# 역명 라벨을 마커 아래로 내리는 거리(캔버스 좌표 단위).
+# 역명 라벨을 마커 아래로 내리는 거리(캔버스 좌표 단위). 이 값이 실제 간격을 정한다 (v2.6 부터 사용).
 # 화면 픽셀이 아니라 데이터 좌표라, 축소하면 간격이 좁아지고 확대하면 넓어진다.
-# 전체보기에서 라벨이 마커에 붙어 보이고, 확대하면 겹치지 않는 여유가 생긴다.
-LABEL_DY_NORMAL = 40      # 일반역
-LABEL_DY_MAJOR = 52       # 환승역(마커가 커서 조금 더 띄운다)
+# 더 붙이거나 띄우려면 이 두 숫자만 바꾸면 된다.
+LABEL_DY_NORMAL = 32      # 일반역 (v2.6: 40 → 32, 역명을 점에 조금 더 가깝게)
+LABEL_DY_MAJOR = 44       # 환승역(마커가 커서 조금 더 띄운다. v2.6: 52 → 44)
 LABEL_SIZE_DELTA = -0.3   # 워크북 label_size_px 대비 축소폭(약 7%)
 # 노선도 표시 범위의 기본값 (데이터가 없을 때만 사용). 실제 범위는 map_bounds() 가
 # 역 점·역명 좌표에서 계산한다 → 좌표를 옮겨도 잘리지 않는다 (v2.6: 9호선 개화 x=640 이 잘리던 문제).
@@ -620,11 +612,13 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
     if lb is not None:
         big_mask = pd.to_numeric(lb["label_size_px"], errors="coerce").fillna(10.5) > 10.5
         for size, t in lb.groupby("label_size_px"):
-            gap = LABEL_GAP_TRANSFER if float(size) > 10.5 else LABEL_GAP_NORMAL
+            # v2.6: 역명을 역 점에서 LABEL_DY_* (캔버스 좌표) 만큼 아래에 둔다.
+            #   이전에는 보이지 않는 빈 줄(<br>, 글자 크기의 약 1.3배)로 간격을 만들어 미세 조정이 불가능했고,
+            #   LABEL_DY_* 상수는 정의만 있고 쓰이지 않았다.
+            dy = LABEL_DY_MAJOR if float(size) > 10.5 else LABEL_DY_NORMAL
             fig.add_trace(go.Scatter(
-                x=t["label_x_px"], y=t["label_y_px"] + gap, mode="text",
-                text=["<span style='font-size:%dpx'><br></span><b>%s</b>"
-                      % (LABEL_GAP_FIXED_PX, k) for k in t["station_key"]],
+                x=t["label_x_px"], y=t["label_y_px"] + dy, mode="text",
+                text=["<b>%s</b>" % k for k in t["station_key"]],
                 textposition="bottom center",
                 textfont=dict(size=round(float(size) * LABEL_FONT_SCALE, 1),
                               color="#111827"),
