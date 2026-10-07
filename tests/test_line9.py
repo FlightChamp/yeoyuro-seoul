@@ -125,3 +125,36 @@ def test_base_map_workbook_has_lines_1_to_9():
     assert (v.line_id == 9).sum() == 38
     seq = xl.parse("Line_Sequences")
     assert seq[seq.line_id == 9].path_order.tolist() == list(range(1, 39))
+
+
+def test_live_workbook_follows_nodes_and_keeps_label_offsets(tmp_path):
+    """수식 연동 구조: 역 점을 옮기면 역명·클릭이 따라오고, 역명 이동량은 유지되며, 검사는 파일을 바꾸지 않는다."""
+    import importlib.util
+    import shutil
+    import openpyxl
+    from yeoyuro_v2.map_workbook import materialize
+    p = tmp_path / "wb.xlsx"
+    shutil.copy(ROOT / "data" / "master" / "yeoyuro_seoul_vector_map_coordinate_workbook.xlsx", p)
+    spec = importlib.util.spec_from_file_location("mig29", ROOT / "scripts" / "v2" / "29_migrate_live_formulas.py")
+    mig = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig)
+    assert mig.migrate(p) == 0 and mig.migrate(p) == 0               # 두 번째는 '이미 변환됨'
+    wb = openpyxl.load_workbook(p)
+    ws, lb = wb["Station_Visual_Nodes"], wb["Station_Labels"]
+    hv = {c.value: c.column for c in ws[1] if c.value}
+    hl = {c.value: c.column for c in lb[1] if c.value}
+    for r in range(2, ws.max_row + 1):
+        if ws.cell(r, hv["visual_node_id"]).value == "흑석_L9":
+            ws.cell(r, hv["x_px"], 2129)
+    for r in range(2, lb.max_row + 1):
+        if lb.cell(r, hl["station_key"]).value == "흑석":
+            lb.cell(r, hl["label_dy"], 50)
+    wb.save(p)
+    before = p.stat().st_mtime
+    m = materialize(p)
+    L = m["Station_Labels"].set_index("station_key")
+    C = m["Station_Click_Areas"].set_index("station_key")
+    assert (L.at["흑석", "label_x_px"], L.at["흑석", "label_y_px"]) == (2129, 1800)
+    assert (C.at["흑석", "click_x_px"], C.at["흑석", "click_y_px"]) == (2129, 1750)
+    assert all("흑석" not in ks for _, _, ks in m["_clash"])
+    assert p.stat().st_mtime == before                                 # 읽기 전용

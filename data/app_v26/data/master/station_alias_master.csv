@@ -1,0 +1,26 @@
+﻿alias_name,canonical_name,line_id,alias_source,note
+총신대입구(이수),이수,4,official_name,4호선 공식명. 7호선은 '이수'
+총신대입구,이수,4,abbrev,
+이수(총신대입구),이수,4,variant,
+동대문운동장,동대문역사문화공원,"2,4,5",renamed_2009,구 역명
+올림픽공원(한국체대),올림픽공원,5,parenthesis,
+천호(풍납토성),천호,"5,8",parenthesis,
+군자(능동),군자,"5,7",parenthesis,
+몽촌토성(평화의문),몽촌토성,8,parenthesis,
+광나루(장신대),광나루,5,parenthesis,
+굽은다리(강동구민회관앞),굽은다리,5,parenthesis,
+오목교(목동운동장앞),오목교,5,parenthesis,
+남한산성입구(성남법원·검찰청),남한산성입구,8,parenthesis,
+상월곡(한국과학기술연구원),상월곡,6,parenthesis,
+월곡(동덕여대),월곡,6,parenthesis,
+화랑대(서울여대입구),화랑대,6,parenthesis,
+공릉(서울과학기술대),공릉,7,parenthesis,
+어린이대공원(세종대),어린이대공원,7,parenthesis,
+종합운동장(잠실),종합운동장,2,parenthesis,
+이촌(국립중앙박물관),이촌,4,parenthesis,
+숙대입구(갈월),숙대입구,4,parenthesis,
+신용산,신용산,4,identity,정규화 무변경 확인용 샘플
+서울역,서울역,"1,4",suffix_exempt,접미사 '역' 제거 예외
+신촌,신촌,2,line_scoped,경의중앙선 신촌과 동명이역 — line_id로 구분
+양평,양평,5,line_scoped,경의중앙선 양평과 동명이역 — 범위 밖 제외
+아산,아산,,out_of_scope,1호선 코레일 구간 — 제외 대상 예시

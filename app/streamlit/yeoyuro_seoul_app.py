@@ -50,6 +50,11 @@ ROOT = resolve_root()
 MARTS = ROOT / "data" / "marts"
 MASTER = ROOT / "data" / "master"
 REPORTS = ROOT / "reports"
+# v2.6: 앱 전용 1~9호선 데이터 폴더 (scripts/v2/30_build_app_data.py 가 생성).
+# 있으면 앱은 여기를 먼저 읽고, 없는 파일만 기존 data/ 에서 읽는다. 분석 스크립트용 data/ 는 그대로 둔다.
+APP_DATA = ROOT / "data" / "app_v26"
+DATA_ROOT = APP_DATA if (APP_DATA / "data" / "marts" / "route_edge_mart.parquet").exists() else ROOT
+MAP_WORKBOOK = ROOT / "data" / "master" / "yeoyuro_seoul_vector_map_coordinate_workbook.xlsx"
 for extra in (ROOT, ROOT / "scripts", ROOT / "app" / "streamlit"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
@@ -68,7 +73,19 @@ WARN = "#EF6C00"
 LINE_COLORS = {
     "1": "#0052A4", "2": "#009D3E", "3": "#EF7C1C", "4": "#00A5DE",
     "5": "#996CAC", "6": "#CD7C2F", "7": "#747F00", "8": "#E6186C",
+    "9": "#BDB092", "9L": "#BDB092", "9X": "#A08A4E",   # v2.6 9호선 (급행은 조금 진하게)
 }
+
+
+def line_label(x) -> str:
+    """노선 표시 이름. 내부 id 9L/9X 를 사용자에게 그대로 보이지 않는다."""
+    return {"9L": "9호선 일반", "9X": "9호선 급행"}.get(str(x), "%s호선" % x)
+
+
+def line_sort_key(x):
+    """노선 정렬 (1~9, 9 일반 → 9 급행). int() 로 정렬하면 9L/9X 에서 오류가 난다."""
+    x = str(x)
+    return (int(x[0]) if x[:1].isdigit() else 99, x)
 
 DISCLAIMER = ("표시된 혼잡도는 실시간 측정값이 아닌 **과거 패턴 기반 기대 혼잡도**입니다. "
               "혼잡도는 정원 대비 승차 인원 비율이며, 100%는 열차 1칸 160명(좌석 54 + 입석 106) 기준입니다.")
@@ -304,27 +321,53 @@ def round1(df: pd.DataFrame) -> pd.DataFrame:
 # 로더
 # --------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
-def load_mart(name: str, sub: str = "data/marts"):
-    base = ROOT / sub
-    for ext in (".parquet", ".csv.gz", ".csv"):
-        p = base / (name + ext)
-        if p.exists():
-            try:
-                return pd.read_parquet(p) if ext == ".parquet" else pd.read_csv(p)
-            except Exception:
-                continue
+def load_mart(name: str, sub: str = "data/marts", stamp: float = 0.0):
+    """앱 데이터 폴더(1~9호선)를 먼저, 없으면 기존 data/ 를 읽는다.
+    stamp: 캐시 구분용 파일 시각. (이름이 '_' 로 시작하면 Streamlit 이 캐시 구분에 쓰지 않으므로 밑줄 없이 둔다)"""
+    for base in dict.fromkeys((DATA_ROOT / sub, ROOT / sub)):
+        for ext in (".parquet", ".csv.gz", ".csv"):
+            p = base / (name + ext)
+            if p.exists():
+                try:
+                    return pd.read_parquet(p) if ext == ".parquet" else pd.read_csv(p)
+                except Exception:
+                    continue
     return None
 
 
-@st.cache_data(show_spinner=False)
+def ensure_map_fresh() -> float:
+    """기본 좌표 엑셀이 앱 노선도보다 새로우면 노선도를 다시 가져온다. 반환: 노선도 파일 시각(캐시 키)."""
+    target = DATA_ROOT / "data" / "master" / "map_visual_nodes.csv"
+    if DATA_ROOT == ROOT or not MAP_WORKBOOK.exists():
+        return target.stat().st_mtime if target.exists() else 0.0
+    if not target.exists() or MAP_WORKBOOK.stat().st_mtime > target.stat().st_mtime:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("app_build30", ROOT / "scripts" / "v2" / "30_build_app_data.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        with st.spinner("엑셀 좌표가 바뀌어 노선도를 다시 가져오는 중…"):
+            ok, msg = mod.import_map(DATA_ROOT, MAP_WORKBOOK)
+        if not ok:
+            st.error("노선도 가져오기 실패: " + msg)
+        else:
+            st.toast("엑셀 좌표를 노선도에 반영했습니다")
+    return target.stat().st_mtime if target.exists() else 0.0
+
+
 def load_display_master():
-    return load_mart("station_display_master", "data/master")
+    """캐시 함수 밖에서 엑셀 변경을 먼저 확인한다 (캐시 함수 안에서 화면 요소를 만들면 Streamlit 오류)."""
+    return _load_display_master_cached(ensure_map_fresh())
 
 
 @st.cache_data(show_spinner=False)
-def load_map_bundle():
-    """벡터 노선도 좌표 묶음. source of truth 는 좌표 워크북(5120x2880)이다."""
-    b = {n: load_mart(n, "data/master") for n in
+def _load_display_master_cached(stamp: float):
+    return load_mart("station_display_master", "data/master", stamp)
+
+
+@st.cache_data(show_spinner=False)
+def load_map_bundle(stamp: float = 0.0):
+    """벡터 노선도 좌표 묶음. source of truth 는 좌표 워크북(5120x2880)이다. stamp = 노선도 파일 시각 (캐시 구분)."""
+    b = {n: load_mart(n, "data/master", stamp) for n in
          ("map_visual_nodes", "map_line_segments", "map_transfer_links",
           "map_click_areas", "map_labels")}
     return b if b["map_visual_nodes"] is not None else None
@@ -340,7 +383,9 @@ def precomputed_tags():
 def get_scorer(day_type: str, depart: str, query_date):
     import station_routing as sr
     mod = sr.load_scorer_class(ROOT)
-    return mod.RouteScorer(ROOT, day_type, depart, query_date)
+    from yeoyuro_v2.line9 import register_v1_directions
+    register_v1_directions(mod)                      # 9L/9X 방향 등록 (1~8호선 영향 없음)
+    return mod.RouteScorer(DATA_ROOT, day_type, depart, query_date)
 
 
 def sr_module():
@@ -356,7 +401,7 @@ def get_td_evaluator(day_type: str, depart: str, query_date):
     try:
         from yeoyuro_v2.time_dependent import TimeDependentEvaluator
         scorer = get_scorer(day_type, depart, query_date)
-        return TimeDependentEvaluator(scorer, sr_module().load_headway(ROOT), "step")
+        return TimeDependentEvaluator(scorer, sr_module().load_headway(DATA_ROOT), "step")
     except Exception:
         return None
 
@@ -390,11 +435,11 @@ def retime_with_v2(result):
 USE_EMOJI_LINE_MARKS = False
 
 CIRCLED = {"1": "①", "2": "②", "3": "③", "4": "④",
-           "5": "⑤", "6": "⑥", "7": "⑦", "8": "⑧"}
+           "5": "⑤", "6": "⑥", "7": "⑦", "8": "⑧", "9": "⑨"}
 
 # 실제 노선색에 가장 가까운 컬러 이모지 (근사값)
 EMOJI_MARK = {"1": "🔵", "2": "🟢", "3": "🟠", "4": "🔹",
-              "5": "🟣", "6": "🟤", "7": "🟡", "8": "🔴"}
+              "5": "🟣", "6": "🟤", "7": "🟡", "8": "🔴", "9": "🟨"}
 
 
 def short_label(station_key: str, lines: str) -> str:
@@ -472,8 +517,24 @@ LABEL_GAP_FIXED_PX = 1     # 화면 고정 몫(빈 줄 높이)
 LABEL_DY_NORMAL = 40      # 일반역
 LABEL_DY_MAJOR = 52       # 환승역(마커가 커서 조금 더 띄운다)
 LABEL_SIZE_DELTA = -0.3   # 워크북 label_size_px 대비 축소폭(약 7%)
-# 노선도 표시 범위. 팬/줌이 이 밖으로 나가지 못하게 고정한다.
+# 노선도 표시 범위의 기본값 (데이터가 없을 때만 사용). 실제 범위는 map_bounds() 가
+# 역 점·역명 좌표에서 계산한다 → 좌표를 옮겨도 잘리지 않는다 (v2.6: 9호선 개화 x=640 이 잘리던 문제).
 X0, X1, Y0, Y1 = 700, 4450, 150, 2750
+MAP_PAD = dict(left=110, right=110, top=90, bottom=130)   # 역명 글자·마커 반지름 여유 (역명은 점 아래)
+
+
+def map_bounds(bundle: dict) -> tuple[float, float, float, float]:
+    """역 점과 역명 위치를 모두 담는 표시 범위 (x0, x1, y0, y1)."""
+    xs, ys = [], []
+    for name, xc, yc in (("map_visual_nodes", "x_px", "y_px"), ("map_labels", "label_x_px", "label_y_px")):
+        df = bundle.get(name)
+        if df is not None and len(df) and xc in df and yc in df:
+            xs += pd.to_numeric(df[xc], errors="coerce").dropna().tolist()
+            ys += pd.to_numeric(df[yc], errors="coerce").dropna().tolist()
+    if not xs:
+        return X0, X1, Y0, Y1
+    return (min(xs) - MAP_PAD["left"], max(xs) + MAP_PAD["right"],
+            min(ys) - MAP_PAD["top"], max(ys) + MAP_PAD["bottom"])
 # 참고: Plotly 에는 '최대 확대 배율' 을 막는 속성이 없다(minallowed/maxallowed 는
 # 바깥 범위만 제한한다). 확대 깊이 제한은 JS 커스텀 컴포넌트가 필요하다.
 
@@ -488,6 +549,7 @@ def path_to_visual_nodes(path, vn: pd.DataFrame):
     xs, ys = [], []
     for node in path:
         line = node.split("_", 1)[0]
+        line = "9" if line in ("9L", "9X") else line          # 9호선 일반/급행은 노선도에서 한 줄
         key = node.split("_", 1)[1].split("@")[0]
         vid = "%s_L%s" % (key, line)
         if vid not in have:
@@ -604,16 +666,17 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
             hovertemplate="<b>%{customdata[1]}</b><br>%{customdata[2]}호선<extra></extra>",
             showlegend=False))
 
+    bx0, bx1, by0, by1 = map_bounds(bundle)
     fig.update_layout(
         height=820, margin=dict(l=2, r=2, t=2, b=2),
         plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF",
         # minallowed / maxallowed 로 팬·줌 범위를 초기 화면 밖으로 나가지 못하게 묶는다.
         # (plotly.js 2.24+ 지원. 구버전에서는 무시되며 동작에는 지장 없다)
         # minallowed/maxallowed 로 초기 화면 밖으로 나가지 못하게 묶는다.
-        xaxis=dict(visible=False, range=[X0, X1], fixedrange=False,
-                   minallowed=X0, maxallowed=X1),
-        yaxis=dict(visible=False, range=[Y1, Y0],   # 이미지 좌표계: y 아래로 증가
-                   minallowed=Y0, maxallowed=Y1,
+        xaxis=dict(visible=False, range=[bx0, bx1], fixedrange=False,
+                   minallowed=bx0, maxallowed=bx1),
+        yaxis=dict(visible=False, range=[by1, by0],   # 이미지 좌표계: y 아래로 증가
+                   minallowed=by0, maxallowed=by1,
                    scaleanchor="x", scaleratio=1),
         clickmode="event+select", dragmode="pan")
     return fig
@@ -785,12 +848,12 @@ def render_timeline(segs):
                          % (ctone, cicon, cong))
             html.append(
                 '<div class="mc-seg" style="--mc-line:%s">'
-                '<span class="mc-badge">%s호선</span>'
+                '<span class="mc-badge">%s</span>'
                 '<span class="mc-dir">%s</span>'
                 '<div class="mc-od">%s → %s</div>'
                 '<div class="mc-meta">%s</div>'
                 '</div>'
-                % (color, _esc(str(sg["line"])), _esc(dirlab),
+                % (color, _esc(line_label(sg["line"])), _esc(dirlab),
                    _esc(sg["from"]), _esc(sg["to"]), meta))
         else:
             # 진행 방향을 좁히기 위해 직전/다음 역을 넘긴다.
@@ -803,8 +866,8 @@ def render_timeline(segs):
                 next_st = st_list[1] if len(st_list) >= 2 else None
             tip = transfer_tip(sg["at"], sg["from_line"], sg["to_line"], prev_st, next_st)
             tmin, wmin = sg.get("minutes"), sg.get("wait_min")
-            parts = ["🚶 %s호선 → %s호선"
-                     % (_esc(str(sg["from_line"])), _esc(str(sg["to_line"])))]
+            parts = ["🚶 %s → %s"
+                     % (_esc(line_label(sg["from_line"])), _esc(line_label(sg["to_line"])))]
             if tmin is not None:
                 parts.append("도보 약 %d분" % max(1, round(tmin)))
             if wmin:
@@ -859,7 +922,7 @@ def route_summary_line(ev, o, d_):
             % (round(run + dwell), round(walk + wait))
             ) if (wait or walk) else ""
     return "%s → %s · %s · 환승 %d회 · 예상 %d분%s · 최대 기대 혼잡도 %.0f%%" % (
-        o, d_, " + ".join("%s호선" % x for x in lines),
+        o, d_, " + ".join(line_label(x) for x in lines),
         ev.get("transfer_count", 0), round(ev.get("actual_time_min") or 0), tail,
         ev.get("max_congestion") or 0)
 
@@ -1031,8 +1094,8 @@ def render_route_congestion_profile(ev, time_alt=None, key=None):
             continue
         fig.add_vline(x=names.index(sg["at"]),
                       line=dict(color="#8D7150", width=1, dash="dash"),
-                      annotation_text="환승 %s→%s호선" % (sg.get("from_line", ""),
-                                                     sg.get("to_line", "")),
+                      annotation_text="환승 %s→%s" % (line_label(sg.get("from_line", "")),
+                                                   line_label(sg.get("to_line", ""))),
                       annotation_position="top",
                       annotation_font=dict(size=10, color="#8D7150"))
 
@@ -1089,7 +1152,7 @@ def page_route():
     st.info(DISCLAIMER)
 
     disp = load_display_master()
-    bundle = load_map_bundle()
+    bundle = load_map_bundle(ensure_map_fresh())
     if disp is None:
         st.warning("`station_display_master.csv` 가 없습니다. "
                    "`12_build_display_masters.py` 를 먼저 실행하세요.")
@@ -1542,7 +1605,7 @@ def page_atlas():
             "구간을 지나는 모든 승객의 값이 아닙니다.")
     atlas = load_mart("mobility_atlas_mart", "data/marts/v2")
     odm = load_mart("od_shiftability_mart", "data/marts/v2")
-    bundle = load_map_bundle()
+    bundle = load_map_bundle(ensure_map_fresh())
     if atlas is None or odm is None or bundle is None:
         st.warning("v2 mart 가 없습니다. `scripts/v2/23_build_od_shiftability.py` 와 "
                    "`scripts/v2/24_build_mobility_atlas.py` 를 먼저 실행하세요.")
@@ -1720,10 +1783,10 @@ def show_station_info(station_key: str):
         st.caption("해당 역의 관측 데이터가 없습니다.")
         return
 
-    lines = sorted(sub["line_id"].astype(str).unique(), key=lambda x: int(x))
+    lines = sorted(sub["line_id"].astype(str).unique(), key=line_sort_key)
     if len(lines) > 1:
         line = st.radio("노선", lines, horizontal=True,
-                        format_func=lambda x: "%s호선" % x,
+                        format_func=line_label,
                         key="info_line_%s" % station_key)
     else:
         line = lines[0]
@@ -1784,9 +1847,9 @@ def page_congestion_station():
         return
 
     # 환승역은 노선을 골라 하나씩 본다. 섞으면 어느 노선의 값인지 알 수 없다.
-    lines = sorted(sub["line_id"].astype(str).unique(), key=lambda x: int(x))
+    lines = sorted(sub["line_id"].astype(str).unique(), key=line_sort_key)
     line = (st.radio("노선", lines, horizontal=True,
-                     format_func=lambda x: "%s호선" % x, key="cong_line_%s" % key)
+                     format_func=line_label, key="cong_line_%s" % key)
             if len(lines) > 1 else lines[0])
 
     one = sub[sub["line_id"].astype(str) == line].copy()
@@ -1809,7 +1872,7 @@ def page_congestion_station():
                     & (lookup["day_type"] == day_type)
                     & (lookup["line_id"].astype(str) == line)]
         if not lk.empty:
-            st.subheader("%s호선 시간대별 기대 혼잡도" % line)
+            st.subheader("%s 시간대별 기대 혼잡도" % line_label(line))
             piv = lk.pivot_table(index="time_bin", columns="direction",
                                  values="congestion_median").sort_index()
             piv.columns = [DIRECTION_KO.get(c, c) for c in piv.columns]
@@ -1818,7 +1881,7 @@ def page_congestion_station():
     st.divider()
     st.subheader("평일 최혼잡 구간 Top 10")
     top = prof[prof["day_type"] == "weekday"].nlargest(10, "max_congestion").copy()
-    top["호선"] = top["line_id"].astype(str) + "호선"
+    top["호선"] = top["line_id"].map(line_label)
     top["방향"] = top["direction"].map(DIRECTION_KO).fillna(top["direction"])
     st.table(round1(top[["호선", "station_name", "방향", "peak_time_bin",
                          "mean_congestion", "max_congestion", "peak_duration_min"]]
@@ -2267,12 +2330,86 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
 
 
 # --------------------------------------------------------------------------
+# 페이지. 노선도 편집 (개발용, 주소에 ?edit=1 일 때만 메뉴에 보임)
+# --------------------------------------------------------------------------
+@st.cache_resource(show_spinner=False)
+def _map_checker():
+    """scripts/v2/29_check_map_workbook.py 를 모듈로 불러온다 (검증 + 1~9호선 경로 그래프 기준 가져오기)."""
+    import importlib.util
+    import sys as _sys
+    if str(ROOT) not in _sys.path:
+        _sys.path.insert(0, str(ROOT))
+    spec = importlib.util.spec_from_file_location("chk29_app", ROOT / "scripts" / "v2" / "29_check_map_workbook.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _map_editor_view():
+    import plotly.graph_objects as go
+    from datetime import datetime as _dt
+    from yeoyuro_v2.map_workbook import diff as _diff
+    stt = st.session_state.setdefault("map_editor", {"mtime": None, "n": 0})
+    mt = MAP_WORKBOOK.stat().st_mtime
+    if stt["mtime"] != mt:
+        chk = _map_checker()
+        with st.spinner("저장된 엑셀을 읽어 다시 그리는 중…"):
+            res = chk.check(MAP_WORKBOOK)
+        if res.get("preview_ok", True) and (chk.CHECK_ROOT / "data" / "master" / "map_visual_nodes.csv").exists():
+            bundle = {n: pd.read_csv(chk.CHECK_ROOT / "data" / "master" / f"{n}.csv") for n in
+                      ("map_visual_nodes", "map_line_segments", "map_transfer_links", "map_click_areas", "map_labels")}
+        else:
+            bundle = stt.get("bundle")
+        stt.update(changes=_diff(stt.get("snap"), res["snap"]) if stt.get("snap") else None,
+                   snap=res["snap"], res=res, bundle=bundle, mtime=mt, n=stt["n"] + 1,
+                   saved=_dt.fromtimestamp(mt).strftime("%H:%M:%S"), checked=_dt.now().strftime("%H:%M:%S"))
+    res, bundle = stt["res"], stt["bundle"]
+    ok = res["ok"] and not res["clash"]
+    st.markdown(f"**{'✅ 통과' if ok else ('⚠️ 통과 (겹침 있음)' if res['ok'] else '❌ 확인 필요')}** · "
+                f"그림 #{stt['n']} · 엑셀 저장 {stt['saved']} · 확인 {_dt.now():%H:%M:%S} (2초마다 자동 확인)")
+    if stt.get("changes"):
+        st.info("**이번 저장에서 고친 칸**\n\n" + "\n".join("- " + c for c in stt["changes"][:30]))
+    elif stt.get("changes") == []:
+        st.warning("저장은 감지했지만 좌표 관련 칸은 바뀌지 않았습니다 (다른 칸을 고쳤거나 같은 값으로 저장).")
+    if res["clash"]:
+        st.warning("다른 역끼리 같은 좌표: " + " / ".join(f"({x}, {y}) {', '.join(ks)}" for x, y, ks in res["clash"]))
+    if not res.get("preview_ok", True):
+        st.error("엑셀 내용을 노선도로 바꾸는 단계에서 오류가 났습니다:\n\n" + res.get("stderr", "")[-800:])
+    if bundle is None:
+        return
+    fig = draw_map(bundle, None, show_endpoints=False)
+    vn = bundle["map_visual_nodes"]
+    fig.add_trace(go.Scatter(x=vn.x_px, y=vn.y_px, mode="markers", marker=dict(size=14, color="rgba(0,0,0,0)"),
+                             hovertext=[f"{r.visual_node_id}  ({r.x_px:.0f}, {r.y_px:.0f})" for r in vn.itertuples()],
+                             hoverinfo="text", showlegend=False))
+    fig.update_layout(height=880, uirevision="map_editor", dragmode="pan")
+    st.plotly_chart(fig, width="stretch", key="map_editor_chart",
+                    config={"scrollZoom": True, "displayModeBar": True})
+
+
+def page_map_editor():
+    st.title("노선도 편집")
+    st.caption("엑셀 기본 파일을 직접 읽어 앱 노선도로 그립니다. 엑셀에서 고치고 Ctrl+S 하면 2초 안에 바뀝니다. "
+               "마우스 휠 = 확대, 드래그 = 이동, 점에 마우스를 올리면 노드 이름과 좌표가 보입니다.")
+    st.code(str(MAP_WORKBOOK), language=None)
+    if not MAP_WORKBOOK.exists():
+        st.error("기본 좌표 파일이 없습니다.")
+        return
+    if hasattr(st, "fragment"):
+        st.fragment(run_every=2)(_map_editor_view)()
+    else:
+        st.button("다시 그리기")
+        _map_editor_view()
+
+
+# --------------------------------------------------------------------------
 def main():
     st.sidebar.title("🚇 여유로 서울")
     st.sidebar.caption("서울 지하철 혼잡도 기반  \n쾌적 경로 추천 시스템")
     if not st.session_state.get("menu"):
         st.session_state["menu"] = MENUS[0]
-    for m in MENUS:
+    menus = MENUS + (["노선도 편집"] if st.query_params.get("edit") == "1" else [])
+    for m in menus:
         st.sidebar.button(
             m, width="stretch", key="menu_%s" % m,
             type="primary" if st.session_state["menu"] == m else "secondary",
@@ -2289,7 +2426,8 @@ def main():
      "시간대별 혼잡 조회": page_congestion,
      "빠른 환승 안내": page_transfer,
      "이벤트 혼잡 경보": page_event,
-     "프로젝트 소개 및 검증 리포트": page_project}.get(menu, page_route)()
+     "프로젝트 소개 및 검증 리포트": page_project,
+     "노선도 편집": page_map_editor}.get(menu, page_route)()
 
 
 main()

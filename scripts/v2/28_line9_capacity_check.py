@@ -134,4 +134,7 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from yeoyuro_v2.proc import utf8_stdout
+    utf8_stdout()                       # Windows 에서 한글 출력 때문에 멈추지 않게
     raise SystemExit(main())

@@ -339,4 +339,10 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # 다른 프로그램이 하위 프로세스로 실행해도 한글 출력에서 멈추지 않게 (Windows cp1252 문제, v2.6)
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     sys.exit(main())

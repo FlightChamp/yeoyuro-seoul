@@ -105,3 +105,11 @@ scratch/
 !data/marts/v2/line9/
 !data/marts/v2/line9/**
 !data/marts/v2/demand_station_hour_oa.parquet
+
+# 노선도 미리보기 (감시 모드가 매번 새로 만듦)
+reports/figures/map_live/
+reports/figures/map_live.html
+reports/figures/vector_map_preview_v26*.png
+
+# 앱 데이터 폴더의 생성 부산물 (노선도 가져오기 중간 파일)
+data/app_v26/reports/

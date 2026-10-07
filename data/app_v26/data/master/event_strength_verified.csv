@@ -1,0 +1,88 @@
+﻿event_id,event_type,event_name,station_name,direction,scope,date,spike_ratio,robust_z,actual_count,baseline_count,event_strength_verified,use_weight,exclude_from_training,exclude_reason,apply_scope
+NYB_2023,new_year_bell,2023 제야의 종·새해맞이 카운트다운,종각,alighting,peak_hours,2023-12-31,12.702,64.12,9958.0,784.0,very_strong,1.0,0,,peak_hours_only
+HW_2022,halloween_proxy,Halloween commercial crowd period 2022,이태원,alighting,peak_hours,2022-10-29,8.184,10.41,57048.0,6971.0,very_strong,0.0,1,"2022-10-29 이태원 참사를 포함한 기간. 이태원 하차 5.73배(야간 8.18배)로 다른 해(1.3~1.6배)의 3~5배이며, 이듬해 급감은 사회적 자제의 결과다. 반복되는 할로윈 패턴이 아니므로 학습에서 제외한다.",peak_hours_only
+FW_2022,fireworks,서울세계불꽃축제 2022,여의나루,alighting,peak_hours,2022-10-08,6.837,13.33,76802.0,11233.0,very_strong,1.0,0,,peak_hours_only
+NYB_2025,new_year_bell,2025 제야의 종,종각,alighting,peak_hours,2025-12-31,6.146,63.49,7532.0,1225.5,very_strong,1.0,0,,peak_hours_only
+FW_2025,fireworks,서울세계불꽃축제 2025,여의나루,alighting,daily,2025-09-27,5.79,25.6,85586.0,14780.5,very_strong,1.0,0,,daily
+FW_2024,fireworks,서울세계불꽃축제 2024,여의나루,alighting,daily,2024-10-05,5.41,12.73,83736.0,15478.0,very_strong,1.0,0,,daily
+FW_2023,fireworks,서울세계불꽃축제 2023,여의나루,alighting,peak_hours,2023-10-07,5.162,10.69,51136.0,9906.5,very_strong,1.0,0,,peak_hours_only
+ESSAY_한양대_2023,essay,한양대 2023학년도 essay,한양대,boarding,daily,2022-11-27,4.947,26.96,14277.0,2886.0,very_strong,1.0,0,,daily
+ESSAY_한양대_2024,essay,한양대 2024학년도 essay,한양대,boarding,daily,2023-11-26,4.886,27.35,15195.0,3110.0,very_strong,1.0,0,,daily
+CB_2023,cherry_blossom,2023 영등포 여의도 봄꽃축제,여의나루,alighting,daily,2023-04-01,4.845,10.08,68562.0,14151.0,very_strong,1.0,0,,daily
+NYB_2024,new_year_bell,2024 제야의 종,종각,alighting,peak_hours,2024-12-31,4.773,34.16,4933.0,1033.5,very_strong,1.0,0,,peak_hours_only
+NYB_2022,new_year_bell,2022 제야의 종,종각,alighting,peak_hours,2022-12-31,4.272,21.52,5331.0,1248.0,very_strong,1.0,0,,peak_hours_only
+ESSAY_한양대_2025,essay,한양대 2025학년도 essay,한양대,boarding,daily,2024-11-24,4.231,35.77,14931.0,3529.0,very_strong,1.0,0,,daily
+ESSAY_한양대_2026,essay,한양대 2026학년도 essay,한양대,boarding,daily,2025-11-23,3.897,18.21,14513.0,3724.5,very_strong,1.0,0,,daily
+CB_2026,cherry_blossom,2026 영등포 여의도 봄꽃축제,여의나루,alighting,daily,2026-04-05,2.62,3.77,40040.0,15281.0,strong,0.7,0,,daily
+HW_2024,halloween_proxy,Halloween commercial crowd period 2024,이태원,alighting,peak_hours,2024-10-31,2.475,17.67,9055.0,3658.5,strong,0.7,0,,peak_hours_only
+CB_2025,cherry_blossom,2025 영등포 여의도 봄꽃축제,여의나루,alighting,daily,2025-04-11,2.395,6.11,43894.0,18327.0,strong,0.7,0,,daily
+CB_2024,cherry_blossom,2024 영등포 여의도 봄꽃축제,여의나루,boarding,daily,2024-03-31,2.319,2.28,27131.0,11699.5,strong,0.7,0,,daily
+TRF_한양대_2025,transfer_exam,한양대 2025학년도 transfer_exam,한양대,boarding,daily,2025-01-11,2.256,4.65,11476.0,5087.0,strong,0.7,0,,daily
+HW_2025,halloween_proxy,Halloween commercial crowd period 2025,이태원,alighting,peak_hours,2025-10-31,2.183,9.55,18094.0,8288.5,strong,0.7,0,,peak_hours_only
+ESSAY_동국대_2023,essay,동국대 2023학년도 essay,동대입구,boarding,daily,2022-11-20,2.094,4.49,13612.0,6501.0,strong,0.7,0,,daily
+ESSAY_동국대_2025,essay,동국대 2025학년도 essay,동대입구,boarding,daily,2024-11-17,1.775,4.71,16481.0,9283.0,medium,0.4,0,,daily
+ESSAY_동국대_2026,essay,동국대 2026학년도 essay,동대입구,boarding,daily,2025-11-16,1.771,3.98,15263.0,8617.0,medium,0.4,0,,daily
+TRF_한양대_2023,transfer_exam,한양대 2023학년도 transfer_exam,한양대,boarding,daily,2023-01-07,1.766,3.0,7996.0,4529.0,medium,0.4,0,,daily
+TRF_한양대_2026,transfer_exam,한양대 2026학년도 transfer_exam,한양대,boarding,daily,2026-01-10,1.753,2.57,10496.0,5989.0,medium,0.4,0,,daily
+ESSAY_동국대_2024,essay,동국대 2024학년도 essay,동대입구,boarding,daily,2023-11-19,1.668,6.13,13098.0,7851.0,medium,0.4,0,,daily
+TRF_고려대_2024,transfer_exam,고려대 2024학년도 transfer_exam,안암,boarding,daily,2023-12-16,1.636,2.69,13890.0,8492.0,medium,0.4,0,,daily
+TRF_동국대_2025,transfer_exam,동국대 2025학년도 transfer_exam,동대입구,boarding,daily,2025-01-05,1.51,3.4,10958.0,7258.0,medium,0.4,0,,daily
+ESSAY_고려대_2025,essay,고려대 2025학년도 essay,고려대,boarding,daily,2024-11-16,1.486,3.8,10570.0,7111.0,weak,0.2,0,,daily
+ESSAY_고려대_2026,essay,고려대 2026학년도 essay,고려대,boarding,daily,2025-11-16,1.463,4.66,7917.0,5410.0,weak,0.2,0,,daily
+ESSAY_성균관대_2026,essay,성균관대 2026학년도 essay,혜화,boarding,daily,2025-11-16,1.454,6.13,43412.0,29852.0,weak,0.2,0,,daily
+ESSAY_성균관대_2025,essay,성균관대 2025학년도 essay,혜화,boarding,daily,2024-11-17,1.43,6.3,39979.0,27952.5,weak,0.2,0,,daily
+TRF_고려대_2023,transfer_exam,고려대 2023학년도 transfer_exam,안암,boarding,daily,2022-12-17,1.403,2.2,9902.0,7057.5,weak,0.2,0,,daily
+ESSAY_연세대_2026,essay,연세대 2026학년도 essay,신촌,boarding,daily,2025-09-27,1.4,2.21,50246.0,35900.0,weak,0.2,0,,daily
+ESSAY_홍익대_2024,essay,홍익대 2024학년도 essay,상수,alighting,daily,2023-10-08,1.385,6.56,11860.0,8563.0,weak,0.2,0,,daily
+ESSAY_이화여대_2024,essay,이화여대 2024학년도 essay,이대,boarding,daily,2023-11-26,1.369,5.36,12571.0,9185.0,weak,0.2,0,,daily
+ESSAY_성균관대_2023,essay,성균관대 2023학년도 essay,혜화,boarding,daily,2022-11-20,1.339,4.99,35766.0,26714.5,weak,0.2,0,,daily
+HW_2023,halloween_proxy,Halloween commercial crowd period 2023,이태원,alighting,peak_hours,2023-10-31,1.334,4.35,4590.0,3440.0,weak,0.2,0,,peak_hours_only
+ESSAY_성균관대_2024,essay,성균관대 2024학년도 essay,혜화,boarding,daily,2023-11-19,1.334,4.61,37691.0,28256.0,weak,0.2,0,,daily
+ESSAY_연세대_2024,essay,연세대 2024학년도 essay,신촌,boarding,daily,2023-09-23,1.322,2.06,48060.0,36366.0,weak,0.2,0,,daily
+TRF_동국대_2024,transfer_exam,동국대 2024학년도 transfer_exam,동대입구,boarding,daily,2024-01-07,1.322,2.58,10377.0,7851.0,weak,0.2,0,,daily
+ESSAY_숙명여대_2023,essay,숙명여대 2023학년도 essay,숙대입구,boarding,daily,2022-11-19,1.319,4.03,15431.0,11700.0,weak,0.2,0,,daily
+TRF_건국대_2026,transfer_exam,건국대 2026학년도 transfer_exam,건대입구,alighting,daily,2025-12-24,1.311,4.92,74457.0,56791.5,weak,0.2,0,,daily
+TRF_고려대_2025,transfer_exam,고려대 2025학년도 transfer_exam,안암,boarding,daily,2024-12-14,1.289,1.03,10839.0,8411.0,weak,0.2,0,,daily
+ESSAY_이화여대_2023,essay,이화여대 2023학년도 essay,이대,boarding,daily,2022-11-27,1.284,5.36,10978.0,8552.0,weak,0.2,0,,daily
+ESSAY_홍익대_2023,essay,홍익대 2023학년도 essay,상수,alighting,daily,2022-10-09,1.27,6.88,10182.0,8018.0,weak,0.2,0,,daily
+ESSAY_이화여대_2025,essay,이화여대 2025학년도 essay,이대,boarding,daily,2024-11-24,1.264,2.88,12208.0,9658.0,weak,0.2,0,,daily
+TRF_숙명여대_2023,transfer_exam,숙명여대 2023학년도 transfer_exam,숙대입구,alighting,daily,2022-12-17,1.254,2.88,13201.0,10529.0,weak,0.2,0,,daily
+ESSAY_연세대_2025_SUP,essay,연세대 2025학년도 essay,신촌,boarding,daily,2024-12-08,1.252,3.23,33423.0,26687.0,weak,0.2,0,,daily
+ESSAY_연세대_2025,essay,연세대 2025학년도 essay,신촌,boarding,daily,2024-10-12,1.251,3.09,47222.0,37736.0,weak,0.2,0,,daily
+TRF_숙명여대_2024,transfer_exam,숙명여대 2024학년도 transfer_exam,숙대입구,boarding,daily,2023-12-16,1.245,2.35,14004.0,11246.0,weak,0.2,0,,daily
+ESSAY_이화여대_2026,essay,이화여대 2026학년도 essay,이대,boarding,daily,2025-11-23,1.238,1.85,13217.0,10676.0,weak,0.2,0,,daily
+TRF_고려대_2026,transfer_exam,고려대 2026학년도 transfer_exam,안암,alighting,daily,2025-12-13,1.235,1.15,10900.0,8824.0,weak,0.2,0,,daily
+ESSAY_건국대_2023,essay,건국대 2023학년도 essay,건대입구,boarding,daily,2022-11-19,1.232,7.07,59793.0,48529.0,weak,0.2,0,,daily
+ESSAY_홍익대_2025,essay,홍익대 2025학년도 essay,상수,boarding,daily,2024-10-05,1.228,3.78,13124.0,10691.0,weak,0.2,0,,daily
+TRF_동국대_2023,transfer_exam,동국대 2023학년도 transfer_exam,동대입구,boarding,daily,2023-01-08,1.222,1.18,7464.0,6107.0,weak,0.2,0,,daily
+TRF_연세대_2025,transfer_exam,연세대 2025학년도 transfer_exam,신촌,alighting,daily,2024-12-21,1.22,1.88,45963.0,37690.0,weak,0.2,0,,daily
+TRF_숙명여대_2025,transfer_exam,숙명여대 2025학년도 transfer_exam,숙대입구,boarding,daily,2024-12-14,1.218,1.86,15274.0,12538.0,weak,0.2,0,,daily
+TRF_숙명여대_2026,transfer_exam,숙명여대 2026학년도 transfer_exam,숙대입구,boarding,daily,2025-12-13,1.207,1.62,15520.0,12857.0,weak,0.2,0,,daily
+TRF_이화여대_2025,transfer_exam,이화여대 2025학년도 transfer_exam,이대,boarding,daily,2024-12-15,1.206,1.32,11130.0,9229.0,weak,0.2,0,,daily
+ESSAY_연세대_2023,essay,연세대 2023학년도 essay,신촌,boarding,daily,2022-10-01,1.204,3.49,43664.0,36270.0,weak,0.2,0,,daily
+ESSAY_숙명여대_2026,essay,숙명여대 2026학년도 essay,숙대입구,boarding,daily,2025-11-16,1.204,2.07,13092.0,10870.0,weak,0.2,0,,daily
+TRF_이화여대_2023,transfer_exam,이화여대 2023학년도 transfer_exam,이대,boarding,daily,2022-12-18,1.201,2.62,10036.0,8353.0,weak,0.2,0,,daily
+ESSAY_숙명여대_2024,essay,숙명여대 2024학년도 essay,숙대입구,boarding,daily,2023-11-18,1.193,2.91,14320.0,12002.0,not_significant,0.0,0,,daily
+ESSAY_숙명여대_2025,essay,숙명여대 2025학년도 essay,숙대입구,boarding,daily,2024-11-16,1.19,1.85,15196.0,12765.0,not_significant,0.0,0,,daily
+ESSAY_건국대_2024,essay,건국대 2024학년도 essay,건대입구,boarding,daily,2023-11-18,1.19,6.4,60080.0,50487.0,not_significant,0.0,0,,daily
+ESSAY_건국대_2025,essay,건국대 2025학년도 essay,건대입구,boarding,daily,2024-11-16,1.184,1.94,61933.0,52308.5,not_significant,0.0,0,,daily
+ESSAY_홍익대_2026,essay,홍익대 2026학년도 essay,상수,boarding,daily,2025-10-19,1.181,4.16,10149.0,8594.0,not_significant,0.0,0,,daily
+TRF_연세대_2026,transfer_exam,연세대 2026학년도 transfer_exam,신촌,alighting,daily,2025-12-20,1.173,1.55,43750.0,37283.0,not_significant,0.0,0,,daily
+TRF_이화여대_2024,transfer_exam,이화여대 2024학년도 transfer_exam,이대,boarding,daily,2023-12-17,1.161,1.95,10429.0,8985.0,not_significant,0.0,0,,daily
+ESSAY_건국대_2026,essay,건국대 2026학년도 essay,건대입구,boarding,daily,2025-11-15,1.14,3.67,64569.0,56618.0,not_significant,0.0,0,,daily
+TRF_이화여대_2026,transfer_exam,이화여대 2026학년도 transfer_exam,이대,boarding,daily,2025-12-14,1.137,0.86,12137.0,10676.0,not_significant,0.0,0,,daily
+TRF_홍익대_2023,transfer_exam,홍익대 2023학년도 transfer_exam,상수,boarding,daily,2023-01-06,1.133,3.52,12172.0,10743.0,not_significant,0.0,0,,daily
+TRF_동국대_2026,transfer_exam,동국대 2026학년도 transfer_exam,동대입구,boarding,daily,2026-01-04,1.132,0.85,9373.0,8281.0,not_significant,0.0,0,,daily
+TRF_연세대_2023,transfer_exam,연세대 2023학년도 transfer_exam,신촌,boarding,daily,2022-12-18,1.129,2.37,28084.0,24866.0,not_significant,0.0,0,,daily
+TRF_건국대_2025,transfer_exam,건국대 2025학년도 transfer_exam,건대입구,boarding,daily,2024-12-27,1.119,2.32,63601.0,56827.5,not_significant,0.0,0,,daily
+TRF_홍익대_2026,transfer_exam,홍익대 2026학년도 transfer_exam,상수,boarding,daily,2026-01-02,1.119,1.47,13545.0,12101.5,not_significant,0.0,0,,daily
+TRF_홍익대_2024,transfer_exam,홍익대 2024학년도 transfer_exam,상수,boarding,daily,2024-01-05,1.066,0.8,11958.0,11220.0,not_significant,0.0,0,,daily
+TRF_연세대_2024,transfer_exam,연세대 2024학년도 transfer_exam,신촌,boarding,daily,2023-12-23,1.06,0.51,38105.0,35963.0,not_significant,0.0,0,,daily
+TRF_건국대_2024,transfer_exam,건국대 2024학년도 transfer_exam,건대입구,alighting,daily,2023-12-28,1.052,2.15,57920.0,55031.5,not_significant,0.0,0,,daily
+TRF_홍익대_2025,transfer_exam,홍익대 2025학년도 transfer_exam,상수,boarding,daily,2025-01-03,1.048,0.59,12290.0,11732.5,not_significant,0.0,0,,daily
+TRF_건국대_2023,transfer_exam,건국대 2023학년도 transfer_exam,건대입구,alighting,daily,2022-12-23,1.023,0.82,61013.0,59616.0,not_significant,0.0,0,,daily
+TRF_성균관대_2024,transfer_exam,성균관대 2024학년도 transfer_exam,혜화,boarding,daily,2024-01-06,1.021,0.61,37978.0,37211.0,not_significant,0.0,0,,daily
+TRF_성균관대_2023,transfer_exam,성균관대 2023학년도 transfer_exam,혜화,boarding,daily,2023-01-07,0.985,-0.21,34871.0,35401.0,not_significant,0.0,0,,daily
+TRF_성균관대_2025,transfer_exam,성균관대 2025학년도 transfer_exam,혜화,boarding,daily,2025-01-04,0.936,-0.79,35767.0,38203.0,not_significant,0.0,0,,daily
+TRF_한양대_2024,transfer_exam,한양대 2024학년도 transfer_exam,한양대,boarding,daily,2024-01-13,0.922,-0.27,4325.0,4691.0,not_significant,0.0,0,,daily
+TRF_성균관대_2026,transfer_exam,성균관대 2026학년도 transfer_exam,혜화,boarding,daily,2026-01-03,0.882,-1.57,34355.0,38961.0,not_significant,0.0,0,,daily

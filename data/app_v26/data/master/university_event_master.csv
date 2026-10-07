@@ -1,0 +1,72 @@
+﻿event_id,event_type,university,academic_year,exam_start_date,exam_end_date,n_days,impact_stations,station_impact_level,confidence,verified_effect,is_supplementary,note
+ESSAY_연세대_2023,essay,연세대,2023,2022-10-01,2022-10-01,1,신촌,strong,A-/B,confirmed,0,
+ESSAY_홍익대_2023,essay,홍익대,2023,2022-10-08,2022-10-09,2,홍대입구;상수,conditional,B,not_verified,0,2024·2025학년도는 불꽃축제와 날짜 충돌 → 교란요인 반드시 분리
+ESSAY_성균관대_2023,essay,성균관대,2023,2022-11-19,2022-11-20,2,혜화,strong,B,confirmed,0,
+ESSAY_건국대_2023,essay,건국대,2023,2022-11-19,2022-11-19,1,건대입구,conditional,B,confirmed,0,
+ESSAY_숙명여대_2023,essay,숙명여대,2023,2022-11-19,2022-11-20,2,숙대입구,strong,B,confirmed,0,
+ESSAY_동국대_2023,essay,동국대,2023,2022-11-20,2022-11-20,1,동대입구,strong,B,confirmed,0,
+ESSAY_한양대_2023,essay,한양대,2023,2022-11-26,2022-11-27,2,한양대,very_strong,B,confirmed_strong,0,
+ESSAY_이화여대_2023,essay,이화여대,2023,2022-11-26,2022-11-27,2,이대,strong,B,confirmed,0,
+ESSAY_연세대_2024,essay,연세대,2024,2023-09-23,2023-09-23,1,신촌,strong,A-/B,not_verified,0,
+ESSAY_홍익대_2024,essay,홍익대,2024,2023-10-07,2023-10-08,2,홍대입구;상수,conditional,B,not_verified,0,2024·2025학년도는 불꽃축제와 날짜 충돌 → 교란요인 반드시 분리
+ESSAY_성균관대_2024,essay,성균관대,2024,2023-11-18,2023-11-19,2,혜화,strong,B,not_verified,0,
+ESSAY_건국대_2024,essay,건국대,2024,2023-11-18,2023-11-18,1,건대입구,conditional,B,not_verified,0,
+ESSAY_숙명여대_2024,essay,숙명여대,2024,2023-11-18,2023-11-19,2,숙대입구,strong,B,not_verified,0,
+ESSAY_동국대_2024,essay,동국대,2024,2023-11-19,2023-11-19,1,동대입구,strong,B,confirmed,0,
+ESSAY_한양대_2024,essay,한양대,2024,2023-11-25,2023-11-26,2,한양대,very_strong,B,confirmed_strong,0,
+ESSAY_이화여대_2024,essay,이화여대,2024,2023-11-25,2023-11-26,2,이대,strong,B,not_verified,0,
+ESSAY_홍익대_2025,essay,홍익대,2025,2024-10-05,2024-10-06,2,홍대입구;상수,conditional,B,not_verified,0,2024·2025학년도는 불꽃축제와 날짜 충돌 → 교란요인 반드시 분리
+ESSAY_연세대_2025,essay,연세대,2025,2024-10-12,2024-10-12,1,신촌,strong,A-/B,not_verified,0,
+ESSAY_고려대_2025,essay,고려대,2025,2024-11-16,2024-11-17,2,고려대;안암,conditional,B,not_verified,0,
+ESSAY_성균관대_2025,essay,성균관대,2025,2024-11-16,2024-11-17,2,혜화,strong,B,not_verified,0,
+ESSAY_건국대_2025,essay,건국대,2025,2024-11-16,2024-11-16,1,건대입구,conditional,B,not_verified,0,
+ESSAY_숙명여대_2025,essay,숙명여대,2025,2024-11-16,2024-11-17,2,숙대입구,strong,B,not_verified,0,
+ESSAY_동국대_2025,essay,동국대,2025,2024-11-17,2024-11-17,1,동대입구,strong,B,not_verified,0,
+ESSAY_한양대_2025,essay,한양대,2025,2024-11-23,2024-11-24,2,한양대,very_strong,B,not_verified,0,
+ESSAY_이화여대_2025,essay,이화여대,2025,2024-11-23,2024-11-24,2,이대,strong,B,not_verified,0,
+ESSAY_연세대_2025_SUP,essay,연세대,2025,2024-12-08,2024-12-08,1,신촌,strong,B,not_verified,1,자연계열 추가시험 — 보조 row
+ESSAY_연세대_2026,essay,연세대,2026,2025-09-27,2025-09-27,1,신촌,strong,A-/B,not_verified,0,
+ESSAY_홍익대_2026,essay,홍익대,2026,2025-10-18,2025-10-19,2,홍대입구;상수,conditional,B,not_verified,0,2024·2025학년도는 불꽃축제와 날짜 충돌 → 교란요인 반드시 분리
+ESSAY_고려대_2026,essay,고려대,2026,2025-11-15,2025-11-16,2,고려대;안암,conditional,B,not_verified,0,
+ESSAY_성균관대_2026,essay,성균관대,2026,2025-11-15,2025-11-16,2,혜화,strong,B,not_verified,0,
+ESSAY_건국대_2026,essay,건국대,2026,2025-11-15,2025-11-15,1,건대입구,conditional,B,not_verified,0,
+ESSAY_숙명여대_2026,essay,숙명여대,2026,2025-11-15,2025-11-16,2,숙대입구,strong,B,not_verified,0,
+ESSAY_동국대_2026,essay,동국대,2026,2025-11-16,2025-11-16,1,동대입구,strong,B,not_verified,0,
+ESSAY_한양대_2026,essay,한양대,2026,2025-11-22,2025-11-23,2,한양대,very_strong,B,not_verified,0,
+ESSAY_이화여대_2026,essay,이화여대,2026,2025-11-22,2025-11-23,2,이대,strong,B,not_verified,0,
+TRF_고려대_2023,transfer_exam,고려대,2023,2022-12-17,2022-12-17,1,고려대;안암,conditional,B,confirmed,0,2023·2024는 오전 자연/오후 인문; 2025·2026은 오전 인문/오후 자연
+TRF_숙명여대_2023,transfer_exam,숙명여대,2023,2022-12-17,2022-12-17,1,숙대입구,strong,B,not_verified,0,인문/자연 같은 날로 관리
+TRF_연세대_2023,transfer_exam,연세대,2023,2022-12-18,2022-12-18,1,신촌,strong,B,not_verified,0,전 모집단위 대체로 동일 시간대; 음악대학 등 예외 제외
+TRF_이화여대_2023,transfer_exam,이화여대,2023,2022-12-18,2022-12-18,1,이대,strong,B,not_verified,0,2026은 인문계열 오전; 자연계열 오후
+TRF_건국대_2023,transfer_exam,건국대,2023,2022-12-23,2022-12-23,1,건대입구,conditional,B,not_verified,0,2026은 인문/예체능 오전; 자연 오후
+TRF_홍익대_2023,transfer_exam,홍익대,2023,2023-01-06,2023-01-06,1,홍대입구;상수,conditional,B,not_verified,0,서울캠퍼스 인문/자연 지원자 대상
+TRF_성균관대_2023,transfer_exam,성균관대,2023,2023-01-07,2023-01-07,1,혜화,strong,B,not_verified,0,인문/자연 같은 날; 오전/점심 시간대 분리
+TRF_한양대_2023,transfer_exam,한양대,2023,2023-01-07,2023-01-07,1,한양대,very_strong,B,negative_observed,0,2026은 자연 14:00; 인문·간호 야간 17:00
+TRF_동국대_2023,transfer_exam,동국대,2023,2023-01-08,2023-01-08,1,동대입구,strong,B,confirmed,0,인문/자연 같은 날로 관리
+TRF_고려대_2024,transfer_exam,고려대,2024,2023-12-16,2023-12-16,1,고려대;안암,conditional,B,confirmed,0,2023·2024는 오전 자연/오후 인문; 2025·2026은 오전 인문/오후 자연
+TRF_숙명여대_2024,transfer_exam,숙명여대,2024,2023-12-16,2023-12-16,1,숙대입구,strong,B,confirmed,0,인문/자연 같은 날로 관리
+TRF_이화여대_2024,transfer_exam,이화여대,2024,2023-12-17,2023-12-17,1,이대,strong,B,not_verified,0,2026은 인문계열 오전; 자연계열 오후
+TRF_연세대_2024,transfer_exam,연세대,2024,2023-12-23,2023-12-23,1,신촌,strong,B,weak,0,전 모집단위 대체로 동일 시간대; 음악대학 등 예외 제외
+TRF_건국대_2024,transfer_exam,건국대,2024,2023-12-28,2023-12-28,1,건대입구,conditional,B,weak,0,2026은 인문/예체능 오전; 자연 오후
+TRF_홍익대_2024,transfer_exam,홍익대,2024,2024-01-05,2024-01-05,1,홍대입구;상수,conditional,B,weak,0,서울캠퍼스 인문/자연 지원자 대상
+TRF_성균관대_2024,transfer_exam,성균관대,2024,2024-01-06,2024-01-06,1,혜화,strong,B,weak,0,인문/자연 같은 날; 오전/점심 시간대 분리
+TRF_동국대_2024,transfer_exam,동국대,2024,2024-01-07,2024-01-07,1,동대입구,strong,B,confirmed,0,인문/자연 같은 날로 관리
+TRF_한양대_2024,transfer_exam,한양대,2024,2024-01-13,2024-01-13,1,한양대,very_strong,B,negative_observed,0,2026은 자연 14:00; 인문·간호 야간 17:00
+TRF_고려대_2025,transfer_exam,고려대,2025,2024-12-14,2024-12-14,1,고려대;안암,conditional,B,not_verified,0,2023·2024는 오전 자연/오후 인문; 2025·2026은 오전 인문/오후 자연
+TRF_숙명여대_2025,transfer_exam,숙명여대,2025,2024-12-14,2024-12-14,1,숙대입구,strong,B,not_verified,0,인문/자연 같은 날로 관리
+TRF_이화여대_2025,transfer_exam,이화여대,2025,2024-12-15,2024-12-15,1,이대,strong,B,not_verified,0,2026은 인문계열 오전; 자연계열 오후
+TRF_연세대_2025,transfer_exam,연세대,2025,2024-12-21,2024-12-21,1,신촌,strong,B,not_verified,0,전 모집단위 대체로 동일 시간대; 음악대학 등 예외 제외
+TRF_건국대_2025,transfer_exam,건국대,2025,2024-12-27,2024-12-27,1,건대입구,conditional,B,not_verified,0,2026은 인문/예체능 오전; 자연 오후
+TRF_홍익대_2025,transfer_exam,홍익대,2025,2025-01-03,2025-01-03,1,홍대입구;상수,conditional,B,not_verified,0,서울캠퍼스 인문/자연 지원자 대상
+TRF_성균관대_2025,transfer_exam,성균관대,2025,2025-01-04,2025-01-04,1,혜화,strong,B,not_verified,0,인문/자연 같은 날; 오전/점심 시간대 분리
+TRF_동국대_2025,transfer_exam,동국대,2025,2025-01-05,2025-01-05,1,동대입구,strong,B,not_verified,0,인문/자연 같은 날로 관리
+TRF_한양대_2025,transfer_exam,한양대,2025,2025-01-11,2025-01-11,1,한양대,very_strong,B,not_verified,0,2026은 자연 14:00; 인문·간호 야간 17:00
+TRF_고려대_2026,transfer_exam,고려대,2026,2025-12-13,2025-12-13,1,고려대;안암,conditional,B,not_verified,0,2023·2024는 오전 자연/오후 인문; 2025·2026은 오전 인문/오후 자연
+TRF_숙명여대_2026,transfer_exam,숙명여대,2026,2025-12-13,2025-12-13,1,숙대입구,strong,B,not_verified,0,인문/자연 같은 날로 관리
+TRF_이화여대_2026,transfer_exam,이화여대,2026,2025-12-14,2025-12-14,1,이대,strong,B,not_verified,0,2026은 인문계열 오전; 자연계열 오후
+TRF_연세대_2026,transfer_exam,연세대,2026,2025-12-20,2025-12-20,1,신촌,strong,B,not_verified,0,전 모집단위 대체로 동일 시간대; 음악대학 등 예외 제외
+TRF_건국대_2026,transfer_exam,건국대,2026,2025-12-24,2025-12-24,1,건대입구,conditional,B,not_verified,0,2026은 인문/예체능 오전; 자연 오후
+TRF_홍익대_2026,transfer_exam,홍익대,2026,2026-01-02,2026-01-02,1,홍대입구;상수,conditional,B,not_verified,0,서울캠퍼스 인문/자연 지원자 대상
+TRF_성균관대_2026,transfer_exam,성균관대,2026,2026-01-03,2026-01-03,1,혜화,strong,B,not_verified,0,인문/자연 같은 날; 오전/점심 시간대 분리
+TRF_동국대_2026,transfer_exam,동국대,2026,2026-01-04,2026-01-04,1,동대입구,strong,B,not_verified,0,인문/자연 같은 날로 관리
+TRF_한양대_2026,transfer_exam,한양대,2026,2026-01-10,2026-01-10,1,한양대,very_strong,B,not_verified,0,2026은 자연 14:00; 인문·간호 야간 17:00

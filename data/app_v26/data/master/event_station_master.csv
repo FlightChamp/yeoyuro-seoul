@@ -1,0 +1,28 @@
+﻿event_station_id,station_name,category,sub_category,impact_level,note
+ES_001,종합운동장,stadium,large,strong,대형 경기장/공연
+ES_002,월드컵경기장,stadium,large,strong,대형 경기장/공연
+ES_003,올림픽공원,stadium,large,strong,대형 공연장(체조경기장 등)
+ES_004,한강진,stadium,medium_small,conditional,블루스퀘어 등 중소형 공연
+ES_005,광나루,stadium,medium_small,conditional,중소형 공연/행사
+ES_006,종각,assembly,gwanghwamun_area,strong,광화문권역 집회/행사
+ES_007,시청,assembly,gwanghwamun_area,strong,광화문권역 집회/행사
+ES_008,광화문,assembly,gwanghwamun_area,strong,광화문권역 집회/행사
+ES_009,경복궁,assembly,gwanghwamun_area,conditional,광화문권역 집회/행사
+ES_010,종각,new_year_bell,anchor,night_strong,제야의 종 — 야간 시간대만 강함
+ES_011,여의나루,festival,cherry_blossom,very_strong,여의도 봄꽃축제
+ES_012,여의나루,festival,fireworks,very_strong,서울세계불꽃축제
+ES_013,이태원,commercial,halloween_proxy,conditional,상권 혼잡 proxy
+ES_014,홍대입구,commercial,halloween_proxy,conditional,상권 혼잡 proxy
+ES_015,삼성,mice,exhibition,strong,코엑스 전시/MICE
+ES_016,학여울,mice,exhibition,conditional,SETEC 전시
+ES_017,신촌,university,연세대,strong,
+ES_018,고려대,university,고려대,conditional,high_noise
+ES_019,안암,university,고려대,conditional,high_noise
+ES_020,혜화,university,성균관대,strong,
+ES_021,한양대,university,한양대,very_strong,단일 접근역 대표 사례
+ES_022,이대,university,이화여대,strong,
+ES_023,건대입구,university,건국대,conditional,high_noise(환승역)
+ES_024,동대입구,university,동국대,strong,
+ES_025,홍대입구,university,홍익대,conditional,high_noise
+ES_026,상수,university,홍익대,conditional,high_noise
+ES_027,숙대입구,university,숙명여대,strong,

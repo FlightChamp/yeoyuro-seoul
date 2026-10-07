@@ -1,0 +1,5 @@
+﻿branch_id,station_name,line_id,branch_type,description
+BR_01,성수,2,seongsu_branch,2호선 본선과 성수지선 분기
+BR_02,신도림,2,sinjeong_branch,2호선 본선과 신정지선 분기
+BR_03,강동,5,macheon_branch,5호선 하남검단산 방면과 마천 방면 분기
+BR_04,응암,6,eungam_loop,6호선 응암순환 진입점 (단방향 순환)

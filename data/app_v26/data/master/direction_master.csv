@@ -1,0 +1,23 @@
+﻿line_id,branch_code,direction_raw,direction,toward,rule,note
+1,main,상선,up,소요산 방면,코레일 표준,
+1,main,하선,down,인천/신창 방면,코레일 표준,
+2,main,내선,inner,역번호 증가,실측 확정,시청->을지로입구 방향
+2,main,외선,outer,역번호 감소,실측 확정,사당->강남 방향
+2,seongsu_branch,내선,inner,성수(본선) 방면,실측 확정,신설동 외선=0. 오전 피크 내선 우세(용답 53.3 vs 11.5)
+2,seongsu_branch,외선,outer,신설동 방면,실측 확정,오후 피크 외선 우세(성수 9002 외선 73)
+2,sinjeong_branch,외선,outer,신도림(본선) 방면,실측 확정,까치산 내선=0. 오전 피크 외선 우세(도림천 86.0 vs 22.8)
+2,sinjeong_branch,내선,inner,까치산 방면,실측 확정,오후 피크 내선 우세(도림천 73.2)
+3,main,상선,up,대화 방면,코레일 표준,
+3,main,하선,down,오금 방면,코레일 표준,
+4,main,상선,up,불암산 방면,코레일 표준,
+4,main,하선,down,남태령/오이도 방면,코레일 표준,
+5,main,상선,up,방화 방면,코레일 표준,
+5,main,하선,down,하남검단산 방면,코레일 표준,
+5,macheon_branch,하선,down,마천 방면,실측 확정,강동(마천) 9005 는 하선만 존재 -> 단방향 edge
+6,main,상선,up,응암 방면,코레일 표준,
+6,main,하선,down,신내 방면,코레일 표준,
+6,eungam_loop,하선,down,응암순환(단방향),실측 확정,역촌·불광·독바위·연신내·구산·응암S 는 하선만 존재
+7,main,상선,up,장암 방면,코레일 표준,
+7,main,하선,down,온수 방면,코레일 표준,
+8,main,상선,up,암사역사공원 방면,코레일 표준,
+8,main,하선,down,모란 방면,코레일 표준,

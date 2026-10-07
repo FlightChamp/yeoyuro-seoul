@@ -1,0 +1,12 @@
+﻿line_id,line_name,branch_code,branch_name,start_station,end_station,in_scope,note
+1,1호선,main,본선,서울역,청량리,1,프로젝트 구간: 서울역-청량리
+2,2호선,main,본선(순환),시청,시청,1,순환선 전구간
+2,2호선,seongsu_branch,성수지선,성수,신설동,1,분기점 성수
+2,2호선,sinjeong_branch,신정지선,신도림,까치산,1,분기점 신도림
+3,3호선,main,본선,지축,오금,1,
+4,4호선,main,본선,불암산,남태령,1,
+5,5호선,main,본선,방화,하남검단산,1,
+5,5호선,macheon_branch,마천지선,강동,마천,1,분기점 강동
+6,6호선,main,본선,응암,신내,1,응암순환 구간 주의
+7,7호선,main,본선,장암,온수,1,온수 이서(인천구간)는 범위 밖
+8,8호선,main,본선,암사역사공원,모란,1,
