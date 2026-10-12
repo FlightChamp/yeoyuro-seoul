@@ -1354,6 +1354,118 @@ def render_time_shift_advice(ts):
             hide_index=True, width="stretch")
 
 
+# --------------------------------------------------------------------------
+# v2 Counterfactual card — "지금 / 경로 변경 / 시간 조정 / 둘 다"
+#   판정은 v2.3 사전 등록 기준(T1)과 같은 classify() 를 쓴다 (yeoyuro_v2/counterfactual.py).
+#   기준은 시간 진행형 최속 경로라, 위 '추천 경로'(모드에 따라 다를 수 있음)와 다를 수 있다.
+# --------------------------------------------------------------------------
+@st.cache_resource(show_spinner=False)
+def get_td_router(day_type: str, query_date):
+    import station_routing as sr
+    from yeoyuro_v2.time_dependent import TDRouter
+    mod = sr.load_scorer_class(ROOT)
+    from yeoyuro_v2.line9 import register_v1_directions
+    register_v1_directions(mod)
+    return TDRouter(DATA_ROOT, mod, sr, load_display_master(), day_type, policy="step", k=5, multi_bin=True,
+                    query_date=query_date)
+
+
+@st.cache_data(show_spinner=False, max_entries=200)
+def counterfactual_card_data(o: str, d: str, day_type: str, hhmm: str, query_date: str, stamp: float):
+    """캐시 가능한 dict 로 돌려준다. stamp = 노선도·데이터 갱신 시각 (캐시 구분)."""
+    from dataclasses import asdict
+    from yeoyuro_v2.counterfactual import counterfactual
+    from yeoyuro_v2.time_dependent import parse_hhmm
+    c = counterfactual(get_td_router(day_type, query_date), o, d, parse_hhmm(hhmm))
+    if c is None:
+        return None
+    for k in ("now", "route", "time", "joint"):
+        c[k] = asdict(c[k])
+    return c
+
+
+CF_TONE = {"calm": "success", "route_shiftable": "info", "time_shiftable": "info",
+           "dual": "info", "structural": "warning", "invalid": "warning"}
+CF_ADVICE = {
+    "calm": "지금 출발해도 기대 혼잡도 100% 이상 구간이 거의 없습니다. 경로나 시간을 바꿀 필요가 크지 않습니다.",
+    "route_shiftable": "**다른 경로**로 가면 혼잡 노출이 의미 있게 줄어듭니다. 출발 시각을 바꾸는 것보다 효과적입니다.",
+    "time_shiftable": "같은 경로라도 **출발 시각을 조금 옮기면** 혼잡 노출이 의미 있게 줄어듭니다.",
+    "dual": "경로를 바꾸거나 시각을 옮기거나, **둘 중 어느 쪽으로도** 혼잡 노출을 줄일 수 있습니다.",
+    "structural": ("경로만 바꾸거나 출발을 ±60분 안에서 옮기는 것만으로는 혼잡 노출이 충분히 줄지 않습니다. "
+                   "**개인의 선택만으로 피하기 어려운 구조적 혼잡**에 가깝습니다."),
+    "invalid": "출발·도착 시각이 혼잡 자료가 있는 시간대(05:30~01:00) 밖이라 판정하지 않습니다.",
+}
+
+
+def _path_lines(path: list) -> str:
+    """노드 경로 → '7호선 상봉→건대입구 · 2호선 건대입구→잠실' 같은 구간 요약."""
+    segs = []
+    for n in path:
+        line, rest = n.split("_", 1)
+        st_ = rest.split("@")[0]
+        if not segs or segs[-1][0] != line:
+            segs.append([line, st_, st_])
+        else:
+            segs[-1][2] = st_
+    return " · ".join("%s %s→%s" % (line_label(l), a, b) for l, a, b in segs if a != b) or "—"
+
+
+def _cf_cell(col, title, opt, base, highlight=False):
+    with col.container(border=True):
+        col_title = ("✅ " if opt["ok"] and opt["kind"] != "now" else ("" if opt["kind"] == "now" else "✖ ")) + title
+        st.markdown("**%s**" % col_title)
+        if opt["actual"] is None:
+            st.caption(opt["reason"] or "대안 없음")
+            return
+        if opt["kind"] != "now":
+            sub = []
+            if opt["shift_min"]:
+                sub.append("**%s 출발** (%s)" % (opt["depart"], _shift_label(opt["shift_min"])))
+            elif opt["kind"] in ("route", "joint"):
+                sub.append("%s 출발" % opt["depart"])
+            st.markdown(" · ".join(sub) if sub else "같은 시각")
+        else:
+            st.markdown("**%s 출발**" % opt["depart"])
+        same = opt["kind"] == "now"
+        d = lambda k: None if same else opt[k] - base[k]
+        st.metric("100%+ 혼잡 노출", "%.0f분" % opt["exp100"],
+                  None if same else "%+.0f분" % d("exp100"), delta_color="inverse")
+        st.metric("예상 소요시간", "%.0f분" % opt["actual"],
+                  None if same else "%+.0f분" % d("actual"), delta_color="inverse")
+        st.metric("최대 기대 혼잡도", "%.0f%%" % opt["max_cong"],
+                  None if same else "%+.0f%%p" % d("max_cong"), delta_color="inverse")
+        st.caption("환승 %d회 · %s" % (opt["transfers"], _path_lines(opt["path"])))
+        if not opt["ok"] and opt["reason"]:
+            st.caption("가장 가까운 후보도 기준 미달: **%s**" % opt["reason"])
+
+
+def render_counterfactual(o, d_):
+    day_type, hhmm, qd = _query_args()
+    try:
+        with st.spinner("경로를 바꾸면, 시간을 바꾸면 어떻게 되는지 계산하는 중…"):
+            c = counterfactual_card_data(o, d_, day_type, hhmm, qd, ensure_map_fresh())
+    except Exception as e:                                   # noqa: BLE001
+        st.caption("혼잡 진단을 계산하지 못했습니다 (%s)." % type(e).__name__)
+        return
+    if c is None:
+        return
+    st.subheader("혼잡 진단 — 경로를 바꿀까, 시간을 바꿀까?")
+    getattr(st, CF_TONE[c["type"]])("**%s** · %s" % (c["type_ko"], CF_ADVICE[c["type"]]))
+    if c["type"] in ("calm", "invalid"):
+        return
+    base = c["now"]
+    cols = st.columns(4)
+    _cf_cell(cols[0], "지금 (최속 경로)", base, base)
+    _cf_cell(cols[1], "경로 변경", c["route"], base)
+    _cf_cell(cols[2], "시간 조정 (±60분)", c["time"], base)
+    _cf_cell(cols[3], "경로 + 시간 함께 (참고)", c["joint"], base)
+    st.caption(
+        "판정 기준 (v2.3 사전 등록 `%s`): 100%%+ 혼잡 노출이 **5분 이상 또는 절반 이상** 줄어야 '효과 있음'. "
+        "경로 변경은 소요 +15분·체감 +5분·환승 +1회 이내, 시간 조정은 같은(또는 거의 같은) 경로로 ±60분 안·소요 +5분 이내. "
+        "'경로 + 시간 함께'는 주 판정에 쓰지 않는 참고 선택지입니다. 기준은 위 추천 경로가 아니라 같은 시각의 최속 경로입니다."
+        % c["threshold_set_id"])
+
+
 def _render_route_result(result, fallback, o, d_):
 
     if fallback:
@@ -1365,6 +1477,9 @@ def _render_route_result(result, fallback, o, d_):
     route_card("%s 모드 추천" % MODE_LABEL[st.session_state["q_mode"]], rec, o, d_,
                show_profile=True, time_alt=result.get("time_alternative"),
                profile_key="profile_recommended")
+
+    if not fallback:
+        render_counterfactual(o, d_)
 
     if alt:
         st.subheader("최단경로 대비 쾌적 대안")

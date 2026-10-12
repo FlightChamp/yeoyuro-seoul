@@ -143,18 +143,32 @@ def test_live_workbook_follows_nodes_and_keeps_label_offsets(tmp_path):
     ws, lb = wb["Station_Visual_Nodes"], wb["Station_Labels"]
     hv = {c.value: c.column for c in ws[1] if c.value}
     hl = {c.value: c.column for c in lb[1] if c.value}
+    # 현재 좌표에 의존하지 않도록: 흑석 점을 (2129, y0) 로 옮기고, 역명·클릭 칸은 비워 자동(점 평균 + 이동량)으로 둔다
+    hc = {c.value: c.column for c in wb["Station_Click_Areas"][1] if c.value}
+    y0 = None
     for r in range(2, ws.max_row + 1):
         if ws.cell(r, hv["visual_node_id"]).value == "흑석_L9":
             ws.cell(r, hv["x_px"], 2129)
+            y0 = int(ws.cell(r, hv["y_px"]).value)
     for r in range(2, lb.max_row + 1):
         if lb.cell(r, hl["station_key"]).value == "흑석":
+            lb.cell(r, hl["label_dx"], 0)
             lb.cell(r, hl["label_dy"], 50)
+            lb.cell(r, hl["label_x_px"]).value = None
+            lb.cell(r, hl["label_y_px"]).value = None
+    ca = wb["Station_Click_Areas"]
+    for r in range(2, ca.max_row + 1):
+        if ca.cell(r, hc["station_key"]).value == "흑석":
+            ca.cell(r, hc["click_dx"], 0)
+            ca.cell(r, hc["click_dy"], 0)
+            ca.cell(r, hc["click_x_px"]).value = None
+            ca.cell(r, hc["click_y_px"]).value = None
     wb.save(p)
     before = p.stat().st_mtime
     m = materialize(p)
     L = m["Station_Labels"].set_index("station_key")
     C = m["Station_Click_Areas"].set_index("station_key")
-    assert (L.at["흑석", "label_x_px"], L.at["흑석", "label_y_px"]) == (2129, 1800)
-    assert (C.at["흑석", "click_x_px"], C.at["흑석", "click_y_px"]) == (2129, 1750)
+    assert (L.at["흑석", "label_x_px"], L.at["흑석", "label_y_px"]) == (2129, y0 + 50)
+    assert (C.at["흑석", "click_x_px"], C.at["흑석", "click_y_px"]) == (2129, y0)
     assert all("흑석" not in ks for _, _, ks in m["_clash"])
     assert p.stat().st_mtime == before                                 # 읽기 전용
