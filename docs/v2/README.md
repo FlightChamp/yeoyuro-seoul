@@ -20,6 +20,7 @@
 | v2_roadmap.md | v2.0 | 예정 |
 | [line9.md](line9.md) | v2.6 | Phase A 완료 |
 | [counterfactual.md](counterfactual.md) | Release | 초판 |
+| [app_ia.md](app_ia.md) | Release | 초판 (앱 IA 리팩토링) |
 | [preregistration_v26.md](preregistration_v26.md) | v2.6 | 고정 (Phase B 전) |
 | [exposure_metrics.md](exposure_metrics.md) | v2.1 | 초판 |
 | [preregistration_v23.md](preregistration_v23.md) | v2.3 | 고정 |

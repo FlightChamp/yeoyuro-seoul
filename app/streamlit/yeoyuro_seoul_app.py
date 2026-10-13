@@ -489,8 +489,81 @@ DEFAULTS = {
 for k, v in DEFAULTS.items():
     st.session_state.setdefault(k, v)
 
-MENUS = ["쾌적 경로 찾기", "시간 분산", "혼잡 분산 지도", "이벤트 시나리오", "시간대별 혼잡 조회", "빠른 환승 안내",
-         "이벤트 혼잡 경보", "프로젝트 소개 및 검증 리포트"]
+# --------------------------------------------------------------------------
+# 정보 구조 (v2 IA 리팩토링, D-057)
+#   사이드바 1차 메뉴 4개 + 각 메뉴 안의 subview.
+#   subview 는 st.tabs 가 아니라 session_state + st.segmented_control 로 제어한다
+#   (st.tabs 는 모든 탭을 매번 실행하고, 코드에서 특정 탭으로 전환할 수 없다).
+# --------------------------------------------------------------------------
+NAV = {"경로 추천": ["경로", "시간 바꿔 보기"],
+       "혼잡 탐색": ["역·노선별", "네트워크 지도"],
+       "이벤트 분석": ["시나리오", "과거 데이터"],
+       "프로젝트 & 검증": []}
+PAGES = list(NAV)
+VIEW_KEY = {"경로 추천": "view_route", "혼잡 탐색": "view_explore", "이벤트 분석": "view_event"}
+# 예전 메뉴 이름(북마크·테스트·이전 세션) → (페이지, subview)
+LEGACY_MENU = {"쾌적 경로 찾기": ("경로 추천", "경로"),
+               "시간 분산": ("경로 추천", "시간 바꿔 보기"),
+               "혼잡 분산 지도": ("혼잡 탐색", "네트워크 지도"),
+               "시간대별 혼잡 조회": ("혼잡 탐색", "역·노선별"),
+               "이벤트 시나리오": ("이벤트 분석", "시나리오"),
+               "이벤트 혼잡 경보": ("이벤트 분석", "과거 데이터"),
+               "빠른 환승 안내": ("경로 추천", "경로"),        # 독립 메뉴 제거 → 경로 결과의 환승 구간에 포함
+               "프로젝트 소개 및 검증 리포트": ("프로젝트 & 검증", None),
+               "노선도 편집": ("노선도 편집", None)}
+MENUS = PAGES                     # 하위 호환 (예전 코드가 MENUS 를 참조)
+
+RESULT_NOTE = "ⓘ 과거 패턴 기반 기대값 · 실시간 정보 아님"
+STRUCTURAL_LABEL = "회피 어려움"
+STRUCTURAL_HELP = "정해진 경로·시간 대안 범위에서 개선안이 발견되지 않은 이동"
+
+# 공유 입력: canonical(일반 key, source of truth) ↔ widget key.
+#   widget → canonical : 각 위젯의 on_change
+#   canonical → widget : 페이지/subview 이동 시점(_sync_widgets_from_canonical)과,
+#                        위젯 state 가 없을 때의 setdefault 시드
+#   매 렌더마다 위젯 값을 덮어쓰지 않는다 (사용자가 막 바꾼 값을 지우지 않기 위해).
+WIDGET_CANON = {"sel_origin": "origin_station_key", "sel_dest": "destination_station_key",
+                "w_date": "q_date", "w_time": "q_time", "w_mode": "q_mode",
+                "ts_origin": "origin_station_key", "ts_dest": "destination_station_key",
+                "ts_date": "q_date", "ts_time": "q_time"}
+
+
+def _w2c(widget_key: str):
+    """on_change: 위젯 값 → canonical."""
+    st.session_state[WIDGET_CANON[widget_key]] = st.session_state.get(widget_key)
+
+
+def _sync_widgets_from_canonical():
+    """이동 시점에만 canonical → 위젯. 콜백 안에서 부르므로 위젯 생성 전이다."""
+    for w, c in WIDGET_CANON.items():
+        v = st.session_state.get(c)
+        if v is None and w in ("ts_origin", "ts_dest", "w_date", "w_time", "w_mode", "ts_date", "ts_time"):
+            st.session_state.pop(w, None)          # 다음 렌더에서 기본값으로 시드
+        else:
+            st.session_state[w] = v
+
+
+def _seed(widget_key: str, default=None):
+    """위젯 state 가 없을 때만 canonical 값으로 채운다."""
+    if widget_key not in st.session_state:
+        v = st.session_state.get(WIDGET_CANON[widget_key])
+        st.session_state[widget_key] = default if v is None else v
+
+
+def _go(page: str, view: str | None = None):
+    """사이드바·CTA·링크 버튼 공통 이동 (on_click 콜백)."""
+    st.session_state["nav_page"] = page
+    if view and page in VIEW_KEY:
+        st.session_state[VIEW_KEY[page]] = view
+    _sync_widgets_from_canonical()
+
+
+def _query_sig():
+    """경로 결과가 어떤 입력으로 계산됐는지 구분하는 서명. 하나라도 바뀌면 결과는 stale."""
+    s = st.session_state
+    t = s.get("q_time")
+    return (s.get("origin_station_key"), s.get("destination_station_key"), str(s.get("q_date")),
+            None if t is None else "%02d:%02d" % (t.hour, t.minute), s.get("q_mode"))
 
 
 # --------------------------------------------------------------------------
@@ -695,7 +768,7 @@ def _set_endpoint(kind: str, key: str):
 
 def _reset_all():
     for k in ("origin_station_key", "destination_station_key",
-              "selected_station_key", "route_result", "route_fallback"):
+              "selected_station_key", "route_result", "route_fallback", "route_query", "ts_handoff"):
         st.session_state[k] = None
     for k in ("sel_origin", "sel_dest"):
         st.session_state[k] = None
@@ -823,9 +896,72 @@ TIMELINE_CSS = """
 """
 
 
+def _tip_pos(car, door):
+    """호차-문 을 '2-1' 형태로 합친다 (환승 상세 표)."""
+    if pd.isna(car) or pd.isna(door):
+        return "-"
+
+    def _n(v):
+        try:
+            return str(int(float(v)))
+        except (TypeError, ValueError):
+            return str(v).strip()
+    c, d = _n(car), _n(door)
+    if c.startswith("모든") or d.startswith("모든"):
+        return "%s %s" % (c, d)
+    return "%s-%s" % (c, d)
+
+
+def transfer_detail(stn: str, fl: str, tl: str):
+    """환승 구간 '자세히 보기' 내용 (예전 '빠른 환승 안내' 화면의 표 + 환승 소요·인원).
+
+    metric 카드를 쓰지 않는다: 경로 결과 화면의 KPI 수를 늘리지 않기 위해서다.
+    """
+    tip = load_mart("transfer_tip_mart")
+    sub3 = None if tip is None else tip[(tip["station_name"] == stn)
+                                        & (tip["from_line"].astype(str) == str(fl))
+                                        & (tip["to_line"].astype(str) == str(tl))]
+    if sub3 is None or sub3.empty:
+        st.caption("이 환승 조합은 원본 자료에 빠른 환승 위치가 없어 안내하지 않습니다.")
+    else:
+        view = pd.DataFrame({
+            "타고 온 방면": sub3["arrive_toward"].values,
+            "하차 위치": [_tip_pos(a, b) for a, b in zip(sub3["alight_car"], sub3["alight_door"])],
+            "갈아탈 방면": sub3["depart_toward"].values,
+            "승차 위치": [_tip_pos(a, b) for a, b in zip(sub3["board_car"], sub3["board_door"])],
+            "환승 소요(분)": np.round(pd.to_numeric(sub3["transfer_time_min"], errors="coerce"), 1).values,
+        })
+        st.table(round1(view).reset_index(drop=True))
+        st.caption("승하차 위치는 호차-문 입니다 (2-1 = 2번째 칸 1번 문). "
+                   "객차별 혼잡도 자료가 없어 환승 동선상 유리한 칸만 안내합니다.")
+    te = load_mart("transfer_edge_mart")
+    if te is not None:
+        row = te[(te["station_name"] == stn) & (te["from_line"].astype(str) == str(fl))
+                 & (te["to_line"].astype(str) == str(tl))]
+        if not row.empty:
+            r = row.iloc[0]
+            parts = ["환승 소요시간 %.1f분" % r["transfer_time_min"]]
+            if pd.notna(r.get("weekday_volume")):
+                parts.append("평일 환승인원 %s명" % f'{int(r["weekday_volume"]):,}')
+            parts.append("환승 페널티 %.1f분" % r["transfer_penalty_min"])
+            st.markdown("  ·  ".join(parts))
+            st.caption("환승 페널티 = 도보 소요시간 + 환승인원 기반 가산(5만 명당 1분, 최대 3분)")
+
+
 def render_timeline(segs):
-    """노선형 타임라인 카드. 사용자에게 내부 id 를 노출하지 않는다."""
+    """노선형 타임라인 카드. 사용자에게 내부 id 를 노출하지 않는다.
+
+    환승 구간마다 빠른 환승 위치·예상 환승 시간을 바로 보여주고, [자세히 보기] 에 방면별 표를 둔다
+    (D-057: '빠른 환승 안내' 독립 메뉴를 경로 결과 안으로 옮김).
+    """
     html = [TIMELINE_CSS, '<div class="mc-tl">']
+
+    def flush():
+        if html:
+            st.markdown("".join(html) + "</div>", unsafe_allow_html=True)
+            html.clear()
+            html.append('<div class="mc-tl">')
+
     for i, sg in enumerate(segs):
         if sg["kind"] == "ride":
             color = LINE_COLORS.get(str(sg["line"]), PRIMARY)
@@ -860,35 +996,44 @@ def render_timeline(segs):
                 next_st = st_list[1] if len(st_list) >= 2 else None
             tip = transfer_tip(sg["at"], sg["from_line"], sg["to_line"], prev_st, next_st)
             tmin, wmin = sg.get("minutes"), sg.get("wait_min")
-            parts = ["🚶 %s → %s"
-                     % (_esc(line_label(sg["from_line"])), _esc(line_label(sg["to_line"])))]
-            if tmin is not None:
-                parts.append("도보 약 %d분" % max(1, round(tmin)))
-            if wmin:
-                parts.append("대기 약 %.0f분" % max(1, round(wmin)))
-            body = " · ".join(parts)
-            extra = ""
+            # 1줄: 빠른 하차/승차 위치 (없으면 '미제공')
             if tip and (tip["alight"] or tip["board"]):
                 rows = []
                 if tip["alight"]:
-                    rows.append("하차 위치: %s" % _esc(tip["alight"]))
+                    rows.append("빠른 하차 %s" % _esc(tip["alight"]))
                 if tip["board"]:
-                    rows.append("승차 위치: %s" % _esc(tip["board"]))
+                    rows.append("승차 %s" % _esc(tip["board"]))
+                pos = " · ".join(rows)
                 # 원본에 자기 역명이 방면으로 적힌 이상값이 있다(강동 5→5).
                 # 해당 방면 문구만 생략하고 호차/문 안내는 그대로 유지한다.
                 from station_routing import transfer_basis_text
                 note = (transfer_basis_text(sg["at"], tip["arrive_toward"],
                                             tip["depart_toward"])
                         if tip.get("direction_matched") else "")
-                extra = ('<div class="mc-tf-b">%s</div>' % " · ".join(rows))
-                if note:
-                    extra += '<div class="mc-note">%s</div>' % _esc(note)
+            else:
+                pos, note = "빠른 환승 위치 정보 미제공", ""
+            # 2줄: 예상 환승 시간 (도보 + 대기)
+            if tmin is not None or wmin:
+                walk = max(1, round(tmin)) if tmin is not None else 0
+                wait = max(1, round(wmin)) if wmin else 0
+                det = []
+                if tmin is not None:
+                    det.append("도보 약 %d분" % walk)
+                if wmin:
+                    det.append("대기 약 %d분" % wait)
+                eta = "예상 환승 약 %d분 (%s)" % (walk + wait, " · ".join(det))
+            else:
+                eta = ""
             html.append(
-                '<div class="mc-tf"><div class="mc-tf-h">↓ %s역 환승</div>'
-                '<div class="mc-tf-b">%s</div>%s</div>'
-                % (_esc(sg["at"]), body, extra))
-    html.append("</div>")
-    st.markdown("".join(html), unsafe_allow_html=True)
+                '<div class="mc-tf"><div class="mc-tf-h">↓ %s · %s → %s</div>'
+                '<div class="mc-tf-b">🚶 %s%s</div>%s</div>'
+                % (_esc(sg["at"]), _esc(line_label(sg["from_line"])), _esc(line_label(sg["to_line"])),
+                   pos, (" · " + eta) if eta else "",
+                   ('<div class="mc-note">%s</div>' % _esc(note)) if note else ""))
+            flush()
+            with st.expander("자세히 보기 · %s 환승" % sg["at"]):
+                transfer_detail(sg["at"], str(sg["from_line"]), str(sg["to_line"]))
+    st.markdown("".join(html) + "</div>", unsafe_allow_html=True)
 
 
 def time_breakdown(ev):
@@ -1142,9 +1287,6 @@ def route_card(title, ev, o, d_, note=None, tone="normal",
 
 
 def page_route():
-    st.title("쾌적 경로 찾기")
-    st.info(DISCLAIMER)
-
     disp = load_display_master()
     bundle = load_map_bundle(ensure_map_fresh())
     if disp is None:
@@ -1164,20 +1306,20 @@ def page_route():
         # key 를 쓰는 위젯에 index 를 함께 주면 Streamlit 이 경고를 낸다.
         #   "created with a default value but also had its value set via Session State"
         # 값은 session_state 로만 관리하고 index 는 주지 않는다.
-        st.session_state.setdefault("sel_origin", st.session_state["origin_station_key"])
-        st.session_state.setdefault("sel_dest", st.session_state["destination_station_key"])
+        #   canonical(origin_station_key 등) 이 source of truth. 위젯 state 가 없을 때만 시드하고,
+        #   위젯 → canonical 은 on_change 로만 옮긴다 (D-057).
+        for w in ("sel_origin", "sel_dest", "w_date", "w_time", "w_mode"):
+            _seed(w)
 
         o = st.selectbox("출발역", keys,
                          format_func=lambda k: labels.get(k, k),
-                         placeholder="역 이름을 입력하세요", key="sel_origin")
-        if o:
-            st.session_state["origin_station_key"] = o
+                         placeholder="역 이름을 입력하세요", key="sel_origin",
+                         on_change=_w2c, args=("sel_origin",))
 
         d_ = st.selectbox("도착역", keys,
                           format_func=lambda k: labels.get(k, k),
-                          placeholder="역 이름을 입력하세요", key="sel_dest")
-        if d_:
-            st.session_state["destination_station_key"] = d_
+                          placeholder="역 이름을 입력하세요", key="sel_dest",
+                          on_change=_w2c, args=("sel_dest",))
 
         # 노선 색은 selectbox 안에서 표현할 수 없으므로, 선택 결과를 한 줄로 요약해 보여준다.
         if o or d_:
@@ -1193,12 +1335,10 @@ def page_route():
                 unsafe_allow_html=True)
 
         c1, c2 = st.columns(2)
-        q_date = c1.date_input("날짜", st.session_state["q_date"])
-        q_time = c2.time_input("출발 시각", st.session_state["q_time"])
-        mode = st.selectbox("선호 모드", list(MODE_LABEL),
-                            index=list(MODE_LABEL).index(st.session_state["q_mode"]),
-                            format_func=lambda x: MODE_LABEL[x])
-        st.session_state.update(q_date=q_date, q_time=q_time, q_mode=mode)
+        c1.date_input("날짜", key="w_date", on_change=_w2c, args=("w_date",))
+        c2.time_input("출발 시각", key="w_time", on_change=_w2c, args=("w_time",))
+        st.selectbox("선호 모드", list(MODE_LABEL), format_func=lambda x: MODE_LABEL[x],
+                     key="w_mode", on_change=_w2c, args=("w_mode",))
 
         do_search = st.button("경로 검색", width="stretch", type="primary")
         st.button("초기화", width="stretch", on_click=_reset_all)
@@ -1266,6 +1406,12 @@ def page_route():
                 fallback = bool(result)
         st.session_state["route_result"] = result
         st.session_state["route_fallback"] = fallback
+        st.session_state["route_query"] = _query_sig()
+        st.session_state["ts_handoff"] = None          # 새 검색이면 예전 시간 비교 인계는 무효
+
+    # 결과가 지금 입력(출발·도착·날짜·시각·모드)으로 계산된 것인지. 다르면 결과·CTA·하이라이트를 숨긴다.
+    stale = (st.session_state.get("route_result") is not None
+             and st.session_state.get("route_query") != _query_sig())
 
     # ---------- 오른쪽 노선도 ----------
     with right:
@@ -1274,7 +1420,7 @@ def page_route():
         else:
             path = None
             res = st.session_state.get("route_result")
-            if res and res.get("ok"):
+            if res and res.get("ok") and not stale:
                 path = res["recommended"]["path"]
             ev = st.plotly_chart(draw_map(bundle, path), width="stretch",
                                  on_select="rerun", key="subway_map",
@@ -1302,6 +1448,10 @@ def page_route():
                     "다른 구간이나 시각을 선택해 주세요.")
         else:
             st.caption("[경로 검색] 을 누르면 결과가 표시됩니다.")
+        return
+    if stale:
+        st.warning("검색 조건(날짜·시각·선호 모드 등)이 바뀌었습니다. **[경로 검색]** 을 다시 눌러 주세요. "
+                   "이전 결과는 지금 조건과 맞지 않아 숨겼습니다.")
         return
     _render_route_result(result, bool(st.session_state.get("route_fallback")), o, d_)
 
@@ -1384,6 +1534,7 @@ def counterfactual_card_data(o: str, d: str, day_type: str, hhmm: str, query_dat
     return c
 
 
+CF_TYPE_LABEL = {"structural": STRUCTURAL_LABEL}     # 화면 표시명만 바꾼다. 내부 타입명은 그대로.
 CF_TONE = {"calm": "success", "route_shiftable": "info", "time_shiftable": "info",
            "dual": "info", "structural": "warning", "invalid": "warning"}
 CF_ADVICE = {
@@ -1391,8 +1542,8 @@ CF_ADVICE = {
     "route_shiftable": "**다른 경로**로 가면 혼잡 노출이 의미 있게 줄어듭니다. 출발 시각을 바꾸는 것보다 효과적입니다.",
     "time_shiftable": "같은 경로라도 **출발 시각을 조금 옮기면** 혼잡 노출이 의미 있게 줄어듭니다.",
     "dual": "경로를 바꾸거나 시각을 옮기거나, **둘 중 어느 쪽으로도** 혼잡 노출을 줄일 수 있습니다.",
-    "structural": ("경로만 바꾸거나 출발을 ±60분 안에서 옮기는 것만으로는 혼잡 노출이 충분히 줄지 않습니다. "
-                   "**개인의 선택만으로 피하기 어려운 구조적 혼잡**에 가깝습니다."),
+    # D-057: 사용자 화면에서는 '구조적' 대신 '회피 어려움'. 탐색 범위 안에서 못 찾은 것이지 증명이 아니다.
+    "structural": "현재 탐색한 경로·시간 대안 범위에서는 뚜렷한 개선안을 찾지 못했습니다.",
     "invalid": "출발·도착 시각이 혼잡 자료가 있는 시간대(05:30~01:00) 밖이라 판정하지 않습니다.",
 }
 
@@ -1450,9 +1601,12 @@ def render_counterfactual(o, d_):
     if c is None:
         return
     st.subheader("혼잡 진단 — 경로를 바꿀까, 시간을 바꿀까?")
-    getattr(st, CF_TONE[c["type"]])("**%s** · %s" % (c["type_ko"], CF_ADVICE[c["type"]]))
+    label = CF_TYPE_LABEL.get(c["type"], c["type_ko"])
+    getattr(st, CF_TONE[c["type"]])("**%s** · %s" % (label, CF_ADVICE[c["type"]]))
+    if c["type"] == "structural":
+        st.caption("ⓘ %s = %s" % (STRUCTURAL_LABEL, STRUCTURAL_HELP), help=STRUCTURAL_HELP)
     if c["type"] in ("calm", "invalid"):
-        return
+        return c
     base = c["now"]
     cols = st.columns(4)
     _cf_cell(cols[0], "지금 (최속 경로)", base, base)
@@ -1464,6 +1618,33 @@ def render_counterfactual(o, d_):
         "경로 변경은 소요 +15분·체감 +5분·환승 +1회 이내, 시간 조정은 같은(또는 거의 같은) 경로로 ±60분 안·소요 +5분 이내. "
         "'경로 + 시간 함께'는 주 판정에 쓰지 않는 참고 선택지입니다. 기준은 위 추천 경로가 아니라 같은 시각의 최속 경로입니다."
         % c["threshold_set_id"])
+    return c
+
+
+def render_time_cta(c):
+    """v2 Time Shift 판정(T1, Counterfactual 의 '시간 조정')이 성공했을 때만 보이는 CTA.
+
+    임의의 혼잡도 임계값이 아니라 c["time"]["ok"] 를 그대로 쓴다.
+    """
+    if not c or not c.get("time") or not c["time"]["ok"]:
+        return False
+    b, t = c["now"], c["time"]
+    drop = (b["exp100"] or 0) - (t["exp100"] or 0)
+    if drop >= 0.5:
+        effect = "100%%+ 혼잡 노출이 %.0f분 줄어듭니다 (%.0f분 → %.0f분)" % (drop, b["exp100"], t["exp100"])
+    else:
+        effect = "최대 기대 혼잡도가 %.0f%% → %.0f%% 로 낮아집니다" % (b["max_cong"], t["max_cong"])
+    with st.container(border=True):
+        st.markdown("⏰ **%s(%s) 출발하면** %s." % (_shift_label(t["shift_min"]), t["depart"], effect))
+        handoff = {"sig": st.session_state.get("route_query"), "path": list(b["path"]),
+                   "shift_min": int(t["shift_min"])}
+        st.button("시간 비교 보기 →", key="cta_time", type="primary", on_click=_cta_go, args=(handoff,))
+    return True
+
+
+def _cta_go(handoff: dict):
+    st.session_state["ts_handoff"] = handoff
+    _go("경로 추천", "시간 바꿔 보기")
 
 
 def _render_route_result(result, fallback, o, d_):
@@ -1474,12 +1655,14 @@ def _render_route_result(result, fallback, o, d_):
 
     rec, alt = result["recommended"], result.get("alternative")
     st.subheader("추천 경로")
+    st.caption(RESULT_NOTE, help=DISCLAIMER)
     route_card("%s 모드 추천" % MODE_LABEL[st.session_state["q_mode"]], rec, o, d_,
                show_profile=True, time_alt=result.get("time_alternative"),
                profile_key="profile_recommended")
 
+    has_cta = False
     if not fallback:
-        render_counterfactual(o, d_)
+        has_cta = render_time_cta(render_counterfactual(o, d_))
 
     if alt:
         st.subheader("최단경로 대비 쾌적 대안")
@@ -1489,7 +1672,10 @@ def _render_route_result(result, fallback, o, d_):
                    show_profile=True, profile_key="profile_alternative")
     else:
         ts = result.get("time_shift")
-        if ts is not None:
+        if ts is not None and has_cta:
+            # 시간 조정 안내는 위 CTA 와 '시간 바꿔 보기' 로 합쳤다 (D-057). 경로 대안 없음만 알린다.
+            st.caption("최단 경로 외에 유의미한 쾌적 대안 경로는 없습니다.")
+        elif ts is not None:
             render_time_shift_advice(ts)
         else:
             # v1 경로 (precomputed fallback 등)
@@ -1582,29 +1768,82 @@ def fallback_route(o: str, d: str):
 # --------------------------------------------------------------------------
 # 페이지. 시간 분산 (v2.2 Time Shift)
 # --------------------------------------------------------------------------
-def page_time_shift():
-    import plotly.graph_objects as go
-    from yeoyuro_v2.temporal_shift import evaluate_time_shift, shift_curve
-    from yeoyuro_v2.time_dependent import parse_hhmm
+def _ts_inputs_to_canonical():
+    """[비교하기] 클릭 시 시간 비교 입력을 공유 입력(canonical)으로 옮긴다."""
+    for w in ("ts_origin", "ts_dest", "ts_date", "ts_time"):
+        _w2c(w)
 
-    st.title("시간 분산")
+
+def _ts_reset_handoff():
+    st.session_state["ts_handoff"] = None
+
+
+def page_time_shift():
+    """경로 추천 > 시간 바꿔 보기.
+
+    - 경로 CTA 에서 넘어왔고, 그 경로 결과(route_query)가 지금 공유 입력과 같으며 기준 path 가 있으면
+      → 자동 계산 (Counterfactual 과 같은 엔진·같은 기준 path·같은 T1 → CTA 숫자와 일치)
+    - 직접 진입했거나 조건이 바뀌었으면 → 입력부 + [비교하기] (기존 계산 그대로)
+    """
+    from yeoyuro_v2.temporal_shift import evaluate_time_shift, shift_curve
+    from yeoyuro_v2.time_dependent import parse_hhmm, bin_index_of
+    from yeoyuro_v2.shift_rules import T1
+
     st.caption("같은 이동을 조금 일찍 또는 늦게 출발하면 혼잡 노출이 얼마나 줄어드는지 비교합니다.")
-    st.info(DISCLAIMER)
     disp = load_display_master()
+    if disp is None:
+        st.warning("`station_display_master.csv` 가 없습니다.")
+        return
+    sig = _query_sig()
+    ho = st.session_state.get("ts_handoff")
+    auto = bool(ho and ho.get("path") and ho.get("sig") is not None
+                and ho["sig"] == sig == st.session_state.get("route_query"))
+
+    if auto:
+        o, d_, qd, hhmm = sig[0], sig[1], sig[2], sig[3]
+        dow = pd.Timestamp(qd).dayofweek
+        day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
+        b1, b2, b3 = st.columns([3, 1, 1])
+        b1.markdown("**%s → %s** · %s %s 기준 · 경로 추천 결과의 최속 경로" % (o, d_, qd, hhmm))
+        b2.button("← 경로로 돌아가기", key="ts_back", width="stretch",
+                  on_click=_go, args=("경로 추천", "경로"))
+        b3.button("조건 바꾸기", key="ts_edit", width="stretch", on_click=_ts_reset_handoff)
+        with st.spinner("시각별로 같은 경로를 다시 계산하는 중입니다..."):
+            try:
+                router = get_td_router(day_type, qd)
+                t0 = parse_hhmm(hhmm)
+                ev = router.evaluator(bin_index_of(t0))
+                path = list(ho["path"])
+                ts = evaluate_time_shift(ev, path, t0, T1,
+                                         reopt=lambda t: (router.evaluate_od(o, d_, t) or [None])[0])
+                curve = pd.DataFrame(shift_curve(ev, path, t0))
+            except Exception as e:  # noqa: BLE001
+                st.warning("계산 중 문제가 발생했습니다: %s" % e)
+                return
+        _render_time_shift_result(ts, curve, "%s → %s · %s · 기준 출발 %s" % (o, d_, _path_lines(path), hhmm))
+        return
+
+    if ho and ho.get("sig") is not None and ho["sig"] != sig:
+        st.caption("경로 검색 이후 조건이 바뀌어 자동 비교를 하지 않았습니다. 아래에서 다시 비교해 주세요.")
     keys = sorted(disp["station_key"].tolist())
     lm = dict(zip(disp["station_key"], disp["available_lines"]))
+    _seed("ts_origin", "노원" if "노원" in keys else keys[0])
+    _seed("ts_dest", "양천구청" if "양천구청" in keys else keys[1])
+    _seed("ts_date")
+    _seed("ts_time")
     c1, c2 = st.columns(2)
-    o = c1.selectbox("출발역", keys, index=keys.index(st.session_state.get("origin_station_key") or "노원")
-                     if (st.session_state.get("origin_station_key") or "노원") in keys else 0,
-                     format_func=lambda k: short_label(k, lm.get(k, "")), key="ts_origin")
-    d_ = c2.selectbox("도착역", keys, index=keys.index(st.session_state.get("destination_station_key") or "양천구청")
-                      if (st.session_state.get("destination_station_key") or "양천구청") in keys else 1,
-                      format_func=lambda k: short_label(k, lm.get(k, "")), key="ts_dest")
+    o = c1.selectbox("출발역", keys, format_func=lambda k: short_label(k, lm.get(k, "")), key="ts_origin",
+                     on_change=_w2c, args=("ts_origin",))
+    d_ = c2.selectbox("도착역", keys, format_func=lambda k: short_label(k, lm.get(k, "")), key="ts_dest",
+                      on_change=_w2c, args=("ts_dest",))
     c3, c4 = st.columns(2)
-    q_date = c3.date_input("날짜", st.session_state["q_date"], key="ts_date")
-    q_time = c4.time_input("기준 출발 시각", st.session_state["q_time"], key="ts_time")
-    if not st.button("비교하기", type="primary", key="ts_go"):
+    q_date = c3.date_input("날짜", key="ts_date", on_change=_w2c, args=("ts_date",))
+    q_time = c4.time_input("기준 출발 시각", key="ts_time", on_change=_w2c, args=("ts_time",))
+    if not st.button("비교하기", type="primary", key="ts_go", on_click=_ts_inputs_to_canonical):
         st.caption("[비교하기] 를 누르면 ±90분 곡선과 ±60분 안의 추천 시각을 계산합니다.")
+        return
+    if o is None or d_ is None:
+        st.info("출발역과 도착역을 선택해 주세요.")
         return
     if o == d_:
         st.info("출발역과 도착역이 같습니다.")
@@ -1625,15 +1864,19 @@ def page_time_shift():
             from yeoyuro_v2.app_bridge import retime_result
             res = retime_result(res, lambda b: tde, t0, "fast")
             path = res["fastest"]["path"]
-            from yeoyuro_v2.shift_rules import T1
             ts = evaluate_time_shift(tde, path, t0, T1)
             curve = pd.DataFrame(shift_curve(tde, path, t0))
         except Exception as e:  # noqa: BLE001
             st.warning("계산 중 문제가 발생했습니다: %s" % e)
             return
+    _render_time_shift_result(ts, curve, route_summary_line(res["fastest"], o, d_) + " · 기준 출발 " + hhmm)
 
+
+def _render_time_shift_result(ts, curve, summary: str):
+    """시간 비교 결과 (KPI 4 + 곡선 + 추천 시각 표 + 판정 기준). 자동/직접 두 경로가 함께 쓴다."""
+    import plotly.graph_objects as go
     base = ts["base"]
-    st.caption(route_summary_line(res["fastest"], o, d_) + " · 기준 출발 " + hhmm)
+    st.caption(summary)
     m = st.columns(4)
     m[0].metric("예상 소요시간", "%.0f분" % base.actual_time_min)
     m[1].metric("100%+ 혼잡 노출", "%.0f분" % base.exposure[100])
@@ -1641,6 +1884,7 @@ def page_time_shift():
     verdict = {"time_shiftable": "시간 조정 효과 있음", "not_time_shiftable": "시간 조정 효과 작음",
                "calm": "이미 여유로운 이동"}[ts["type"]]
     m[3].metric("판정", verdict)
+    st.caption(RESULT_NOTE, help=DISCLAIMER)
 
     fig = go.Figure()
     fig.add_bar(x=curve["depart"], y=curve["exposure_100_min"], name="100%+ 혼잡 노출(분)",
@@ -1691,8 +1935,9 @@ ATLAS_DIMS = {
                             "표본 이동이 이 구간을 지날 때 기대 혼잡도 100% 이상인 시간의 평균"),
     "exposed_traversal_share": ("100%+ 를 겪은 통과 비율", "bad",
                                 "이 구간을 지난 표본 이동 중, 이 구간에서 100% 이상을 겪은 비율"),
-    "structural_share": ("구조적 혼잡 비율", "bad",
-                         "이 구간에서 100%+ 를 겪은 이동 중, 경로·시간 조정 모두 효과가 없는 이동의 비율"),
+    "structural_share": ("회피 어려움 비율", "bad",
+                         "이 구간에서 100%+ 를 겪은 이동 중, 정해진 경로·시간 대안 범위에서 개선안이 발견되지 않은 "
+                         "이동의 비율"),
     "alternative_opportunity": ("경로 변경으로 피할 수 있는 비율", "good",
                                 "이 구간에서 100%+ 를 겪은 이동 중, 기준을 만족하는 우회 경로가 있는 비율"),
     "temporal_shift_benefit": ("시간 조정으로 피할 수 있는 비율", "good",
@@ -1703,15 +1948,14 @@ ATLAS_DIMS = {
 ATLAS_BAD = ["#FDE7D7", "#F9B98F", "#F0844F", "#D9481F", "#9E2A0E"]
 ATLAS_GOOD = ["#E3F0E6", "#B5D9BE", "#7CBC8E", "#3F9A5E", "#1B6B3A"]
 TYPE_KO_APP = {"calm": "여유 (Calm)", "time_shiftable": "시간 조정으로 해결", "dual": "경로·시간 모두 가능",
-               "route_shiftable": "경로 변경으로만 해결", "structural": "구조적 혼잡"}
+               "route_shiftable": "경로 변경으로만 해결", "structural": STRUCTURAL_LABEL}
 
 
 def page_atlas():
     import plotly.graph_objects as go
-    st.title("혼잡 분산 지도")
-    st.caption("평일 출퇴근 시간대의 혼잡이 어디에서 경로로, 시간으로 피할 수 있고 어디는 둘 다 어려운지 보여줍니다.")
-    st.info(DISCLAIMER + " 무작위로 뽑은 역 쌍 620개 × 평일 기준 출발 6개(3,720건) 표본의 집계이며, "
-            "구간을 지나는 모든 승객의 값이 아닙니다.")
+    st.caption("평일 출퇴근 시간대의 혼잡이 어디에서 경로로, 시간으로 피할 수 있고 어디는 둘 다 어려운지 보여줍니다. "
+               "무작위로 뽑은 역 쌍 620개 × 평일 기준 출발 6개(3,720건) 표본의 집계이며, "
+               "구간을 지나는 모든 승객의 값이 아닙니다.")
     atlas = load_mart("mobility_atlas_mart", "data/marts/v2")
     odm = load_mart("od_shiftability_mart", "data/marts/v2")
     bundle = load_map_bundle(ensure_map_fresh())
@@ -1741,7 +1985,8 @@ def page_atlas():
         else:
             m[i].metric(TYPE_KO_APP[k], "%.1f%%" % (100 * w[sub.final_shiftability_type == k].sum()
                                                     / max(tot_hot, 1e-9)),
-                        help="혼잡 이동(여유 제외) 대비")
+                        help=("%s. 혼잡 이동(여유 제외) 대비" % STRUCTURAL_HELP) if k == "structural"
+                        else "혼잡 이동(여유 제외) 대비")
     st.caption("유형 판정 기준은 분석 전에 고정했습니다 (docs/v2/preregistration_v23.md, T1). "
                "'경로 변경'은 한 사람이 옮길 때 기준이며, 많은 사람이 함께 옮기는 효과는 반영하지 않습니다.")
 
@@ -1802,9 +2047,9 @@ def page_atlas():
         st.markdown(
             "- **종합 점수는 없습니다.** 피로도 정답 데이터가 없어 지표를 하나로 합치면 가중치를 정당화할 수 "
             "없기 때문에, 지표를 따로 보여줍니다.\n"
-            "- 구조적 혼잡 비율은 시간 조정 창(±60분) 선택에 민감합니다. ±30분이면 커지고 ±90분이면 거의 사라집니다. "
+            "- 회피 어려움 비율(%s)은 시간 조정 창(±60분) 선택에 민감합니다. ±30분이면 커지고 ±90분이면 거의 사라집니다. "
             "숫자의 크기보다 **어느 구간에 몰려 있는가**를 보세요.\n"
-            "- 수요 proxy 는 역별 승하차로 만든 추정이며 실제 출발-도착 이동량이 아닙니다.")
+            "- 수요 proxy 는 역별 승하차로 만든 추정이며 실제 출발-도착 이동량이 아닙니다." % STRUCTURAL_HELP)
 
 
 # --------------------------------------------------------------------------
@@ -1815,15 +2060,19 @@ EVENT_SCENARIOS = {"FW_2025": "서울세계불꽃축제 2025 (9/27 토, 17~19시
                    "HW_2025": "핼러윈 2025 (10/31 금, 19~21시 출발)",
                    "CB_2025": "여의도 벚꽃 2025 (4/11 금, 12·15·18시 출발)"}
 TYPE_SHORT = {"calm": "여유", "time_shiftable": "시간 조정", "dual": "경로·시간",
-              "route_shiftable": "경로 변경", "structural": "구조적"}
+              "route_shiftable": "경로 변경", "structural": STRUCTURAL_LABEL}
 
 
 def page_event_scenario():
     import plotly.graph_objects as go
-    st.title("이벤트 시나리오")
-    st.caption("평소에는 경로나 시간 조정으로 피할 수 있던 이동이, 대형 이벤트 날에는 어떻게 바뀌는지 봅니다.")
-    st.warning("이벤트 날의 차내 혼잡은 관측 자료가 없습니다. 이벤트 당일 승하차 급증(실측)을 "
-               "혼잡 배수로 바꾸는 가정(λ=0.3)으로 만든 **시나리오**입니다.")
+    st.caption("**What-if 분석** · 평소에는 경로나 시간 조정으로 피할 수 있던 이동이, 대형 이벤트 날에는 "
+               "어떻게 바뀌는지 봅니다.")
+    st.warning("이벤트 날의 차내 혼잡은 관측 자료가 없습니다. 실제 이벤트 당일 차내 혼잡 관측치가 아니라, "
+               "이벤트 당일 승하차 급증(실측)을 혼잡 배수로 바꾸는 가정(λ=0.3)으로 만든 **가정된 시나리오**입니다.")
+    l1, l2 = st.columns([4, 1.3])
+    l1.caption("가정의 근거: **과거 데이터** 탭의 이벤트 날 승하차 급증(전후 비교·DiD 순효과)입니다.")
+    l2.button("근거 데이터 보기 →", key="evs_to_past", width="stretch",
+              on_click=_go, args=("이벤트 분석", "과거 데이터"))
     df = load_mart("event_scenario_mart", "data/marts/v2")
     if df is None:
         st.warning("event_scenario_mart 가 없습니다. `scripts/v2/25_event_stress_test.py` 를 먼저 실행하세요.")
@@ -1837,8 +2086,8 @@ def page_event_scenario():
     c[1].metric("이벤트 구간을 지나는 이동", "%d" % len(t))
     c[2].metric("그중 유형이 바뀐 이동", "%.0f%%" % (100 * (t.baseline_type != t.event_shiftability_type).mean())
                 if len(t) else "-")
-    c[3].metric("이벤트 날 구조적 혼잡", "%d건" % int((t.event_shiftability_type == "structural").sum()),
-                help="평시 %d건" % int((t.baseline_type == "structural").sum()))
+    c[3].metric("이벤트 날 %s" % STRUCTURAL_LABEL, "%d건" % int((t.event_shiftability_type == "structural").sum()),
+                help="%s. 평시 %d건" % (STRUCTURAL_HELP, int((t.baseline_type == "structural").sum())))
 
     if len(t):
         order = ["calm", "time_shiftable", "dual", "route_shiftable", "structural"]
@@ -1854,7 +2103,8 @@ def page_event_scenario():
         st.subheader("유형 전이 (이벤트 구간을 지나는 이동)")
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="evs_heat")
         st.caption("대각선 밖의 칸이 이벤트 때문에 대응 방법이 바뀐 이동입니다. "
-                   "예: 평시 '시간 조정' → 이벤트 '구조적' = 평소엔 조금 일찍 나서면 됐지만 이벤트 날엔 그것도 안 됨.")
+                   "예: 평시 '시간 조정' → 이벤트 '회피 어려움' = 평소엔 조금 일찍 나서면 됐지만 이벤트 날엔 "
+                   "탐색한 대안 범위에서 개선안을 찾지 못함.")
         changed = t[t.baseline_type != t.event_shiftability_type]
         if len(changed):
             st.subheader("대응 방법이 바뀐 이동 예시")
@@ -1922,8 +2172,7 @@ def show_station_info(station_key: str):
 
 
 def page_congestion():
-    st.title("시간대별 혼잡 조회")
-    st.info(DISCLAIMER)
+    st.caption("역·노선별로 시간대에 따라 기대 혼잡도가 어떻게 변하는지 봅니다.")
     tab_st, tab_line = st.tabs(["역별 혼잡도", "노선별 혼잡도"])
     with tab_st:
         page_congestion_station()
@@ -2164,8 +2413,11 @@ def page_congestion_line():
 
 
 def page_event():
-    st.title("이벤트 혼잡 경보")
-    st.info(DISCLAIMER)
+    st.caption("**과거 데이터** · 지난 이벤트 날의 실제 승하차 기록으로 본 이벤트 효과입니다 (사후 분석, 실시간 알림 아님).")
+    l1, l2 = st.columns([4, 1.3])
+    l1.caption("이 효과(승하차 급증)가 **시나리오** 탭의 혼잡 배수 가정의 근거입니다.")
+    l2.button("이 근거로 만든 시나리오 →", key="evp_to_scn", width="stretch",
+              on_click=_go, args=("이벤트 분석", "시나리오"))
     did = load_mart("event_did_mart")
     spike = load_mart("event_spike_mart")
     if did is None and spike is None:
@@ -2224,88 +2476,65 @@ def page_event():
 
 
 # --------------------------------------------------------------------------
-# 페이지 4. 환승 안내
-# --------------------------------------------------------------------------
-def page_transfer():
-    st.title("빠른 환승 안내")
-    st.warning("아직 객차별 혼잡도 데이터가 없습니다. "
-               "따라서 **환승 동선상 유리한 칸**만 안내합니다.")
-    tip = load_mart("transfer_tip_mart")
-    if tip is None:
-        st.info("`06_build_route_graph.py` 실행이 필요합니다.")
-        return
-    c1, c2, c3 = st.columns(3)
-    disp = load_display_master()
-    tkeys = sorted(tip["station_name"].unique())
-    tlabels = {}
-    if disp is not None:
-        lm = dict(zip(disp["station_key"], disp["available_lines"]))
-        tlabels = {k: short_label(k, lm.get(k, "")) for k in tkeys}
-    stn = c1.selectbox("환승역", tkeys,
-                       format_func=lambda k: tlabels.get(k, k))
-    sub = tip[tip["station_name"] == stn]
-    fl = c2.selectbox("타고 온 호선", sorted(sub["from_line"].astype(str).unique()))
-    sub2 = sub[sub["from_line"].astype(str) == fl]
-    tl = c3.selectbox("갈아탈 호선", sorted(sub2["to_line"].astype(str).unique()))
-    sub3 = sub2[sub2["to_line"].astype(str) == tl]
-    if sub3.empty:
-        st.info("원본 데이터에 해당 환승 조합이 없어 안내하지 않습니다.")
-        return
-    def _pos(car, door):
-        """호차-문 을 '2-1' 형태로 합친다."""
-        if pd.isna(car) or pd.isna(door):
-            return "-"
-        def _n(v):
-            try:
-                return str(int(float(v)))
-            except (TypeError, ValueError):
-                return str(v).strip()
-        c, d = _n(car), _n(door)
-        if c.startswith("모든") or d.startswith("모든"):
-            return "%s %s" % (c, d)
-        return "%s-%s" % (c, d)
-
-    view = pd.DataFrame({
-        "타고 온 방면": sub3["arrive_toward"].values,
-        "하차 위치": [_pos(a, b) for a, b in zip(sub3["alight_car"], sub3["alight_door"])],
-        "갈아탈 방면": sub3["depart_toward"].values,
-        "승차 위치": [_pos(a, b) for a, b in zip(sub3["board_car"], sub3["board_door"])],
-        "환승 소요(분)": np.round(pd.to_numeric(sub3["transfer_time_min"],
-                                              errors="coerce"), 1).values,
-    })
-    st.table(round1(view).reset_index(drop=True))
-    st.caption("승하차 위치는 호차-문 입니다. (2-1 = 2번째 칸 1번 문)")
-    te = load_mart("transfer_edge_mart")
-    if te is not None:
-        row = te[(te["station_name"] == stn) & (te["from_line"].astype(str) == fl)
-                 & (te["to_line"].astype(str) == tl)]
-        if not row.empty:
-            r = row.iloc[0]
-            c = st.columns(3)
-            c[0].metric("환승 소요시간", "%.1f분" % r["transfer_time_min"])
-            if pd.notna(r.get("weekday_volume")):
-                c[1].metric("평일 환승인원", f'{int(r["weekday_volume"]):,}명')
-            c[2].metric("환승 페널티", "%.1f분" % r["transfer_penalty_min"])
-            st.caption("환승 페널티 = 도보 소요시간 + 환승인원 기반 가산(5만 명당 1분, 최대 3분)")
-
-
-# --------------------------------------------------------------------------
 # 페이지 5. 프로젝트 소개 및 검증 리포트
 # --------------------------------------------------------------------------
+@st.cache_data(show_spinner=False)
+def graph_scope(stamp: float = 0.0) -> dict:
+    """현재 앱이 실제로 쓰는 경로 그래프의 범위 (프로젝트 페이지 표기를 하드코딩하지 않기 위해)."""
+    ride = load_mart("route_edge_mart")
+    te = load_mart("transfer_edge_mart")
+    disp = load_display_master()
+    out = {"nodes": None, "ride": None, "transfer": None, "stations": None, "lines": []}
+    if ride is not None:
+        out["nodes"] = len(set(ride["from_node"]) | set(ride["to_node"]))
+        out["ride"] = len(ride)
+        out["lines"] = sorted(ride["line_id"].astype(str).unique(), key=line_sort_key)
+    if te is not None:
+        out["transfer"] = len(te)
+    if disp is not None:
+        out["stations"] = len(disp)
+    return out
+
+
 def page_project():
-    st.title("프로젝트 소개 및 검증 리포트")
-    tabs = st.tabs(["프로젝트 개요", "데이터 품질", "혼잡도 모델",
-                    "경로 추천 평가", "한계와 개선 방향"])
+    tabs = st.tabs(["프로젝트 개요", "데이터", "방법론", "검증 결과", "한계"])
+    gs = graph_scope(ensure_map_fresh())
+    has9 = any(x.startswith("9") for x in gs["lines"])
+    line_txt = "1~9호선 (9호선 일반·급행)" if has9 else "1~8호선"
 
     with tabs[0]:
-        st.markdown("#### 서울 지하철 1~8호선 혼잡도 기반 쾌적 경로 추천")
-        c = st.columns(4)
+        st.markdown("#### 서울 지하철 %s 혼잡도 기반 쾌적 경로 추천 · v2" % line_txt.split(" ")[0])
+        st.dataframe(pd.DataFrame([
+            ["버전", "v2 (시간 진행형 경로 판정 · Counterfactual · 혼잡 분산 지도 · 이벤트 시나리오)"],
+            ["지원 노선", line_txt],
+            ["경로 그래프", "%s 노드 · 승차 엣지 %s + 환승 엣지 %s · 역 %s곳"
+             % (gs["nodes"], gs["ride"], gs["transfer"], gs["stations"])],
+            ["Time-dependent 적용", "적용 — 각 구간에 실제로 도착하는 시각의 30분 bin 혼잡도·배차로 다시 판정 "
+                                     "(step policy). v1 은 출발 시각 bin 을 경로 전체에 고정"],
+            ["경로/시간 대안 판정", "v2.3 사전 등록 기준 T1 (100%+ 노출 5분 이상 또는 절반 이상 감소)"],
+            ["혼잡도 의미", "과거 패턴 기반 기대값 (정원 대비 승차 인원, 100% = 1칸 160명) · 실시간 정보 아님"],
+        ], columns=["항목", "현재 앱"]), hide_index=True, width="stretch")
+        st.caption("그래프 수치는 앱 데이터 폴더(route_edge_mart · transfer_edge_mart · station_display_master)에서 "
+                   "실행 시 직접 셉니다. v2 상세 결과는 README / 리포트(docs/v2)에 정리합니다.")
+        c = st.columns(3)
         for col, (a, b, d) in zip(c, [("승하차 원본", "797,946행", "48개월"),
                                       ("혼잡도 셀", "715,065", "11 스냅샷"),
-                                      ("그래프", "280 노드", "536+81 엣지"),
                                       ("검증 이벤트", "87건", "DiD 순효과")]):
             col.metric(a, b, d, delta_color="off")
+        st.caption("위 세 수치는 v1 데이터 구축 단계(서울교통공사 1~8호선 자료) 기준입니다.")
         st.markdown("""
+##### 핵심 발견
+| # | 발견 |
+|---|---|
+| 1 | 쾌적 대안은 일부 OD 에서만 나타난다 (v1 평가: 08:30 3/13, 18:00 2/13). 저녁의 병목은 혼잡 감소폭 단일 조건 |
+| 2 | 이벤트는 대안의 개수가 아니라 구성을 바꾼다 (불꽃축제일 18:00 은 선호 모드별로 결과가 갈린다) |
+| 3 | LightGBM 이 groupby 평균 baseline 을 이기지 못했고, 사전 등록한 조건대로 baseline 채택 |
+| 4 | 전후 비교는 이벤트 효과를 과대추정한다 (불꽃축제 3.674 → DiD 3.403) |
+""")
+
+    with tabs[2]:
+        st.markdown("""
+##### 경로 점수
 경로 추천을 **시간 · 혼잡 · 환승 피로 · 이벤트 위험 · 착석 가능성** 을 함께 고려하는
 multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(분)은 단위가 달라
 그대로 더할 수 없으므로 모든 비용을 **체감 이동시간(분)** 으로 환산했습니다.
@@ -2318,13 +2547,14 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
 고정하지 않는 한 알고리즘이 후보로 비교하며, **최초 승차 노선 선택은 환승으로
 계산하지 않습니다.**
 
-##### 핵심 발견
-| # | 발견 |
+##### v2 방법
+| 기능 | 방법 |
 |---|---|
-| 1 | 쾌적 대안은 일부 OD 에서만 나타난다 (08:30 3/13, 18:00 2/13). 저녁의 병목은 혼잡 감소폭 단일 조건 |
-| 2 | 이벤트는 대안의 개수가 아니라 구성을 바꾼다 (불꽃축제일 18:00 은 선호 모드별로 결과가 갈린다) |
-| 3 | LightGBM 이 groupby 평균 baseline 을 이기지 못했고, 사전 등록한 조건대로 baseline 채택 |
-| 4 | 전후 비교는 이벤트 효과를 과대추정한다 (불꽃축제 3.674 → DiD 3.403) |
+| 시간 진행형 판정 | 각 구간 진입 시각의 30분 bin 혼잡도·배차 간격으로 경로를 다시 평가 (step policy) |
+| 혼잡 진단 카드 | 지금 / 경로 변경 / 시간 조정(±60분) / 둘 다 — v2.3 사전 등록 기준 T1 과 같은 classify() |
+| 시간 바꿔 보기 | 같은 경로를 ±30·60분 옮겨 재평가, 판정은 T1. 곡선은 15분 간격 참고값 |
+| 혼잡 분산 지도 | 무작위 OD 620쌍 × 6시각 표본의 구간별 집계, 종합 점수 없음 |
+| 이벤트 시나리오 | 승하차 급증(실측) → 혼잡 배수 가정(λ=0.3), 사전 등록(preregistration_v25) |
 """)
 
     with tabs[1]:
@@ -2346,7 +2576,8 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
             st.caption("리포트는 읽지 않으면 아무 일도 일어나지 않습니다. "
                        "pandera 스키마 검증은 깨지면 파이프라인이 멈추는 테스트입니다.")
 
-    with tabs[2]:
+    with tabs[2]:                       # 방법론 (계속) — 탭 컨테이너는 여러 번 들어갈 수 있다
+        st.markdown("##### 혼잡도 모델")
         st.warning("**사전에 정한 통과 조건**: LightGBM 이 `역×방향×요일×시간대 평균` "
                    "baseline 을 valid 에서 이기지 못하면 모델을 폐기하고 baseline 을 "
                    "사용한다. → **판정: baseline 채택**")
@@ -2366,7 +2597,19 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
         st.error("**혼잡도가 높을수록 부정확합니다.** ~30% 구간 MAE 1.474 → 130%+ 구간 9.227. "
                  "그래서 고혼잡 경고는 절대값이 아니라 **상대 순위(상위 5% 초과)** 로 제공합니다.")
 
+        st.subheader("평가 체계")
+        st.dataframe(pd.DataFrame([
+            ["데이터 품질", "스키마 검증", "pandera + 교차검증"],
+            ["이벤트 효과", "인과 효과 추정", "DiD + 평행추세 검증, absolute_lift"],
+            ["혼잡도 예측", "회귀 + 불균형 분류", "Baseline ladder, Skill Score, PR-AUC, Ablation, SHAP"],
+            ["경로 추천", "다목적 최적화", "3축 Pareto, Stretch Factor, directed-edge Jaccard"],
+            ["경로·시간 대안 (v2)", "사전 등록 판정", "T1 기준 classify(), 강건성 검증"],
+            ["착석 가능성", "검증 불가", "정답 데이터 없음 — 한계로 명시"],
+        ], columns=["레이어", "문제 유형", "표준 지표"]), width="stretch", hide_index=True)
+
     with tabs[3]:
+        st.caption("아래는 v1 경로 추천 평가(1~8호선, 미리 계산한 대표 OD)입니다. "
+                   "v2 상세 검증 결과는 README / docs/v2 리포트에서 보강합니다.")
         tags = precomputed_tags()
         if not tags:
             st.info("`10_evaluate_routes.py` 실행이 필요합니다.")
@@ -2409,17 +2652,8 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
             ["객차별 혼잡도 예측", "객차 단위 재차 데이터 없음", "환승 동선상 유리한 호차/문"],
             ["착석 확률", "좌석 점유 데이터 없음", "착석 가능성 proxy 점수"],
             ["이벤트 당일 실제 혼잡도", "혼잡도가 분기 평균 패턴", "이벤트성 spike 기반 위험 보정"],
-            ["9호선·신분당선 우회", "서울교통공사 관할 밖", "1~8호선 내 대안 경로"],
+            ["신분당선·경의중앙선 등 우회", "1~9호선 외 운영 노선 자료 미포함", "1~9호선 내 대안 경로"],
         ], columns=["못 하는 것", "사유", "대신 제공하는 것"]), width="stretch", hide_index=True)
-
-        st.subheader("평가 체계")
-        st.dataframe(pd.DataFrame([
-            ["데이터 품질", "스키마 검증", "pandera + 교차검증"],
-            ["이벤트 효과", "인과 효과 추정", "DiD + 평행추세 검증, absolute_lift"],
-            ["혼잡도 예측", "회귀 + 불균형 분류", "Baseline ladder, Skill Score, PR-AUC, Ablation, SHAP"],
-            ["경로 추천", "다목적 최적화", "3축 Pareto, Stretch Factor, directed-edge Jaccard"],
-            ["착석 가능성", "검증 불가", "정답 데이터 없음 — 한계로 명시"],
-        ], columns=["레이어", "문제 유형", "표준 지표"]), width="stretch", hide_index=True)
 
         st.subheader("알려진 약점")
         st.markdown("""
@@ -2512,31 +2746,63 @@ def page_map_editor():
 
 
 # --------------------------------------------------------------------------
+PAGE_CAPTION = {"경로 추천": "출발·도착·시각을 한 번 입력하면 경로와 출발 시각 대안을 함께 봅니다.",
+                "혼잡 탐색": "역·노선별 시간대 혼잡과, 네트워크 전체에서 혼잡을 피할 수 있는 곳을 봅니다.",
+                "이벤트 분석": "과거 이벤트 날의 실제 기록(근거)과, 그 근거로 만든 what-if 시나리오를 봅니다.",
+                "프로젝트 & 검증": "데이터·방법론·검증 결과·한계 (면접관·심사위원·개발자용)."}
+
+VIEW_FN = {("경로 추천", "경로"): "page_route",
+           ("경로 추천", "시간 바꿔 보기"): "page_time_shift",
+           ("혼잡 탐색", "역·노선별"): "page_congestion",
+           ("혼잡 탐색", "네트워크 지도"): "page_atlas",
+           ("이벤트 분석", "시나리오"): "page_event_scenario",
+           ("이벤트 분석", "과거 데이터"): "page_event",
+           ("프로젝트 & 검증", None): "page_project",
+           ("노선도 편집", None): "page_map_editor"}
+
+
+def _apply_legacy_menu():
+    """예전 menu 값(이전 세션·테스트·북마크)을 새 (페이지, subview)로 옮긴다. 한 번 옮기면 지운다."""
+    old = st.session_state.get("menu")
+    if old in LEGACY_MENU:
+        page, view = LEGACY_MENU[old]
+        st.session_state["nav_page"] = page
+        if view and page in VIEW_KEY:
+            st.session_state[VIEW_KEY[page]] = view
+    st.session_state["menu"] = None
+
+
 def main():
+    _apply_legacy_menu()
+    edit = st.query_params.get("edit") == "1"
+    page = st.session_state.get("nav_page")
+    if page not in NAV and not (page == "노선도 편집" and edit):
+        page = st.session_state["nav_page"] = PAGES[0]
+
     st.sidebar.title("🚇 여유로 서울")
     st.sidebar.caption("서울 지하철 혼잡도 기반  \n쾌적 경로 추천 시스템")
-    if not st.session_state.get("menu"):
-        st.session_state["menu"] = MENUS[0]
-    menus = MENUS + (["노선도 편집"] if st.query_params.get("edit") == "1" else [])
-    for m in menus:
-        st.sidebar.button(
-            m, width="stretch", key="menu_%s" % m,
-            type="primary" if st.session_state["menu"] == m else "secondary",
-            on_click=lambda x=m: st.session_state.update(menu=x))
-    menu = st.session_state["menu"]
+    for m in PAGES + (["노선도 편집"] if edit else []):
+        st.sidebar.button(m, width="stretch", key="nav_%s" % m,
+                          type="primary" if page == m else "secondary",
+                          on_click=_go, args=(m,))
     st.sidebar.divider()
-    st.sidebar.caption("실시간 정보가 아닌  \n과거 패턴 기반 예측입니다.")
+    st.sidebar.caption(RESULT_NOTE, help=DISCLAIMER)
 
-    # 이름 기반 dispatch. 메뉴 순서를 바꿔도 연결이 어긋나지 않는다.
-    {"쾌적 경로 찾기": page_route,
-     "시간 분산": page_time_shift,
-     "혼잡 분산 지도": page_atlas,
-     "이벤트 시나리오": page_event_scenario,
-     "시간대별 혼잡 조회": page_congestion,
-     "빠른 환승 안내": page_transfer,
-     "이벤트 혼잡 경보": page_event,
-     "프로젝트 소개 및 검증 리포트": page_project,
-     "노선도 편집": page_map_editor}.get(menu, page_route)()
+    if page == "노선도 편집":
+        page_map_editor()
+        return
+    st.title(page)
+    view = None
+    if NAV[page]:
+        vk = VIEW_KEY[page]
+        if st.session_state.get(vk) not in NAV[page]:
+            st.session_state[vk] = NAV[page][0]
+        view = st.segmented_control("보기", NAV[page], key=vk, required=True,
+                                    label_visibility="collapsed", on_change=_sync_widgets_from_canonical)
+        view = view if view in NAV[page] else NAV[page][0]
+    if page != "경로 추천" or view == "경로":
+        st.caption(PAGE_CAPTION[page])
+    globals()[VIEW_FN[(page, view)]]()
 
 
 main()
