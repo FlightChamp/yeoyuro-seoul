@@ -216,6 +216,43 @@ def evaluate(p: pd.DataFrame, pc: list[str], mode: str, seed: int = 0) -> tuple[
     return r, s
 
 
+def grade_fallback(d: pd.DataFrame, pc: list[str]) -> dict:
+    """등급(1~4)만 개방된다고 가정한 하루 빼기 검증. 평가 대상은 LODO 와 같다 (그날 실제 60% 이상 피크 통과).
+    학습 기간의 칸별 평균 '등급'이 가장 낮은 칸을 고르고, 모든 칸의 평균 등급이 같으면 추천하지 않는다.
+    채점은 % 값으로 한다 (등급의 실제 효과를 보기 위해)."""
+    gc = [c for c in d.columns if "등급" in c][:len(pc)]
+    w = d[(d.day_type == "weekday") & (~d["_blank"])].copy()
+    for c in gc:
+        w[c] = pd.to_numeric(w[c], errors="coerce")
+    w = w[w[gc].notna().all(axis=1)]
+    p = w.groupby(["편성번호", "date"] + KEY)[pc + gc].median().reset_index()
+    p["mean"] = p[pc].mean(axis=1)
+    q = p[p.bin.isin(PEAK_BINS) & (p["mean"] >= BUSY)]
+    n_eval, rows = 0, []
+    for h in sorted(q.date.unique()):
+        tr, te = q[q.date != h], q[q.date == h]
+        prof_g = tr.groupby(KEY)[gc].mean()
+        prof_p = tr.groupby(KEY)[pc].mean()
+        for _, x in te.iterrows():
+            k = tuple(x[KEY])
+            if k not in prof_g.index:
+                continue
+            n_eval += 1
+            g = prof_g.loc[k].values.astype(float)
+            if np.isclose(g.max(), g.min()):
+                continue                                   # 등급으로는 구분 불가 → 추천하지 않음
+            b = int(np.argmin(g)); bp = int(np.argmin(prof_p.loc[k].values.astype(float)))
+            v = x[pc].values.astype(float)
+            rows.append({"gain": v.mean() - v[b], "hit": v[b] <= np.median(v),
+                         "gain_pct_same": v.mean() - v[bp], "hit_pct_same": v[bp] <= np.median(v)})
+    r = pd.DataFrame(rows)
+    if r.empty:
+        return {"n_eval": n_eval, "n_recommended": 0}
+    return {"n_eval": n_eval, "n_recommended": len(r), "coverage": round(len(r) / n_eval, 3),
+            "hit_rate": round(r.hit.mean(), 3), "gain_mean": round(r.gain.mean(), 2),
+            "pct_on_same_cases": {"hit_rate": round(r.hit_pct_same.mean(), 3), "gain_mean": round(r.gain_pct_same.mean(), 2)}}
+
+
 # --------------------------------------------------------------------------- 실행
 def main() -> int:
     from yeoyuro_v2.proc import utf8_stdout
@@ -251,6 +288,7 @@ def main() -> int:
             raw_cells, raw_lodo = cells, evaluate(p, pc, "lodo")[0]
             raw_dep = evaluate(p, pc, "deploy")[0]
             raw_lofo = evaluate(p, pc, "lofo")[0]
+            res["grade_only_fallback_lodo"] = grade_fallback(d, pc)
     # 추천 칸 일치율 (전체 기간 프로필 기준, raw 대비)
     base = recs["raw"]
     res["agreement_vs_raw"] = {h: round(np.mean([recs[h].get(k) == v for k, v in base.items()]), 3) for h in TREATMENTS}
@@ -280,6 +318,11 @@ def write_md(res: dict) -> None:
                  f"{e['threshold100_weekday_cell']['precision']} | {e['threshold100_weekday_cell']['recall']} | "
                  f"{t['lodo']['hit_rate']} | {t['lodo']['gain_mean']} | {t['lofo']['hit_rate']} | {t['lofo']['gain_mean']} | "
                  f"{t['deploy']['hit_rate']} | {t['deploy']['gain_mean']} | {res['agreement_vs_raw'][h]} |")
+    g = res.get("grade_only_fallback_lodo") or {}
+    if g.get("n_recommended"):
+        L += ["", "등급만 개방될 때 (하루 빼기, raw): 평가 {n_eval}건 중 등급으로 칸을 구분할 수 있었던 {n_recommended}건({coverage:.0%})만 안내 · "
+              "성공률 {hit_rate} · 감소 {gain_mean}%p (같은 건을 % 값으로 고르면 {p_hit} · {p_gain}%p). 나머지는 '구분 어려움'으로 표시."
+              .format(p_hit=g["pct_on_same_cases"]["hit_rate"], p_gain=g["pct_on_same_cases"]["gain_mean"], **g)]
     (OUT / "car_sample_validation.md").write_text("\n".join(L) + "\n", encoding="utf-8")
 
 
@@ -325,6 +368,11 @@ def print_summary(res: dict) -> None:
               f"| LOFO {t['lofo']['hit_rate']}/{t['lofo']['gain_mean']}p "
               f"| 배포형 {t['deploy']['hit_rate']}/{t['deploy']['gain_mean']}p (n={t['deploy']['n']}) "
               f"| 일치 {res['agreement_vs_raw'][h]}")
+    g = res.get("grade_only_fallback_lodo") or {}
+    if g.get("n_recommended"):
+        print(f"[등급만  ] 하루 빼기: 평가 {g['n_eval']}건 중 {g['n_recommended']}건({g['coverage']:.0%})만 칸 구분 가능 "
+              f"| 성공률 {g['hit_rate']} · 감소 {g['gain_mean']}p (같은 건을 %로 고르면 "
+              f"{g['pct_on_same_cases']['hit_rate']} · {g['pct_on_same_cases']['gain_mean']}p)")
     print("=" * 72)
 
 

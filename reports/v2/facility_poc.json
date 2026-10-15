@@ -1,0 +1,92 @@
+{
+ "source": {
+  "fast_exit_rows": 2357,
+  "fast_exit_line4_rows": 277,
+  "line4_elevator_rows": 53,
+  "line4_stations": 26,
+  "crtrYmd": [
+   "20241231"
+  ],
+  "elevator_positions_both_directions": 72,
+  "of_which_mirrored_numbering": 67,
+  "line4_both_directions": 9,
+  "line4_mirrored": 9
+ },
+ "rule": {
+  "window": 1,
+  "meaningful_pp": 5.0,
+  "busy_train_mean": 60.0
+ },
+ "survey": {
+  "combos": 129,
+  "edges": 27,
+  "neighbor_better_share": 0.403,
+  "gain_when_moved_mean": 10.8,
+  "gain_when_moved_median": 8.8,
+  "all_candidates_100plus": 31,
+  "orientation_same_pick_share": 0.512,
+  "mirror_neighbor_better_share": 0.38
+ },
+ "example": {
+  "from": "동대문",
+  "to": "동대문역사문화공원",
+  "toward": "충무로",
+  "time_bin": "07:30",
+  "train_mean": 117.4,
+  "n_passages": 6,
+  "elevator": "7-1",
+  "nearest": 7,
+  "nearest_value": 121.5,
+  "pick": 8,
+  "gain": 10.1,
+  "extra_cars": 1,
+  "all_crowded": true,
+  "mirror_pick": 8,
+  "mirror_gain": 9.6,
+  "moved": true,
+  "mirror_moved": true,
+  "orientation_robust": true
+ },
+ "example_detail": {
+  "car_values": [
+   108.0,
+   128.3,
+   97.9,
+   107.5,
+   118.3,
+   119.0,
+   121.5,
+   111.4,
+   131.0,
+   131.1
+  ],
+  "match": {
+   "nearest": 7,
+   "nearest_value": 121.5,
+   "pick": 8,
+   "pick_value": 111.4,
+   "extra_cars": 1,
+   "gain": 10.1,
+   "all_crowded": true,
+   "candidates": {
+    "6": 119.0,
+    "7": 121.5,
+    "8": 111.4
+   }
+  },
+  "match_mirrored": {
+   "nearest": 7,
+   "nearest_value": 107.5,
+   "pick": 8,
+   "pick_value": 97.9,
+   "extra_cars": 1,
+   "gain": 9.6,
+   "all_crowded": false,
+   "candidates": {
+    "6": 118.3,
+    "7": 107.5,
+    "8": 97.9
+   }
+  }
+ }
+}

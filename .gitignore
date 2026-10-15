@@ -115,3 +115,5 @@ reports/figures/vector_map_preview_v26*.png
 data/app_v26/reports/
 # 공모전 제공 칸별 혼잡도 샘플에서 파생된 집계 (이용 조건 확인 전 비공개)
 data/app_v26/data/marts/car_pattern_sample.parquet
+# 칸별 샘플에서 파생된 구간별 값 (이용 조건 확인 전 비공개)
+reports/v2/facility_poc_cases.csv

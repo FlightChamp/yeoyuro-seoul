@@ -161,7 +161,8 @@ def main() -> int:
     if not a.key:
         print("[중단] --key 에 공공데이터포털 '일반 인증키(Decoding)' 를 넣어 주세요.")
         return 1
-    rows, fmt, err = fetch_all(a.key.strip())
+    key = a.key.strip().strip("<>\"' ").strip()      # 안내문의 <인증키> 꺾쇠·따옴표가 같이 들어온 경우 제거
+    rows, fmt, err = fetch_all(key)
     print("=" * 72)
     if not rows:
         print("[실패] 항목을 받지 못했습니다. 서버 응답 앞부분:")

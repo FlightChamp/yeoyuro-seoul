@@ -151,3 +151,28 @@ def test_find_sample_from_downloads(tmp_path, monkeypatch):
     with pytest.raises(FileNotFoundError):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "nohome"))
         find_sample(tmp_path / "other")
+
+
+def test_all_crowded_flag():
+    hot = [130, 125, 110, 140, 150, 135, 128, 112, 145, 138]       # 가장 여유로운 칸도 110%
+    h = segment_hint(build_pattern(_raw(hot)), "4", ["수유", "미아"], 8 * 60)
+    assert h["cars"] == [3, 8] and h["best"] == 110 and h["all_crowded"] is True
+    h2 = segment_hint(build_pattern(_raw(CARS)), "4", ["수유", "미아"], 8 * 60)
+    assert h2["all_crowded"] is False
+
+
+def test_grade_pattern_and_advice():
+    from yeoyuro_v2.car_pattern import build_grade_pattern, car_advice
+    raw = _raw(CARS)
+    for k in range(10):
+        raw[f"{k + 1}번째 칸 혼잡도(등급)"] = 2 if k in (4, 5) else 1
+    gp = build_grade_pattern(raw)
+    vec = gp.iloc[0][[f"car_{i}" for i in range(1, 11)]].values
+    assert list(vec) == [1, 1, 1, 1, 2, 2, 1, 1, 1, 1]
+    pct = segment_hint(build_pattern(raw), "4", ["수유", "미아"], 8 * 60)
+    assert car_advice(pct, vec)["level"] == "pct"                      # % 값이 있으면 % 우선
+    g = car_advice(None, vec)
+    assert g["level"] == "grade" and g["cars"] == [1, 2]                # 등급 차이 → 제한적 안내
+    n = car_advice(None, [1] * 10)
+    assert n["level"] == "none" and "구분하기 어렵습니다" in n["message"]  # 모두 같으면 억지로 고르지 않음
+    assert car_advice(None, None)["level"] == "none"

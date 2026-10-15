@@ -27,6 +27,7 @@ BUSY = 60.0             # 안내 대상: 이 구간·시간의 평소 열차 평
 MIN_PASSAGES = 3        # 칸 평균에 쓴 통과 수 하한
 MIN_DAYS = 2            # 서로 다른 날짜 수 하한
 N_CARS = 10
+CROWDED = 100.0         # 추천 칸조차 평소 정원 100% 이상이면 출발 시각 대안을 함께 권한다
 
 
 def read_sample(src: Path) -> pd.DataFrame:
@@ -133,7 +134,9 @@ def segment_hint(pattern: pd.DataFrame | None, line: str, stations: list[str], b
         return None                                      # 붐비지 않는 구간·시간은 안내하지 않는다 (검증 대상과 같은 조건)
     order = np.argsort(m)
     return {"cars": [int(order[0]) + 1, int(order[1]) + 1], "gain": round(train_mean - float(m[order[0]]), 1),
-            "train_mean": round(train_mean, 1), "n_edges": len(rows), "time_bin": _bin(board_min)}
+            "train_mean": round(train_mean, 1), "best": round(float(m[order[0]]), 1),
+            "all_crowded": bool(float(m[order[0]]) >= CROWDED),
+            "n_edges": len(rows), "time_bin": _bin(board_min)}
 
 
 def route_hints(pattern: pd.DataFrame | None, segments: list[dict], depart_min: float) -> dict[int, dict]:
@@ -148,3 +151,46 @@ def route_hints(pattern: pd.DataFrame | None, segments: list[dict], depart_min: 
         else:
             t += float(sg.get("minutes") or 0) + float(sg.get("wait_min") or 0)
     return out
+
+
+# ---------------------------------------------------------------- 등급만 개방될 때 (설계 + 샘플 시험)
+def build_grade_pattern(raw: pd.DataFrame, line: str = "4") -> pd.DataFrame:
+    """칸별 '등급'(1~4)만 있을 때의 패턴 표: 구간 × 30분 × 칸의 과거 평균 등급. 열 구조는 build_pattern 과 같다."""
+    gc = [c for c in raw.columns if "등급" in c][:N_CARS]
+    d = raw.copy()
+    g = pd.DataFrame({c: pd.to_numeric(d[c], errors="coerce") for c in gc})
+    d = d[g.notna().all(axis=1)].copy()
+    d[gc] = g.loc[d.index]
+    d["t"] = pd.to_datetime(d["발생일자"])
+    d = d[d.t.dt.dayofweek < 5]
+    d["date"] = d.t.dt.date
+    d["time_bin"] = d.t.dt.floor("30min").dt.strftime("%H:%M")
+    d["from_station"] = d["현재역 명"].replace(ALIAS)
+    d["to_station"] = d["다음역 명"].replace(ALIAS)
+    p = d.groupby(["편성번호", "date", "from_station", "to_station", "time_bin"])[gc].median().reset_index()
+    gr = p.groupby(["from_station", "to_station", "time_bin"])
+    out = gr[gc].mean()
+    out.columns = [f"car_{i + 1}" for i in range(len(gc))]
+    out["n_passages"] = gr.size()
+    out["n_days"] = gr["date"].nunique()
+    out = out.reset_index()
+    out.insert(0, "line", str(line))
+    return out[(out.n_passages >= MIN_PASSAGES) & (out.n_days >= MIN_DAYS)].reset_index(drop=True)
+
+
+def car_advice(pct_hint: dict | None, grade_vec=None, tol: float = 1e-9) -> dict:
+    """칸 안내 단계 (정직한 fallback).
+
+    1) % 패턴 안내가 있으면 그대로                         → level 'pct'
+    2) 등급만 있고 칸 사이 등급 차이가 있으면 가장 낮은 칸  → level 'grade' (제한적 안내)
+    3) 등급이 모두 같으면 억지로 고르지 않는다              → level 'none' + 문구
+    grade_vec: 그 구간·시간의 칸별 (과거 평균) 등급 10개, 없으면 None
+    """
+    if pct_hint:
+        return {"level": "pct", **pct_hint}
+    if grade_vec is not None:
+        v = np.asarray(grade_vec, dtype=float)
+        if v.size and np.isfinite(v).all() and (v.max() - v.min()) > tol:
+            best = np.flatnonzero(np.isclose(v, v.min())) + 1
+            return {"level": "grade", "cars": [int(c) for c in best[:2]]}
+    return {"level": "none", "message": "현재 데이터로는 칸 사이의 의미 있는 차이를 구분하기 어렵습니다"}

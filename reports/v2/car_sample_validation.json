@@ -857,6 +857,17 @@
    ]
   }
  },
+ "grade_only_fallback_lodo": {
+  "n_eval": 421,
+  "n_recommended": 216,
+  "coverage": 0.513,
+  "hit_rate": 0.639,
+  "gain_mean": 6.27,
+  "pct_on_same_cases": {
+   "hit_rate": 0.699,
+   "gain_mean": 7.23
+  }
+ },
  "agreement_vs_raw": {
   "raw": 1.0,
   "clip0": 1.0,

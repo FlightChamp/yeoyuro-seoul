@@ -1006,6 +1006,9 @@ def render_timeline(segs, hints: dict | None = None):
                 hint_html = ('<div class="mc-meta">🚃 여유 칸(시범): <b>%s번째 칸</b> — 평소 이 시간 열차 평균보다 '
                              '약 %.0f%%p 덜 붐빔</div><div class="mc-note">%s</div>'
                              % ("·".join(str(c) for c in hint["cars"]), hint["gain"], _esc(CAR_HINT_NOTE)))
+                if hint.get("all_crowded"):
+                    hint_html += ('<div class="mc-note">이 칸도 평소 정원 100%% 이상입니다 · '
+                                  '출발 시각을 바꾸는 대안을 함께 확인해 보세요</div>')
             html.append(
                 '<div class="mc-seg" style="--mc-line:%s">'
                 '<span class="mc-badge">%s</span>'
