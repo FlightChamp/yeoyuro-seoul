@@ -948,7 +948,31 @@ def transfer_detail(stn: str, fl: str, tl: str):
             st.caption("환승 페널티 = 도보 소요시간 + 환승인원 기반 가산(5만 명당 1분, 최대 3분)")
 
 
-def render_timeline(segs):
+def car_hints(ev) -> dict:
+    """여유 칸 안내(시범, 공모전 P0-2). 평일 + 패턴 파일이 있을 때만. 경로 계산에는 관여하지 않는다."""
+    try:
+        if _query_args()[0] != "weekday":
+            return {}
+        f = DATA_ROOT / "data" / "marts" / "car_pattern_sample.parquet"
+        if not f.exists():
+            return {}
+        pat = load_mart("car_pattern_sample", stamp=f.stat().st_mtime)
+        if pat is None:
+            return {}
+        from yeoyuro_v2.car_pattern import route_hints
+        dep = ev.get("depart_min")
+        if dep is None:
+            t = st.session_state["q_time"]
+            dep = t.hour * 60 + t.minute
+        return route_hints(pat, ev.get("segments") or [], float(dep))
+    except Exception:
+        return {}
+
+
+CAR_HINT_NOTE = "서울교통공사 칸별 혼잡도 샘플(4호선, 2026년 6월 평일)의 과거 패턴 · 시범 기능 · 실시간 아님"
+
+
+def render_timeline(segs, hints: dict | None = None):
     """노선형 타임라인 카드. 사용자에게 내부 id 를 노출하지 않는다.
 
     환승 구간마다 빠른 환승 위치·예상 환승 시간을 바로 보여주고, [자세히 보기] 에 방면별 표를 둔다
@@ -976,15 +1000,21 @@ def render_timeline(segs):
             if cong is not None:
                 meta += (' · <span style="color:%s">%s최대 기대 혼잡도 %.0f%%</span>'
                          % (ctone, cicon, cong))
+            hint = (hints or {}).get(i)
+            hint_html = ""
+            if hint:
+                hint_html = ('<div class="mc-meta">🚃 여유 칸(시범): <b>%s번째 칸</b> — 평소 이 시간 열차 평균보다 '
+                             '약 %.0f%%p 덜 붐빔</div><div class="mc-note">%s</div>'
+                             % ("·".join(str(c) for c in hint["cars"]), hint["gain"], _esc(CAR_HINT_NOTE)))
             html.append(
                 '<div class="mc-seg" style="--mc-line:%s">'
                 '<span class="mc-badge">%s</span>'
                 '<span class="mc-dir">%s</span>'
                 '<div class="mc-od">%s → %s</div>'
-                '<div class="mc-meta">%s</div>'
+                '<div class="mc-meta">%s</div>%s'
                 '</div>'
                 % (color, _esc(line_label(sg["line"])), _esc(dirlab),
-                   _esc(sg["from"]), _esc(sg["to"]), meta))
+                   _esc(sg["from"]), _esc(sg["to"]), meta, hint_html))
         else:
             # 진행 방향을 좁히기 위해 직전/다음 역을 넘긴다.
             prev_st = next_st = None
@@ -1271,7 +1301,7 @@ def route_card(title, ev, o, d_, note=None, tone="normal",
         else:
             c[4].metric("혼잡 주의 구간", "%d개" % ev.get("p95_exposure_count", 0))
 
-        render_timeline(ev["segments"])
+        render_timeline(ev["segments"], car_hints(ev))
         if ev.get("td_policy"):
             st.caption("혼잡도는 각 구간에 **실제로 도착하는 시각**의 과거 패턴으로 계산했습니다 "
                        "(출발 %s → 도착 약 %02d:%02d). 실시간 정보가 아닙니다."

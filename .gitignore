@@ -113,3 +113,5 @@ reports/figures/vector_map_preview_v26*.png
 
 # 앱 데이터 폴더의 생성 부산물 (노선도 가져오기 중간 파일)
 data/app_v26/reports/
+# 공모전 제공 칸별 혼잡도 샘플에서 파생된 집계 (이용 조건 확인 전 비공개)
+data/app_v26/data/marts/car_pattern_sample.parquet
