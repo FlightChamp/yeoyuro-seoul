@@ -1,0 +1,543 @@
+{
+ "prereg": "docs/v2/preregistration_transfer_car.md",
+ "data": {
+  "segments": 8309,
+  "station_passages_all": 7861,
+  "transfer_station_directions": [
+   "노원→상계",
+   "노원→창동",
+   "동대문→동대문역사문화공원",
+   "동대문→혜화",
+   "동대문역사문화공원→동대문",
+   "동대문역사문화공원→충무로",
+   "사당→남태령",
+   "사당→이수",
+   "삼각지→숙대입구",
+   "삼각지→신용산",
+   "서울역→숙대입구",
+   "서울역→회현",
+   "이수→동작",
+   "이수→사당",
+   "충무로→동대문역사문화공원",
+   "충무로→명동"
+  ]
+ },
+ "primary_alight": {
+  "n_passages": 2189,
+  "n_dates": 8,
+  "pooled": -0.42,
+  "ci95": [
+   -1.18,
+   0.44
+  ],
+  "combos": 15,
+  "combos_negative": 8,
+  "pass": false,
+  "by_combo": [
+   {
+    "station": "노원",
+    "next": "상계",
+    "mean": 0.23,
+    "n": 159
+   },
+   {
+    "station": "노원",
+    "next": "창동",
+    "mean": -0.81,
+    "n": 146
+   },
+   {
+    "station": "동대문",
+    "next": "동대문역사문화공원",
+    "mean": -1.01,
+    "n": 157
+   },
+   {
+    "station": "동대문",
+    "next": "혜화",
+    "mean": 0.74,
+    "n": 159
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "동대문",
+    "mean": 2.05,
+    "n": 159
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "충무로",
+    "mean": -5.67,
+    "n": 157
+   },
+   {
+    "station": "사당",
+    "next": "이수",
+    "mean": -1.45,
+    "n": 7
+   },
+   {
+    "station": "삼각지",
+    "next": "숙대입구",
+    "mean": -0.6,
+    "n": 155
+   },
+   {
+    "station": "삼각지",
+    "next": "신용산",
+    "mean": -1.11,
+    "n": 152
+   },
+   {
+    "station": "서울역",
+    "next": "숙대입구",
+    "mean": -4.45,
+    "n": 153
+   },
+   {
+    "station": "서울역",
+    "next": "회현",
+    "mean": 2.66,
+    "n": 156
+   },
+   {
+    "station": "이수",
+    "next": "동작",
+    "mean": 0.03,
+    "n": 160
+   },
+   {
+    "station": "이수",
+    "next": "사당",
+    "mean": 0.37,
+    "n": 152
+   },
+   {
+    "station": "충무로",
+    "next": "동대문역사문화공원",
+    "mean": 3.98,
+    "n": 160
+   },
+   {
+    "station": "충무로",
+    "next": "명동",
+    "mean": -2.5,
+    "n": 157
+   }
+  ]
+ },
+ "explore_primary_peak_only": {
+  "n_passages": 538,
+  "n_dates": 8,
+  "pooled": -1.39,
+  "ci95": [
+   -2.69,
+   -0.04
+  ],
+  "combos": 14,
+  "combos_negative": 9,
+  "pass": true,
+  "by_combo": [
+   {
+    "station": "노원",
+    "next": "상계",
+    "mean": 0.09,
+    "n": 39
+   },
+   {
+    "station": "노원",
+    "next": "창동",
+    "mean": -0.56,
+    "n": 32
+   },
+   {
+    "station": "동대문",
+    "next": "동대문역사문화공원",
+    "mean": -2.32,
+    "n": 35
+   },
+   {
+    "station": "동대문",
+    "next": "혜화",
+    "mean": -0.14,
+    "n": 43
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "동대문",
+    "mean": 2.82,
+    "n": 44
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "충무로",
+    "mean": -11.52,
+    "n": 34
+   },
+   {
+    "station": "삼각지",
+    "next": "숙대입구",
+    "mean": -0.96,
+    "n": 41
+   },
+   {
+    "station": "삼각지",
+    "next": "신용산",
+    "mean": -0.43,
+    "n": 35
+   },
+   {
+    "station": "서울역",
+    "next": "숙대입구",
+    "mean": -5.51,
+    "n": 35
+   },
+   {
+    "station": "서울역",
+    "next": "회현",
+    "mean": -0.31,
+    "n": 42
+   },
+   {
+    "station": "이수",
+    "next": "동작",
+    "mean": 1.88,
+    "n": 40
+   },
+   {
+    "station": "이수",
+    "next": "사당",
+    "mean": 0.65,
+    "n": 36
+   },
+   {
+    "station": "충무로",
+    "next": "동대문역사문화공원",
+    "mean": 1.66,
+    "n": 43
+   },
+   {
+    "station": "충무로",
+    "next": "명동",
+    "mean": -7.94,
+    "n": 36
+   }
+  ]
+ },
+ "mirror_alight": {
+  "n_passages": 2189,
+  "n_dates": 8,
+  "pooled": -0.15,
+  "ci95": [
+   -1.05,
+   0.62
+  ],
+  "combos": 15,
+  "combos_negative": 7,
+  "pass": false,
+  "by_combo": [
+   {
+    "station": "노원",
+    "next": "상계",
+    "mean": -0.44,
+    "n": 159
+   },
+   {
+    "station": "노원",
+    "next": "창동",
+    "mean": -1.31,
+    "n": 146
+   },
+   {
+    "station": "동대문",
+    "next": "동대문역사문화공원",
+    "mean": -0.7,
+    "n": 157
+   },
+   {
+    "station": "동대문",
+    "next": "혜화",
+    "mean": 0.76,
+    "n": 159
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "동대문",
+    "mean": 1.84,
+    "n": 159
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "충무로",
+    "mean": -5.68,
+    "n": 157
+   },
+   {
+    "station": "사당",
+    "next": "이수",
+    "mean": 1.45,
+    "n": 7
+   },
+   {
+    "station": "삼각지",
+    "next": "숙대입구",
+    "mean": 0.16,
+    "n": 155
+   },
+   {
+    "station": "삼각지",
+    "next": "신용산",
+    "mean": -0.86,
+    "n": 152
+   },
+   {
+    "station": "서울역",
+    "next": "숙대입구",
+    "mean": -4.14,
+    "n": 153
+   },
+   {
+    "station": "서울역",
+    "next": "회현",
+    "mean": 3.39,
+    "n": 156
+   },
+   {
+    "station": "이수",
+    "next": "동작",
+    "mean": 1.4,
+    "n": 160
+   },
+   {
+    "station": "이수",
+    "next": "사당",
+    "mean": 0.67,
+    "n": 152
+   },
+   {
+    "station": "충무로",
+    "next": "동대문역사문화공원",
+    "mean": 3.84,
+    "n": 160
+   },
+   {
+    "station": "충무로",
+    "next": "명동",
+    "mean": -1.38,
+    "n": 157
+   }
+  ]
+ },
+ "explore_board": {
+  "n_passages": 2189,
+  "n_dates": 8,
+  "pooled": -0.05,
+  "ci95": [
+   -0.55,
+   0.45
+  ],
+  "combos": 15,
+  "combos_negative": 7,
+  "pass": false,
+  "by_combo": [
+   {
+    "station": "노원",
+    "next": "상계",
+    "mean": -0.44,
+    "n": 159
+   },
+   {
+    "station": "노원",
+    "next": "창동",
+    "mean": -0.81,
+    "n": 146
+   },
+   {
+    "station": "동대문",
+    "next": "동대문역사문화공원",
+    "mean": -1.01,
+    "n": 157
+   },
+   {
+    "station": "동대문",
+    "next": "혜화",
+    "mean": 0.76,
+    "n": 159
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "동대문",
+    "mean": 3.64,
+    "n": 159
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "충무로",
+    "mean": -5.41,
+    "n": 157
+   },
+   {
+    "station": "사당",
+    "next": "이수",
+    "mean": 1.65,
+    "n": 7
+   },
+   {
+    "station": "삼각지",
+    "next": "숙대입구",
+    "mean": 0.16,
+    "n": 155
+   },
+   {
+    "station": "삼각지",
+    "next": "신용산",
+    "mean": -1.11,
+    "n": 152
+   },
+   {
+    "station": "서울역",
+    "next": "숙대입구",
+    "mean": 1.36,
+    "n": 153
+   },
+   {
+    "station": "서울역",
+    "next": "회현",
+    "mean": -0.95,
+    "n": 156
+   },
+   {
+    "station": "이수",
+    "next": "동작",
+    "mean": 1.4,
+    "n": 160
+   },
+   {
+    "station": "이수",
+    "next": "사당",
+    "mean": 0.37,
+    "n": 152
+   },
+   {
+    "station": "충무로",
+    "next": "동대문역사문화공원",
+    "mean": 3.64,
+    "n": 160
+   },
+   {
+    "station": "충무로",
+    "next": "명동",
+    "mean": -2.5,
+    "n": 157
+   }
+  ]
+ },
+ "explore_board_mirror": {
+  "n_passages": 2189,
+  "n_dates": 8,
+  "pooled": -0.28,
+  "ci95": [
+   -0.72,
+   0.1
+  ],
+  "combos": 15,
+  "combos_negative": 9,
+  "pass": false,
+  "by_combo": [
+   {
+    "station": "노원",
+    "next": "상계",
+    "mean": 0.23,
+    "n": 159
+   },
+   {
+    "station": "노원",
+    "next": "창동",
+    "mean": -1.31,
+    "n": 146
+   },
+   {
+    "station": "동대문",
+    "next": "동대문역사문화공원",
+    "mean": -0.7,
+    "n": 157
+   },
+   {
+    "station": "동대문",
+    "next": "혜화",
+    "mean": 0.74,
+    "n": 159
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "동대문",
+    "mean": -1.77,
+    "n": 159
+   },
+   {
+    "station": "동대문역사문화공원",
+    "next": "충무로",
+    "mean": -3.9,
+    "n": 157
+   },
+   {
+    "station": "사당",
+    "next": "이수",
+    "mean": -1.17,
+    "n": 7
+   },
+   {
+    "station": "삼각지",
+    "next": "숙대입구",
+    "mean": -0.6,
+    "n": 155
+   },
+   {
+    "station": "삼각지",
+    "next": "신용산",
+    "mean": -0.86,
+    "n": 152
+   },
+   {
+    "station": "서울역",
+    "next": "숙대입구",
+    "mean": 1.0,
+    "n": 153
+   },
+   {
+    "station": "서울역",
+    "next": "회현",
+    "mean": -0.05,
+    "n": 156
+   },
+   {
+    "station": "이수",
+    "next": "동작",
+    "mean": 0.03,
+    "n": 160
+   },
+   {
+    "station": "이수",
+    "next": "사당",
+    "mean": 0.67,
+    "n": 152
+   },
+   {
+    "station": "충무로",
+    "next": "동대문역사문화공원",
+    "mean": 3.93,
+    "n": 160
+   },
+   {
+    "station": "충무로",
+    "next": "명동",
+    "mean": -1.38,
+    "n": 157
+   }
+  ]
+ },
+ "verdict": {
+  "primary_pass": false,
+  "mirror_also_passes": false
+ }
+}
