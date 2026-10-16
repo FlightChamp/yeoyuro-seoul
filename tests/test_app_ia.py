@@ -98,7 +98,9 @@ def test_sidebar_exactly_five_menus():
     _no_exc(at)
     assert [b.label for b in at.sidebar.button] == PAGES
     assert at.session_state["nav_page"] == "경로 추천"
-    assert any("과거 패턴 기반 기대값 · 실시간 정보 아님" in c.value for c in at.sidebar.caption)
+    cap = " ".join(c.value for c in at.sidebar.caption)
+    assert "과거 패턴 기반 기대값" in cap and "실시간 정보 아님" in cap
+    assert any("공모전 시연 버전" in str(m.value) for m in at.sidebar.markdown)
 
 
 # ---------------------------------------------------------------- 3. 직접 진입 / 재실행
@@ -195,7 +197,7 @@ def test_no_cta_when_time_shift_fails(case, baseline):
 def test_structural_label_and_card_text():
     at = H.search(H.CASES[0])                    # 상봉→건대입구 08:00 = structural
     w = " ".join(x.value for x in at.warning)
-    assert "**회피 어려움** · 현재 탐색한 경로·시간 대안 범위에서는 뚜렷한 개선안을 찾지 못했습니다." in w
+    assert "**회피 어려움** / 현재 탐색한 경로·시간 대안 범위에서는 뚜렷한 개선안을 찾지 못했습니다." in w
     assert any("정해진 경로·시간 대안 범위에서 개선안이 발견되지 않은 이동" in c.value for c in at.caption)
 
 

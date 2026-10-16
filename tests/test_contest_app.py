@@ -76,6 +76,16 @@ def test_access_toggle_decision_and_cta():
     assert at.toggle(key="w_access").value is True
 
 
+def test_diagnosis_pill_matches_time_card():
+    """혼잡 진단 결론 한 줄(🕒 추천)이 '시간 조정' 카드와 같은 시각·같은 노출 값을 말한다."""
+    at = H.search(CASE)
+    pill = [x for x in _md(at) if "🕒 추천:" in x]
+    assert pill
+    m = re.search(r"추천: (\d\d:\d\d) 출발 · (\d+)분 일찍.*?(\d+)분 → (\d+)분", re.sub(r"<[^>]+>", "", pill[0]))
+    assert m
+    assert any(("%s 출발" % m.group(1)) in x for x in _md(at) if "**" in x)
+
+
 def test_segment_max_matches_route_metric():
     at = H.search(CASE)
     metric = [m.value for m in at.metric if m.label == "최대 기대 혼잡도"][0]
@@ -126,5 +136,5 @@ def test_spatial_page_same_slot_and_no_invented_facilities():
     at.session_state["sp_mode"] = "3D 모델"
     at.run()
     _no_exc(at)
-    assert any("3D 공간정보 PoC" in x for x in _md(at))
+    assert any("실내 길찾기 기능 아님" in x for x in _md(at))         # 3D 는 PoC 안내가 캔버스 위에
     assert [e.label for e in at.expander][-2:] == ["데이터 범위 및 한계", "개발자 정보 보기"]

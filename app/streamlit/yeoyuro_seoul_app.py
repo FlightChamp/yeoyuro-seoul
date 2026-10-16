@@ -645,6 +645,8 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
     lb = bundle["map_labels"]
     fig = go.Figure()
 
+    # 경로가 선택되면 나머지 노선망을 옅게 해 추천 경로로 시선이 가게 한다 (선택 경로는 5에서 원래 노선색으로 다시 그림)
+    dim = 0.3 if highlight_path else 1.0
     # 1. 노선
     if seg is not None:
         for (line, _), g in seg.groupby(["line_id", "color"]):
@@ -655,7 +657,7 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
             fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", hoverinfo="skip",
                                      line=dict(color=LINE_COLORS.get(str(line), "#888"),
                                                width=6),
-                                     showlegend=False))
+                                     opacity=dim, showlegend=False))
 
     # 2. 환승 connector
     if tl is not None and "x0" in tl.columns:
@@ -668,7 +670,7 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
         if xs:
             fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", hoverinfo="skip",
                                      line=dict(color="#9CA3AF", width=2.5),
-                                     showlegend=False))
+                                     opacity=dim, showlegend=False))
 
     # 3. 역 marker
     tr = vn[vn["is_transfer_station"] == True]
@@ -700,13 +702,25 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
                               color="#111827"),
                 hoverinfo="skip", showlegend=False))
 
-    # 5. 추천 경로 highlight
+    # 5. 추천 경로 highlight (반투명 띠 + 구간별 원래 노선색)
     if highlight_path:
         xs, ys = path_to_visual_nodes(highlight_path, vn)
         if xs:
             fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", hoverinfo="skip",
                                      line=dict(color=PRIMARY, width=14),
                                      opacity=0.38, showlegend=False))
+        run = []
+        for node in list(highlight_path) + [None]:
+            ln = node.split("_", 1)[0] if node else None
+            if run and (ln != run[0][0]):
+                px, py = path_to_visual_nodes([n for _, n in run], vn)
+                if len(px) >= 2:
+                    fig.add_trace(go.Scatter(x=px, y=py, mode="lines", hoverinfo="skip",
+                                             line=dict(color=LINE_COLORS.get(run[0][0], "#888"), width=6),
+                                             showlegend=False))
+                run = []
+            if node:
+                run.append((ln, node))
 
     # 6. 출발/도착 halo
     if ca is not None and show_endpoints:
@@ -1064,8 +1078,8 @@ def car_strip_html(n: int, pct: list[int] | None, ev_labels: dict[int, str], pic
                      'padding:%s;text-align:center;line-height:1.25">'
                      '<div style="font-size:0.74rem;color:#4B5563">%d</div>%s%s</div>'
                      % (w, w, _cong_bg(v), bd, "4px 2px" if compact else "7px 2px", c, val, badge))
-    head = ('<div style="color:#4B5563;font-size:0.8rem;margin:2px 0 3px 0">%s방면 열차 · %d칸 · '
-            '칸 번호는 빠른하차정보 표기(진행 방향 기준)</div>' % ((_esc(toward) + " ") if toward else "", n))
+    head = ('<div style="color:#4B5563;font-size:0.8rem;margin:2px 0 3px 0">%s방면 열차 · %d칸</div>'
+            % ((_esc(toward) + " ") if toward else "", n))
     return ('%s<div style="overflow-x:auto;padding-bottom:2px"><div style="display:flex;gap:4px;min-width:%dpx">'
             '%s</div></div>' % (head, n * (w + 4), "".join(cells)))
 
@@ -1876,6 +1890,24 @@ def _cf_cell(col, title, opt, base, highlight=False):
             st.caption("가장 가까운 후보도 기준 미달: **%s**" % opt["reason"])
 
 
+def _cf_pill(c):
+    """혼잡 진단의 결론 한 줄 (4개 카드를 읽기 전에 3초 안에 보이도록). 판정은 카드와 같은 c 를 그대로 쓴다."""
+    b = c.get("now") or {}
+    for kind, icon in (("time", "🕒"), ("route", "🔀")):
+        o = c.get(kind) or {}
+        if not o.get("ok") or o.get("exp100") is None or b.get("exp100") is None:
+            continue
+        if kind == "time":
+            head = "추천: %s 출발 · %s" % (o["depart"], _shift_label(o["shift_min"]))
+        else:
+            head = "추천: 다른 경로 · %s" % _path_lines(o["path"])
+        st.markdown('<div style="display:inline-block;background:#E8F1FB;border:1px solid #9CC3EA;border-radius:22px;'
+                    'padding:7px 16px;margin:2px 0 10px 0"><span style="font-weight:800;color:#0B3D75">%s %s</span>'
+                    '<span style="color:#1F2937;margin-left:12px">정원 초과(100%%+) 혼잡 노출 <b>%.0f분 → %.0f분</b></span>'
+                    '</div>' % (icon, _esc(head), b["exp100"], o["exp100"]), unsafe_allow_html=True)
+        return
+
+
 def render_counterfactual(o, d_):
     day_type, hhmm, qd = _query_args()
     try:
@@ -1888,7 +1920,8 @@ def render_counterfactual(o, d_):
         return
     st.subheader("혼잡 진단 — 경로를 바꿀까, 시간을 바꿀까?")
     label = CF_TYPE_LABEL.get(c["type"], c["type_ko"])
-    getattr(st, CF_TONE[c["type"]])("**%s** · %s" % (label, CF_ADVICE[c["type"]]))
+    getattr(st, CF_TONE[c["type"]])("**%s** / %s" % (label, CF_ADVICE[c["type"]]))
+    _cf_pill(c)
     if c["type"] == "structural":
         st.caption("ⓘ %s = %s" % (STRUCTURAL_LABEL, STRUCTURAL_HELP), help=STRUCTURAL_HELP)
     if c["type"] in ("calm", "invalid"):
@@ -1900,10 +1933,11 @@ def render_counterfactual(o, d_):
     _cf_cell(cols[2], "시간 조정 (±60분)", c["time"], base)
     _cf_cell(cols[3], "경로 + 시간 함께 (참고)", c["joint"], base)
     st.caption(
-        "판정 기준 (v2.3 사전 등록 `%s`): 100%%+ 혼잡 노출이 **5분 이상 또는 절반 이상** 줄어야 '효과 있음'. "
+        "판정 기준: 100%+ 혼잡 노출이 **5분 이상 또는 절반 이상** 줄어야 '효과 있음'. "
         "경로 변경은 소요 +15분·체감 +5분·환승 +1회 이내, 시간 조정은 같은(또는 거의 같은) 경로로 ±60분 안·소요 +5분 이내. "
-        "'경로 + 시간 함께'는 주 판정에 쓰지 않는 참고 선택지입니다. 기준은 위 추천 경로가 아니라 같은 시각의 최속 경로입니다."
-        % c["threshold_set_id"])
+        "기준은 위 추천 경로가 아니라 같은 시각의 최속 경로입니다.",
+        help="판정 기준은 분석 전에 고정했습니다 (사전 등록 %s). '경로 + 시간 함께'는 주 판정에 쓰지 않는 참고 선택지입니다."
+             % c["threshold_set_id"])
     return c
 
 
@@ -2242,9 +2276,7 @@ def page_atlas():
     st.caption("평일 출퇴근 시간대의 혼잡이 어디에서 경로로, 시간으로 피할 수 있고 어디는 둘 다 어려운지 보여줍니다. "
                "무작위로 뽑은 역 쌍 620개 × 평일 기준 출발 6개(3,720건) 표본의 집계이며, "
                "구간을 지나는 모든 승객의 값이 아닙니다.")
-    st.info("**1~8호선 분석 표본 기준** · 9호선은 별도 재분석(1~9호선 300쌍)으로 다루며 이 지도에는 표시하지 않습니다. "
-            "9호선 포함 결과: 혼잡 이동 중 출발 시각 대안만 72.0% · 시간·경로 모두 20.9% · 경로만 1.9% · 대안 없음 5.1%.",
-            icon="ℹ️")
+    st.info("**1~8호선 분석 표본 기준** · 9호선은 별도 재분석으로 다루며 이 지도에는 표시하지 않습니다.", icon="ℹ️")
     atlas = load_mart("mobility_atlas_mart", "data/marts/v2")
     odm = load_mart("od_shiftability_mart", "data/marts/v2")
     bundle = load_map_bundle(ensure_map_fresh())
@@ -2275,9 +2307,8 @@ def page_atlas():
             m[i].metric(TYPE_KO_APP[k], "%.1f%%" % (100 * w[sub.final_shiftability_type == k].sum()
                                                     / max(tot_hot, 1e-9)),
                         help=("%s. 혼잡 이동(여유 제외) 대비" % STRUCTURAL_HELP) if k == "structural"
-                        else "혼잡 이동(여유 제외) 대비")
-    st.caption("유형 판정 기준은 분석 전에 고정했습니다 (docs/v2/preregistration_v23.md, T1). "
-               "'경로 변경'은 한 사람이 옮길 때 기준이며, 많은 사람이 함께 옮기는 효과는 반영하지 않습니다.")
+                        else ("혼잡 이동(여유 제외) 대비. 한 사람이 옮길 때 기준이며, 많은 사람이 함께 옮기는 효과는 "
+                              "반영하지 않습니다. 유형 판정 기준은 분석 전에 고정했습니다."))
 
     # ---- 지도
     a = atlas[(atlas.time_group == grp) & (atlas.atlas_dimension == dim)].copy()
@@ -2391,8 +2422,8 @@ def page_event_scenario():
                           yaxis=dict(title="평시 유형", autorange="reversed"))
         st.subheader("유형 전이 (이벤트 구간을 지나는 이동)")
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="evs_heat")
-        st.caption("대각선 밖의 칸이 이벤트 때문에 대응 방법이 바뀐 이동입니다. "
-                   "예: 평시 '시간 조정' → 이벤트 '회피 어려움' = 평소엔 조금 일찍 나서면 됐지만 이벤트 날엔 "
+        st.caption("대각선 밖의 칸이 이벤트 때문에 대응 방법이 바뀐 이동입니다.  \n"
+                   "평시 '시간 조정' → 이벤트 '회피 어려움' = 평소엔 조금 일찍 나서면 됐지만 이벤트 날엔 "
                    "탐색한 대안 범위에서 개선안을 찾지 못함.")
         changed = t[t.baseline_type != t.event_shiftability_type]
         if len(changed):
@@ -2461,7 +2492,6 @@ def show_station_info(station_key: str):
 
 
 def page_congestion():
-    st.caption("역·노선별로 시간대에 따라 기대 혼잡도가 어떻게 변하는지 봅니다.")
     tab_st, tab_line = st.tabs(["역별 혼잡도", "노선별 혼잡도"])
     with tab_st:
         page_congestion_station()
@@ -3155,8 +3185,8 @@ def page_facility_elevator():
         if crowd and crowd.get("pct") and prev_st:
             pct = crowd["pct"]
             ev_cars = set(d["ev_labels"])
-            with st.expander("왜 %s인가요? — 칸별 평소 혼잡도 근거"
-                             % ("%d번째 칸" % d["pick"] if d["pick"] else "이 칸")):
+            with st.expander("왜 %s인가요?" % ("%d번째 칸" % d["pick"] if d["pick"] else "이 칸")):
+                st.markdown("**칸별 평소 혼잡도 근거**")
                 st.caption("%s → %s, 평일 %s대 · 열차 평균 %.0f%% · 통과 %d회 평균"
                            % (prev_st, stn, crowd["time_bin"], crowd["train_mean"], crowd["n_passages"]))
                 lw = [3 if (c in ev_cars or c == d["pick"]) else 0 for c in range(1, 11)]
@@ -3181,10 +3211,11 @@ def page_facility_elevator():
                 mir_txt = ("칸 번호 기준을 반대로 보고 계산해도 이 경우 추천 칸은 같습니다." if mir == chosen else
                            "칸 번호 기준을 반대로 보면 추천 칸이 %d번째 칸으로 달라집니다 — 공사 확인 전까지 시범 기능입니다." % mir)
                 st.caption("엘리베이터 칸 양옆 1칸까지를 후보로 두고, 옆 칸이 5%p 이상 덜 붐빌 때만 추천합니다. "
-                           "샘플 검증: 4호선 엘리베이터 역에 도착하는 붐비는 구간·시간대 129개 중 40%에서 옆 칸이 평균 10.8%p 덜 붐볐습니다. "
-                           "칸별 혼잡도 샘플의 칸 번호 기준(진행 방향 여부)은 공사 확인이 필요합니다. " + mir_txt)
+                           "샘플 검증: 4호선 엘리베이터 역에 도착하는 붐비는 구간·시간대 129개 중 40%에서 옆 칸이 평균 10.8%p 덜 붐볐습니다.",
+                           help="칸별 혼잡도 샘플의 칸 번호 기준(진행 방향 여부)은 공사 확인이 필요합니다. " + mir_txt)
         st.caption("%s · %s 기준%s" % (FAST_EXIT_NOTE, _fmt_ymd(elevators[0]["crtr_ymd"]),
-                                       (" · " + d["note"]) if d["note"] else ""))
+                                       (" · " + d["note"]) if d["note"] else ""),
+                   help="칸 번호는 빠른하차정보 표기(진행 방향 기준)를 따릅니다.")
 
 
 @st.cache_data(show_spinner=False)
@@ -3266,7 +3297,7 @@ def _mesh_figure(meshes: dict, focus: str, cam_rev: int):
     colors = {"B1": "#3B82F6", "B2": "#F59E0B", "B3": "#10B981"}
     fig = go.Figure()
     for k, (x, y, z, i, j, kk, _n) in meshes.items():
-        op = 0.95 if focus in ("전체", k) else 0.12
+        op = 1.0 if focus in ("전체", k) else 0.22      # 선택 층 100%, 나머지 20~30%
         fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=kk, color=colors.get(k, "#9CA3AF"), opacity=op,
                                 name=k, showlegend=True, flatshading=True, hoverinfo="name",
                                 lighting=dict(ambient=0.55, diffuse=0.8)))
@@ -3301,10 +3332,13 @@ def _station_elevator_card(mart, station: str):
 def page_spatial():
     """역사 안내 › 역사 도면 — 2D 도면과 3D 모델을 같은 자리에서 전환. 기술 정보는 접어 둔다."""
     st.markdown('<div style="font-size:1.25rem;font-weight:800;color:#002D56">%s역 역사 구조 '
-                '<span style="font-size:0.85rem;color:#6B7280;font-weight:500">1·6호선</span></div>'
-                % SPATIAL_STATION, unsafe_allow_html=True)
-    st.markdown(POC_BADGE % "공간정보 PoC" + '<span style="color:#6B7280;font-size:0.82rem">현재는 공모전 제공 역사 도면을 '
-                '표시하며, 안전시설 좌표는 정식 데이터 개방 후 연동됩니다.</span>', unsafe_allow_html=True)
+                '<span style="font-size:0.85rem;color:#6B7280;font-weight:500;margin-right:8px">1·6호선</span>%s</div>'
+                % (SPATIAL_STATION, POC_BADGE % "공간정보 PoC"), unsafe_allow_html=True)
+    mode = st.session_state.get("sp_mode") or "2D 도면"
+    st.markdown('<div style="color:#6B7280;font-size:0.82rem;margin:2px 0 6px 0">%s</div>'
+                % ("구조 확인용 · 실내 길찾기 기능 아님 · 안전시설 좌표는 정식 데이터 개방 후 연동됩니다" if mode == "3D 모델"
+                   else "현재는 공모전 제공 역사 도면을 표시하며, 안전시설 좌표는 정식 데이터 개방 후 연동됩니다"),
+                unsafe_allow_html=True)
     mode = st.segmented_control("보기", ["2D 도면", "3D 모델"], key="sp_mode", required=True,
                                 default="2D 도면", label_visibility="collapsed") or "2D 도면"
     shp = sorted(SPATIAL_DIR.glob("*.shp")) if SPATIAL_DIR.exists() else []
@@ -3351,8 +3385,7 @@ def page_spatial():
                 img = ROOT / "reports" / "v2" / "fig_spatial_3d.png"
                 if img.exists():
                     st.image(str(img))
-            st.markdown(POC_BADGE % "3D 공간정보 PoC" + '<span style="color:#6B7280;font-size:0.8rem">역사 구조 확인용이며, '
-                        '실내 길찾기 기능은 아닙니다. 마우스로 돌리고 휠로 확대합니다.</span>', unsafe_allow_html=True)
+            st.caption("마우스로 돌리고 휠로 확대합니다.")
 
     with right:
         with st.container(border=True):
@@ -3392,9 +3425,9 @@ def page_spatial():
 
 
 PAGE_CAPTION = {"경로 추천": "출발·도착·시각을 한 번 입력하면 경로와 출발 시각 대안을 함께 봅니다.",
-                "혼잡 탐색": "역·노선별 시간대 혼잡과, 네트워크 전체에서 혼잡을 피할 수 있는 곳을 봅니다.",
+                "혼잡 탐색": "",
                 "이벤트 분석": "과거 이벤트 날의 실제 기록(근거)과, 그 근거로 만든 what-if 시나리오를 봅니다.",
-                "역사 안내": "교통약자가 내릴 칸을 정하고, 역 안 구조를 도면으로 확인합니다.",
+                "역사 안내": "교통약자가 이용할 칸을 추천하고, 역 안 구조를 도면으로 확인합니다.",
                 "프로젝트 & 검증": "데이터·방법론·검증 결과·한계 (면접관·심사위원·개발자용)."}
 
 VIEW_FN = {("경로 추천", "경로"): "page_route",
@@ -3430,15 +3463,20 @@ def main():
     st.sidebar.title("🚇 여유로 서울")
     st.sidebar.caption("서울 지하철 혼잡도 기반  \n쾌적 경로 추천 시스템")
     _dm = data_mode()
-    st.sidebar.caption("공모전 제출판 · " + ("시연판 (전체 데이터)" if all(_dm.values()) else "공개 배포판 (일부 기능 비활성)"),
-                       help="공모전 제공 샘플과 이용허락범위를 확인하지 않은 자료는 공개 배포판에 넣지 않았습니다. "
-                            "해당 기능은 비활성 사유를 화면에 표시합니다.")
+    _have = {"elevator": "빠른하차정보 엘리베이터 칸", "car_sample": "칸별 혼잡도 샘플(4호선)", "spatial": "동묘앞역 2D·3D 도면"}
+    st.sidebar.markdown('<span style="display:inline-block;background:rgba(255,255,255,0.12);border:1px solid '
+                        'rgba(255,255,255,0.35);border-radius:10px;padding:1px 9px;font-size:0.74rem">공모전 시연 버전</span>',
+                        unsafe_allow_html=True)
+    _data_help = (DISCLAIMER + "\n\n**이 실행 환경의 공모전 자료**: " + " · ".join(
+        "%s %s" % (v, "있음" if _dm[k] else "없음(비활성)") for k, v in _have.items())
+        + ". 공모전 제공 샘플과 이용허락범위를 확인하지 않은 자료는 공개 배포판에 넣지 않으며, "
+          "해당 기능은 비활성 사유를 화면에 표시합니다.")
     for m in PAGES + (["노선도 편집"] if edit else []):
         st.sidebar.button(m, width="stretch", key="nav_%s" % m,
                           type="primary" if page == m else "secondary",
                           on_click=_go, args=(m,))
     st.sidebar.divider()
-    st.sidebar.caption(RESULT_NOTE, help=DISCLAIMER)
+    st.sidebar.caption("ⓘ 데이터 기준  \n과거 패턴 기반 기대값  \n실시간 정보 아님", help=_data_help)
 
     if page == "노선도 편집":
         page_map_editor()
@@ -3453,7 +3491,8 @@ def main():
                                     label_visibility="collapsed", on_change=_sync_widgets_from_canonical)
         view = view if view in NAV[page] else NAV[page][0]
     if page != "경로 추천" or view == "경로":
-        st.caption(PAGE_CAPTION[page])
+        if PAGE_CAPTION.get(page):
+            st.caption(PAGE_CAPTION[page])
     globals()[VIEW_FN[(page, view)]]()
 
 
