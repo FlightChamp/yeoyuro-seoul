@@ -1,0 +1,137 @@
+{
+ "source": "data\\raw\\spatial_dongmyo",
+ "floors": {
+  "B1F": {
+   "crs": "EPSG:3857",
+   "polygons": 29,
+   "etype": {
+    "unclassified": 28,
+    "stair": 1
+   },
+   "bbox_m": [
+    248.9,
+    151.5
+   ]
+  },
+  "B2F": {
+   "crs": "EPSG:3857",
+   "polygons": 152,
+   "etype": {
+    "unclassified": 141,
+    "stair": 7,
+    "column": 3,
+    "inner_wall": 1
+   },
+   "bbox_m": [
+    377.2,
+    203.5
+   ]
+  },
+  "B3F": {
+   "crs": "EPSG:3857",
+   "polygons": 54,
+   "etype": {
+    "unclassified": 39,
+    "stair": 15
+   },
+   "bbox_m": [
+    249.5,
+    172.5
+   ]
+  }
+ },
+ "glb": [
+  {
+   "file": "Dongmyo_B1.glb",
+   "meshes": 63,
+   "vertices": 14375,
+   "faces": 4806,
+   "bounds_min": [
+    122.22,
+    34.32,
+    -839.1
+   ],
+   "bounds_max": [
+    792.33,
+    63.91,
+    -604.95
+   ],
+   "up_axis_range_y": [
+    34.32,
+    63.91
+   ]
+  },
+  {
+   "file": "Dongmyo_B2.glb",
+   "meshes": 584,
+   "vertices": 125218,
+   "faces": 41816,
+   "bounds_min": [
+    133.36,
+    16.67,
+    -817.84
+   ],
+   "bounds_max": [
+    1091.17,
+    57.7,
+    -538.79
+   ],
+   "up_axis_range_y": [
+    16.67,
+    57.7
+   ]
+  },
+  {
+   "file": "Dongmyo_B3.glb",
+   "meshes": 85,
+   "vertices": 39841,
+   "faces": 13351,
+   "bounds_min": [
+    199.41,
+    -5.09,
+    -817.3
+   ],
+   "bounds_max": [
+    820.31,
+    24.43,
+    -544.42
+   ],
+   "up_axis_range_y": [
+    -5.09,
+    24.43
+   ]
+  }
+ ],
+ "vertical_check": [
+  {
+   "floor": "B1F",
+   "shp_floor_z": 34.32,
+   "glb_floor_y": 34.32,
+   "diff_m": 0.0,
+   "match": true
+  },
+  {
+   "floor": "B2F",
+   "shp_floor_z": 16.67,
+   "glb_floor_y": 16.67,
+   "diff_m": 0.0,
+   "match": true
+  },
+  {
+   "floor": "B3F",
+   "shp_floor_z": -5.09,
+   "glb_floor_y": -5.09,
+   "diff_m": 0.0,
+   "match": true
+  }
+ ],
+ "facilities": {
+  "input": null,
+  "rows": 0,
+  "placed": 0
+ },
+ "figures": [
+  "reports\\v2\\fig_spatial_2d.png",
+  "reports\\v2\\fig_spatial_3d.png"
+ ]
+}
