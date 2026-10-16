@@ -158,11 +158,12 @@ def alight_crowd_match(pattern: pd.DataFrame | None, line, prev_station: str, st
     """하차역 직전 역간(이전역→하차역)의 칸별 패턴으로 엘리베이터 칸 주변을 비교한다.
 
     시간대는 time_bin("07:30") 을 주면 그대로, 아니면 arrive_min(자정 기준 분)의 30분 구간.
-    반환
-      None                         : 이 노선 패턴이 없음 (비교 불가)
-      {"no_sample": True}          : 노선 패턴은 있으나 이 역간·시간대 표본이 기준 미달
-      {"quiet": True, ...}         : 평소 붐비지 않는 시간 (열차 평균 < busy)
-      {"quiet": False, ...}        : 비교 결과 (match 결과 + 화면 표시용 정수 %)
+    반환 ("state" 로 구분)
+      None                         : 이 노선 패턴이 없음 / 칸 번호가 범위 밖 (비교 불가)
+      state="no_sample"            : 노선 패턴은 있으나 이 역간·시간대 표본이 기준 미달 (pct 없음)
+      state="quiet"                : 평소 붐비지 않는 시간 (열차 평균 < busy) — 엘리베이터 칸 그대로, pick = nearest
+      state="compare"              : 비교 결과 (match 결과 + 화면 표시용 정수 %)
+    quiet·compare 는 같은 키(nearest, pick, extra_cars, elevator, near_pct, pick_pct, gain_pct, pct)를 갖는다.
     화면 표시용 값(pct, near_pct, pick_pct, gain_pct)은 원값을 한 번만 반올림한 정수다.
     gain_pct = near_pct − pick_pct 로 두어 화면의 숫자끼리 산술이 맞게 한다.
     여러 엘리베이터가 있으면 권하는 칸의 혼잡이 가장 낮은 쪽을 고른다.
@@ -174,23 +175,27 @@ def alight_crowd_match(pattern: pd.DataFrame | None, line, prev_station: str, st
                   & (pattern.to_station == station) & (pattern.time_bin == tb)]
     if sub.empty:
         # 그 노선 패턴은 있지만 이 역간·시간대 표본이 기준(통과 수·날짜 수)에 못 미침 → 비교를 생략했다고 알린다
-        return {"no_sample": True, "time_bin": tb} if (pattern.line.astype(str) == str(line)).any() else None
+        return ({"state": "no_sample", "no_sample": True, "quiet": False, "time_bin": tb}
+                if (pattern.line.astype(str) == str(line)).any() else None)
     r = sub.iloc[0]
     vec = [float(r[f"car_{i}"]) for i in range(1, N_CARS + 1)]
     pct = [int(round(v)) for v in vec]
     base = {"time_bin": r.time_bin, "train_mean": round(float(r.train_mean), 1), "n_passages": int(r.n_passages),
             "pct": pct, "no_sample": False}
+    valid = [e for e in elevators if 1 <= e["car"] <= N_CARS]
+    if not valid:
+        return None
     if float(r.train_mean) < busy:
-        return {**base, "quiet": True}
+        # 평소 붐비지 않는 시간: 칸을 옮기라고 권하지 않는다. 엘리베이터 칸 정보는 비교 상태와 같은 키로 함께 둔다
+        # (2026-10-17 버그: 이 상태에 nearest 가 없어 역사 안내 근거 영역이 KeyError 로 멈췄다 — 4호선 조합의 91%)
+        e0 = valid[0]
+        return {**base, "state": "quiet", "quiet": True, "nearest": e0["car"], "pick": e0["car"], "extra_cars": 0,
+                "elevator": e0["label"], "near_pct": pct[e0["car"] - 1], "pick_pct": pct[e0["car"] - 1], "gain_pct": 0}
     best = None
-    for e in elevators:
-        if not 1 <= e["car"] <= N_CARS:
-            continue
+    for e in valid:
         m = match(vec, e["car"])
         if best is None or m["pick_value"] < best["pick_value"]:
             best = {**m, "elevator": e["label"]}
-    if best is None:
-        return None
     near_pct, pick_pct = pct[best["nearest"] - 1], pct[best["pick"] - 1]
-    return {**base, **best, "quiet": False, "near_pct": near_pct, "pick_pct": pick_pct,
+    return {**base, **best, "state": "compare", "quiet": False, "near_pct": near_pct, "pick_pct": pick_pct,
             "gain_pct": near_pct - pick_pct}

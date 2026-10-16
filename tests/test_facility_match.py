@@ -129,6 +129,8 @@ def test_alight_crowd_match_states():
     assert c["pct"][6] == c["near_pct"] and c["pct"][7] == c["pick_pct"]
     assert alight_crowd_match(_pattern(), "4", "동대문", "동대문역사문화공원", None, els, time_bin="07:30")["pick"] == 8
     ns = alight_crowd_match(_pattern(), "4", "동대문", "동대문역사문화공원", 8 * 60 + 10, els)
-    assert ns == {"no_sample": True, "time_bin": "08:00"}                                 # 그 시간대 표본 없음 → 비교 생략을 알린다
+    assert ns["state"] == "no_sample" and ns["no_sample"] is True and ns["time_bin"] == "08:00" and "pct" not in ns
+    assert q["state"] == "quiet" and q["nearest"] == 7 and q["pick"] == 7 and q["gain_pct"] == 0   # 2026-10-17 KeyError 회귀
+    assert c["state"] == "compare"                                 # 그 시간대 표본 없음 → 비교 생략을 알린다
     assert alight_crowd_match(_pattern(), "2", "a", "b", 480, els) is None   # 패턴이 없는 노선
     assert alight_crowd_match(None, "4", "동대문", "동대문역사문화공원", 480, els) is None

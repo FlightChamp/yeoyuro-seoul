@@ -138,3 +138,53 @@ def test_spatial_page_same_slot_and_no_invented_facilities():
     _no_exc(at)
     assert any("실내 길찾기 기능 아님" in x for x in _md(at))         # 3D 는 PoC 안내가 캔버스 위에
     assert [e.label for e in at.expander][-2:] == ["데이터 범위 및 한계", "개발자 정보 보기"]
+
+
+@pytest.mark.skipif(not HAS_ELEV, reason="엘리베이터 표 없음")
+def test_facility_quiet_case_from_bug_report():
+    """사용자 보고 사례: 4호선 충무로 · 동대문역사문화공원 방면 · 평일 07:30 (평소 붐비지 않음) → KeyError 였음."""
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(str(H.APP), default_timeout=300)
+    at.session_state["nav_page"] = PAGE
+    at.session_state["view_facility"] = "엘리베이터 하차 칸"
+    at.session_state["fac_line"] = "4"
+    at.session_state["fac_station"] = "충무로"
+    at.session_state["fac_toward"] = "동대문역사문화공원"
+    at.session_state["fac_bin"] = "07:30"
+    at.run()
+    _no_exc(at)
+    assert any("8번째 칸 1번 문 근처에서 내리세요" in x for x in _md(at))
+    if HAS_CAR:
+        assert any(e.label == "왜 이 칸인가요?" for e in at.expander)
+
+
+@pytest.mark.skipif(not HAS_ELEV, reason="엘리베이터 표 없음")
+def test_facility_page_every_station_and_direction():
+    """1~8호선 모든 역·방면을 역사 안내에서 열어도 오류가 없다 (시간대는 각 화면의 기본값)."""
+    import pandas as pd
+    from streamlit.testing.v1 import AppTest
+    mart = pd.read_parquet(MARTS / "fast_exit_elevator.parquet")
+    n = 0
+    for line, gl in mart.groupby("line"):
+        at = AppTest.from_file(str(H.APP), default_timeout=300)      # 노선마다 새로 연다 (위젯 값은 화면 조작으로만 바꾼다)
+        at.session_state["nav_page"] = PAGE
+        at.session_state["view_facility"] = "엘리베이터 하차 칸"
+        at.session_state["fac_line"] = str(line)
+        at.run()
+        _no_exc(at)
+        for stn, g in gl.groupby("station"):
+            at.selectbox(key="fac_station").set_value(stn).run()
+            assert not at.exception, (line, stn, [e.value[:200] for e in at.exception])
+            for tw in sorted(g.toward.unique()):
+                at.selectbox(key="fac_toward").set_value(tw).run()
+                assert not at.exception, (line, stn, tw, [e.value[:200] for e in at.exception])
+                n += 1
+    assert n > 400
+
+
+def test_route_access_quiet_case():
+    """경로 카드에서도 '평소 붐비지 않음' 상태가 오류 없이 표시된다 (수유 → 충무로 07:30)."""
+    at = H.search(("수유", "충무로", "2026-10-14", "07:30", "calm"))
+    at.toggle(key="w_access").set_value(True).run()
+    _no_exc(at)
+    assert len(_acc_text(at)) == 1

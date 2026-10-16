@@ -99,7 +99,7 @@ def test_sidebar_exactly_five_menus():
     assert [b.label for b in at.sidebar.button] == PAGES
     assert at.session_state["nav_page"] == "경로 추천"
     cap = " ".join(c.value for c in at.sidebar.caption)
-    assert "과거 패턴 기반 기대값" in cap and "실시간 정보 아님" in cap
+    assert "데이터 기준" in cap and "과거 패턴 기반 기대값" in cap
     assert any("공모전 시연 버전" in str(m.value) for m in at.sidebar.markdown)
 
 
