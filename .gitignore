@@ -117,3 +117,6 @@ data/app_v26/reports/
 data/app_v26/data/marts/car_pattern_sample.parquet
 # 칸별 샘플에서 파생된 구간별 값 (이용 조건 확인 전 비공개)
 reports/v2/facility_poc_cases.csv
+# 공모전판: 빠른하차정보(공공데이터포털) 파생 엘리베이터 표 — 이용허락범위 확인 전까지 올리지 않는다
+#   (확인 후: git add -f data/app_v26/data/marts/fast_exit_elevator.parquet)
+data/app_v26/data/marts/fast_exit_elevator.parquet

@@ -125,7 +125,10 @@ def test_alight_crowd_match_states():
     assert c["pick"] == 8 and c["gain"] == 10.1 and c["quiet"] is False and c["no_sample"] is False
     q = alight_crowd_match(_pattern(train_mean=40.0), "4", "동대문", "동대문역사문화공원", 7 * 60 + 45, els)
     assert q["quiet"] is True
+    assert (c["near_pct"], c["pick_pct"], c["gain_pct"]) == (122, 111, 11)   # 화면 숫자끼리 산술 일치
+    assert c["pct"][6] == c["near_pct"] and c["pct"][7] == c["pick_pct"]
+    assert alight_crowd_match(_pattern(), "4", "동대문", "동대문역사문화공원", None, els, time_bin="07:30")["pick"] == 8
     ns = alight_crowd_match(_pattern(), "4", "동대문", "동대문역사문화공원", 8 * 60 + 10, els)
-    assert ns == {"no_sample": True}                                 # 그 시간대 표본 없음 → 비교 생략을 알린다
+    assert ns == {"no_sample": True, "time_bin": "08:00"}                                 # 그 시간대 표본 없음 → 비교 생략을 알린다
     assert alight_crowd_match(_pattern(), "2", "a", "b", 480, els) is None   # 패턴이 없는 노선
     assert alight_crowd_match(None, "4", "동대문", "동대문역사문화공원", 480, els) is None

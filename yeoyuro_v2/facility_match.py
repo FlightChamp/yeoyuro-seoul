@@ -153,24 +153,35 @@ def _bin30(minute_of_day: float) -> str:
 
 
 def alight_crowd_match(pattern: pd.DataFrame | None, line, prev_station: str, station: str,
-                       arrive_min: float, elevators: list[dict], busy: float = 60.0) -> dict | None:
+                       arrive_min: float | None, elevators: list[dict], busy: float = 60.0,
+                       time_bin: str | None = None) -> dict | None:
     """하차역 직전 역간(이전역→하차역)의 칸별 패턴으로 엘리베이터 칸 주변을 비교한다.
 
-    패턴이 없으면 None. 평소 붐비지 않는 시간(열차 평균 < busy)이면 {"quiet": True}.
+    시간대는 time_bin("07:30") 을 주면 그대로, 아니면 arrive_min(자정 기준 분)의 30분 구간.
+    반환
+      None                         : 이 노선 패턴이 없음 (비교 불가)
+      {"no_sample": True}          : 노선 패턴은 있으나 이 역간·시간대 표본이 기준 미달
+      {"quiet": True, ...}         : 평소 붐비지 않는 시간 (열차 평균 < busy)
+      {"quiet": False, ...}        : 비교 결과 (match 결과 + 화면 표시용 정수 %)
+    화면 표시용 값(pct, near_pct, pick_pct, gain_pct)은 원값을 한 번만 반올림한 정수다.
+    gain_pct = near_pct − pick_pct 로 두어 화면의 숫자끼리 산술이 맞게 한다.
     여러 엘리베이터가 있으면 권하는 칸의 혼잡이 가장 낮은 쪽을 고른다.
     """
     if pattern is None or pattern.empty or not elevators:
         return None
+    tb = time_bin or (_bin30(arrive_min) if arrive_min is not None else None)
     sub = pattern[(pattern.line.astype(str) == str(line)) & (pattern.from_station == prev_station)
-                  & (pattern.to_station == station) & (pattern.time_bin == _bin30(arrive_min))]
+                  & (pattern.to_station == station) & (pattern.time_bin == tb)]
     if sub.empty:
         # 그 노선 패턴은 있지만 이 역간·시간대 표본이 기준(통과 수·날짜 수)에 못 미침 → 비교를 생략했다고 알린다
-        return {"no_sample": True} if (pattern.line.astype(str) == str(line)).any() else None
+        return {"no_sample": True, "time_bin": tb} if (pattern.line.astype(str) == str(line)).any() else None
     r = sub.iloc[0]
     vec = [float(r[f"car_{i}"]) for i in range(1, N_CARS + 1)]
-    base = {"time_bin": r.time_bin, "train_mean": round(float(r.train_mean), 1), "n_passages": int(r.n_passages)}
+    pct = [int(round(v)) for v in vec]
+    base = {"time_bin": r.time_bin, "train_mean": round(float(r.train_mean), 1), "n_passages": int(r.n_passages),
+            "pct": pct, "no_sample": False}
     if float(r.train_mean) < busy:
-        return {**base, "quiet": True, "no_sample": False}
+        return {**base, "quiet": True}
     best = None
     for e in elevators:
         if not 1 <= e["car"] <= N_CARS:
@@ -178,4 +189,8 @@ def alight_crowd_match(pattern: pd.DataFrame | None, line, prev_station: str, st
         m = match(vec, e["car"])
         if best is None or m["pick_value"] < best["pick_value"]:
             best = {**m, "elevator": e["label"]}
-    return None if best is None else {**base, **best, "quiet": False, "no_sample": False}
+    if best is None:
+        return None
+    near_pct, pick_pct = pct[best["nearest"] - 1], pct[best["pick"] - 1]
+    return {**base, **best, "quiet": False, "near_pct": near_pct, "pick_pct": pick_pct,
+            "gain_pct": near_pct - pick_pct}

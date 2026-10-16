@@ -499,11 +499,11 @@ for k, v in DEFAULTS.items():
 NAV = {"경로 추천": ["경로", "시간 바꿔 보기"],
        "혼잡 탐색": ["역·노선별", "네트워크 지도"],
        "이벤트 분석": ["시나리오", "과거 데이터"],
-       "역 시설·공간정보": ["엘리베이터 하차 칸", "역사 도면"],     # 공모전판 (Facility + 공간정보)
+       "역사 안내": ["엘리베이터 하차 칸", "역사 도면"],     # 공모전판 (Facility + 공간정보)
        "프로젝트 & 검증": []}
 PAGES = list(NAV)
 VIEW_KEY = {"경로 추천": "view_route", "혼잡 탐색": "view_explore", "이벤트 분석": "view_event",
-            "역 시설·공간정보": "view_facility"}
+            "역사 안내": "view_facility"}
 # 예전 메뉴 이름(북마크·테스트·이전 세션) → (페이지, subview)
 LEGACY_MENU = {"쾌적 경로 찾기": ("경로 추천", "경로"),
                "시간 분산": ("경로 추천", "시간 바꿔 보기"),
@@ -892,9 +892,13 @@ TIMELINE_CSS = """
 .mc-note { color:#6B7280; font-size:0.76rem; margin-top:4px; }
 .mc-acc { background:#EEF5FF; border:1px solid #BFD7F5; border-radius:8px; padding:7px 10px; margin-top:8px; }
 .mc-acc-h { color:#0B3D75; font-size:0.86rem; }
-.mc-acc-b { color:#1F2937; font-size:0.84rem; margin-top:3px; }
+.mc-acc-t { color:#0B3D75; font-size:1.0rem; font-weight:800; }
+.mc-acc-s { color:#4B5563; font-size:0.82rem; font-weight:500; }
+.mc-acc-b { color:#1F2937; font-size:0.86rem; margin-top:3px; }
+.mc-acc-w { color:#9A3412; font-size:0.82rem; margin-top:4px; font-weight:600; }
 @media (prefers-color-scheme: dark) {
-  .mc-acc { background:#14263A; border-color:#2F4A6B; } .mc-acc-h { color:#9EC5F0; } .mc-acc-b { color:#E5E7EB; }
+  .mc-acc { background:#14263A; border-color:#2F4A6B; } .mc-acc-h, .mc-acc-t { color:#9EC5F0; } .mc-acc-b { color:#E5E7EB; }
+  .mc-acc-w { color:#FDBA74; }
   .mc-seg { background:#1B1F24; border-color:#374151; }
   .mc-od { color:#F3F4F6; } .mc-meta, .mc-dir, .mc-tf-b { color:#C7CBD1; }
   .mc-tf { background:#15181C; } .mc-tf-h { color:#9EC5F0; }
@@ -977,9 +981,35 @@ def car_hints(ev) -> dict:
 
 
 CAR_HINT_NOTE = "서울교통공사 칸별 혼잡도 샘플(4호선, 2026년 6월 평일)의 과거 패턴 · 시범 기능 · 실시간 아님"
-ACCESS_LABEL = "♿ 이동편의 안내"
-ACCESS_HELP = ("휠체어·유모차·큰 짐 이용자를 위해 도착역 엘리베이터와 가까운 칸을 안내합니다. "
-               "4호선 평일에는 그 주변 칸의 평소 혼잡도도 비교합니다. 경로 계산은 바뀌지 않습니다.")
+ACCESS_LABEL = "♿ 이동편의 우선"
+ACCESS_HELP = ("휠체어·유모차·큰 짐 이용자를 위한 하차 칸 안내를 켭니다. 도착역 엘리베이터와 가까운 칸을 기준으로, "
+               "4호선 평일에는 주변 칸의 평소 혼잡도까지 비교해 추천합니다. 경로 계산 자체는 바뀌지 않습니다.")
+
+# ---- 공개 배포판 / 시연판 (공모전판)
+#   공모전 제공 샘플(칸별 혼잡도·역사 도면)과 이용허락범위를 확인하지 않은 파생 자료(빠른하차정보 엘리베이터 표)는
+#   git 에 올리지 않는다. 그래서 공개 배포판에서는 해당 기능이 없다 — '없는 것처럼' 숨기지 않고 이유를 보여준다.
+PUBLIC_SAMPLE_NOTE = ("공모전 제공 샘플을 활용한 기능으로, 공개 배포판에서는 원본 데이터 이용조건 확인 전 "
+                      "비활성화되어 있습니다. 발표·시연은 전체 데이터로 진행합니다.")
+PUBLIC_ELEVATOR_NOTE = ("서울교통공사 빠른하차정보(공공데이터포털)를 활용한 기능으로, 공개 배포판에서는 "
+                        "이용허락범위 확인 전 비활성화되어 있습니다. 발표·시연은 전체 데이터로 진행합니다.")
+FAST_EXIT_NOTE = "서울교통공사 빠른하차정보"
+
+
+def _pattern_file() -> Path:
+    return DATA_ROOT / "data" / "marts" / "car_pattern_sample.parquet"
+
+
+def _load_car_pattern():
+    f = _pattern_file()
+    return load_mart("car_pattern_sample", stamp=f.stat().st_mtime) if f.exists() else None
+
+
+def data_mode() -> dict:
+    """어떤 공모전 자료가 이 실행 환경에 있는지. 사이드바 표기와 비활성 안내에 쓴다."""
+    spatial = ROOT / "data" / "raw" / "spatial_dongmyo"
+    return {"elevator": load_mart("fast_exit_elevator") is not None,
+            "car_sample": _pattern_file().exists(),
+            "spatial": spatial.exists() and any(spatial.glob("*.shp"))}
 
 
 def _car_door_text(e: dict) -> str:
@@ -989,12 +1019,118 @@ def _car_door_text(e: dict) -> str:
     return "%s" % str(e.get("label", "")).replace(",", "·")
 
 
-def facility_hint(ev) -> dict:
-    """교통약자 하차 칸 (공모전판). '이동편의 안내'가 켜졌을 때만. 경로 계산에는 관여하지 않는다.
+def _fmt_ymd(s) -> str:
+    s = str(s or "")
+    return "%s.%s.%s." % (s[:4], s[4:6], s[6:8]) if len(s) == 8 and s.isdigit() else s
 
-    반환: {"seg": 마지막 승차 구간 번호, "station", "line", "elevators": [...], "crowd": 칸 비교 또는 None}
-    엘리베이터 자료가 없거나 진행 방향을 하나로 정할 수 없으면 elevators 가 빈 목록이다 (틀린 칸을 안내하지 않는다).
-    """
+
+# ---- 칸 혼잡도 색 (배경 = 절대 혼잡도). 역할(엘리베이터·추천)은 테두리·배지로만 표시한다.
+#      '추천'은 후보 가운데 상대적으로 덜 붐빈다는 뜻이지 쾌적하다는 뜻이 아니므로 추천 칸을 초록으로 칠하지 않는다.
+CONG_BANDS = ((80.0, "#E6F4EA", "여유 80% 미만"), (100.0, "#FFF3CD", "보통 80~100%"),
+              (130.0, "#FFDDBA", "혼잡 100~130%"), (float("inf"), "#FFC4C4", "매우 혼잡 130% 이상"))
+EV_BORDER, PICK_BORDER = "#1D4ED8", "#15803D"
+
+
+def _cong_bg(v) -> str:
+    if v is None:
+        return "#F3F4F6"
+    for hi, bg, _ in CONG_BANDS:
+        if v < hi:
+            return bg
+    return CONG_BANDS[-1][1]
+
+
+def car_strip_html(n: int, pct: list[int] | None, ev_labels: dict[int, str], pick: int | None = None,
+                   gain_pct: int | None = None, toward: str = "", compact: bool = False) -> str:
+    """가로형 열차 칸 그림 (한 줄, 좁은 화면에서는 가로 스크롤).
+
+    배경 = 평소 혼잡도(pct 가 있을 때), 파란 테두리·♿ = 엘리베이터 칸, 초록 테두리·★ = 추천 칸."""
+    w = 46 if compact else 66
+    cells = []
+    for c in range(1, n + 1):
+        v = pct[c - 1] if pct and c - 1 < len(pct) else None
+        el, pk = c in ev_labels, (pick == c and c not in ev_labels)
+        bd = ("3px solid %s" % EV_BORDER) if el else (("3px solid %s" % PICK_BORDER) if pk else "1px solid #CBD5E1")
+        badge = ""
+        if el:
+            badge = '<div style="color:%s;font-weight:700;font-size:0.72rem">♿ EV %s</div>' % (EV_BORDER, _esc(ev_labels[c]))
+        elif pk:
+            badge = ('<div style="color:%s;font-weight:700;font-size:0.72rem">★ 추천</div>' % PICK_BORDER
+                     + ('<div style="color:%s;font-size:0.72rem">−%d%%p</div>' % (PICK_BORDER, gain_pct)
+                        if gain_pct else ""))
+        val = '<div style="font-size:%s;color:#111827">%s</div>' % (
+            "0.78rem" if compact else "0.9rem", ("%d%%" % v) if v is not None else "&nbsp;")
+        cells.append('<div style="flex:1 0 %dpx;min-width:%dpx;background:%s;border:%s;border-radius:7px;'
+                     'padding:%s;text-align:center;line-height:1.25">'
+                     '<div style="font-size:0.74rem;color:#4B5563">%d</div>%s%s</div>'
+                     % (w, w, _cong_bg(v), bd, "4px 2px" if compact else "7px 2px", c, val, badge))
+    head = ('<div style="color:#4B5563;font-size:0.8rem;margin:2px 0 3px 0">%s방면 열차 · %d칸 · '
+            '칸 번호는 빠른하차정보 표기(진행 방향 기준)</div>' % ((_esc(toward) + " ") if toward else "", n))
+    return ('%s<div style="overflow-x:auto;padding-bottom:2px"><div style="display:flex;gap:4px;min-width:%dpx">'
+            '%s</div></div>' % (head, n * (w + 4), "".join(cells)))
+
+
+def strip_legend_html(with_cong: bool) -> str:
+    sw = ('<span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:%s;'
+          'border:1px solid #CBD5E1;margin:0 3px -1px 8px"></span>%s')
+    parts = [sw % (bg, lab) for _, bg, lab in CONG_BANDS] if with_cong else []
+    parts.append('<span style="color:%s;font-weight:700;margin-left:10px">▢ 파랑</span> 엘리베이터 칸' % EV_BORDER)
+    parts.append('<span style="color:%s;font-weight:700;margin-left:10px">▢ 초록</span> 추천 칸 '
+                 '(후보 중 상대적으로 덜 붐빔 · 쾌적하다는 뜻은 아님)' % PICK_BORDER)
+    return '<div style="color:#6B7280;font-size:0.74rem;margin-top:4px">%s</div>' % "".join(parts)
+
+
+def facility_decision(station: str, line: str, elevators: list[dict], crowd: dict | None,
+                      public_reason: str | None = None) -> dict:
+    """하차 칸 결론 (경로 카드·역사 안내 화면 공통). 화면 문구만 만든다 — 판단은 facility_match 가 한다.
+
+    반환: {"title", "lines": [html], "warn": str|None, "note": str|None, "pick", "pct", "ev_labels", "gain_pct"}"""
+    ev_labels = {e["car"]: e["label"] for e in elevators}
+    where = " · ".join(_car_door_text(e) for e in elevators)
+    out = {"pick": None, "pct": None, "ev_labels": ev_labels, "gain_pct": None, "warn": None, "note": None}
+    c = crowd or {}
+    if c and not c.get("no_sample"):
+        out["pct"] = c.get("pct")
+    if c and c.get("quiet") is False:
+        lab = c.get("elevator") or elevators[0]["label"]
+        if c["pick"] != c["nearest"]:
+            out.update(pick=c["pick"], gain_pct=c["gain_pct"])
+            out["title"] = "♿ 추천: %d번째 칸" % c["pick"]
+            out["lines"] = ["엘리베이터 <b>%s</b>에서 %d칸 이동하면 %d번째 칸 %d%% → <b>%d번째 칸 %d%% (−%d%%p)</b>"
+                            % (_esc(lab), c["extra_cars"], c["nearest"], c["near_pct"], c["pick"], c["pick_pct"],
+                               c["gain_pct"])]
+            if c["near_pct"] >= 100 and c["pick_pct"] >= 100:
+                out["warn"] = "두 칸 모두 평소 정원 100%를 넘어 혼잡합니다."
+            elif c["pick_pct"] >= 100:
+                out["warn"] = "추천 칸도 평소 정원 100%를 넘어 혼잡합니다."
+        else:
+            out["title"] = "♿ 추천: %d번째 칸 (엘리베이터 칸)" % c["nearest"]
+            out["lines"] = ["엘리베이터 <b>%s</b> 바로 앞 칸입니다. 양옆 칸과 차이가 5%%p 미만이라 더 걸을 필요가 없습니다 "
+                            "(평소 %d%%)" % (_esc(lab), c["near_pct"])]
+            if c["near_pct"] >= 100:
+                out["warn"] = "이 칸도 평소 정원 100%를 넘어 혼잡합니다."
+        out["note"] = CAR_HINT_NOTE
+        return out
+    out["title"] = "♿ %s 근처에서 내리세요" % where
+    out["lines"] = ["%s 엘리베이터와 가장 가까운 위치입니다" % _esc(station)]
+    if c.get("quiet"):
+        out["lines"].append("평소 이 시간에는 붐비지 않는 구간이라 칸을 옮길 필요가 크지 않습니다 (열차 평균 %.0f%%)"
+                            % c["train_mean"])
+        out["note"] = CAR_HINT_NOTE
+    elif c.get("no_sample"):
+        out["note"] = "칸별 혼잡 비교: 이 시간대는 샘플 표본(통과 3회·2일 이상)이 부족해 생략했습니다"
+    elif public_reason:
+        out["note"] = public_reason
+    elif str(line) != "4":
+        out["note"] = "칸별 혼잡도 샘플은 4호선만 제공되어 다른 노선은 엘리베이터 위치만 안내합니다"
+    return out
+
+
+def facility_hint(ev) -> dict:
+    """교통약자 하차 칸 (공모전판). '이동편의 우선'이 켜졌을 때만. 경로 계산에는 관여하지 않는다.
+
+    반환: {"seg": 마지막 승차 구간 번호, "station", "line", "toward", "prev", "elevators", "crowd", "public"}
+    엘리베이터 자료가 없거나 진행 방향을 하나로 정할 수 없으면 elevators 가 빈 목록이다 (틀린 칸을 안내하지 않는다)."""
     if not st.session_state.get("q_access"):
         return {}
     try:
@@ -1009,16 +1145,20 @@ def facility_hint(ev) -> dict:
         if len(stns) < 2:
             return {}
         line = str(sg.get("line"))
-        out = {"seg": i, "station": stns[-1], "line": line, "elevators": [], "crowd": None,
-               "supported": line in {str(n) for n in range(1, 9)}}
+        out = {"seg": i, "station": stns[-1], "prev": stns[-2], "line": line, "elevators": [], "crowd": None,
+               "toward": None, "public": None, "supported": line in {str(n) for n in range(1, 9)}}
         mart = load_mart("fast_exit_elevator")
         if mart is None:
-            return {}
+            out["public"] = PUBLIC_ELEVATOR_NOTE
+            return out
         out["elevators"] = alight_elevators(mart, line, stns[-1], stns[-2])
-        if out["elevators"] and _query_args()[0] == "weekday":
-            f = DATA_ROOT / "data" / "marts" / "car_pattern_sample.parquet"
-            if f.exists():
-                pat = load_mart("car_pattern_sample", stamp=f.stat().st_mtime)
+        if out["elevators"]:
+            out["toward"] = out["elevators"][0]["toward"]
+        if out["elevators"] and line == "4" and _query_args()[0] == "weekday":
+            pat = _load_car_pattern()
+            if pat is None:
+                out["public"] = PUBLIC_SAMPLE_NOTE
+            else:
                 dep = ev.get("depart_min")
                 if dep is None:
                     t = st.session_state["q_time"]
@@ -1035,45 +1175,41 @@ def facility_hint(ev) -> dict:
 
 
 def facility_html(fac: dict) -> str:
-    """마지막 승차 구간 카드 안에 넣는 '도착역 엘리베이터 칸' 안내."""
+    """마지막 승차 구간 카드 안의 '하차 칸 결론' (결론 → 근거 → 출처 순)."""
     if not fac:
         return ""
     els = fac.get("elevators") or []
     if not els:
-        why = ("이 방향의 엘리베이터 칸 정보가 없습니다" if fac.get("supported")
-               else "%s은 빠른하차정보 제공 범위(1~8호선) 밖입니다" % line_label(fac.get("line")))
-        return ('<div class="mc-acc"><div class="mc-acc-h">♿ %s 도착 · %s</div>'
-                '<div class="mc-note">역 안내를 확인해 주세요</div></div>' % (_esc(fac["station"]), _esc(why)))
-    where = " · ".join(_esc(_car_door_text(e)) for e in els)
-    body = ['<div class="mc-acc"><div class="mc-acc-h">♿ %s 엘리베이터와 가까운 위치: <b>%s</b></div>'
-            % (_esc(fac["station"]), where)]
-    c = fac.get("crowd")
-    src = "%s · %s 기준 · 칸 번호는 진행 방향 기준" % (
-        "서울교통공사 빠른하차정보", _fmt_ymd(els[0].get("crtr_ymd")))
-    if c and c.get("no_sample"):
-        body.append('<div class="mc-note">칸별 혼잡 비교: 이 시간대는 샘플 표본이 부족해 생략했습니다</div>')
-    elif c and not c.get("quiet"):
-        if c["pick"] != c["nearest"]:
-            body.append('<div class="mc-acc-b">→ <b>%d칸 더 걸으면 %d번째 칸</b>이 평소 약 %.0f%%p 덜 붐빕니다 '
-                        '(엘리베이터 칸 %.0f%% · %d번째 칸 %.0f%%)</div>'
-                        % (c["extra_cars"], c["pick"], c["gain"], c["nearest_value"], c["pick"], c["pick_value"]))
+        if fac.get("public"):
+            why = fac["public"]
+        elif fac.get("supported"):
+            why = "이 방향의 엘리베이터 칸 정보가 없습니다 · 역 안내를 확인해 주세요"
         else:
-            body.append('<div class="mc-acc-b">→ 엘리베이터 칸(%d번째)이 양옆 칸보다 크게 붐비지 않습니다 · '
-                        '그대로 타셔도 됩니다 (평소 %.0f%%)</div>' % (c["nearest"], c["nearest_value"]))
-        if c.get("all_crowded"):
-            body.append('<div class="mc-note">엘리베이터 주변 칸 모두 평소 정원 100% 이상입니다 · '
-                        '출발 시각을 바꾸는 대안을 함께 확인해 보세요</div>')
-        src += " · 칸별 혼잡: %s" % CAR_HINT_NOTE
-    elif c and c.get("quiet"):
-        body.append('<div class="mc-acc-b">→ 평소 이 시간에는 칸 사이 혼잡 차이가 크지 않은 구간입니다</div>')
-        src += " · 칸별 혼잡: %s" % CAR_HINT_NOTE
+            why = "%s은 빠른하차정보 제공 범위(1~8호선) 밖입니다 · 역 안내를 확인해 주세요" % line_label(fac.get("line"))
+        return ('<div class="mc-acc"><div class="mc-acc-h">♿ %s 도착</div><div class="mc-note">%s</div></div>'
+                % (_esc(fac["station"]), _esc(why)))
+    d = facility_decision(fac["station"], fac["line"], els, fac.get("crowd"), fac.get("public"))
+    body = ['<div class="mc-acc"><div class="mc-acc-t">%s <span class="mc-acc-s">· %s</span></div>'
+            % (_esc(d["title"]), _esc(fac["station"]))]
+    body += ['<div class="mc-acc-b">%s</div>' % ln for ln in d["lines"]]
+    if d["warn"]:
+        body.append('<div class="mc-acc-w">⚠️ %s 아래 출발 시각 대안을 함께 확인해 보세요.</div>' % _esc(d["warn"]))
+    src = "%s · %s 기준" % (FAST_EXIT_NOTE, _fmt_ymd(els[0].get("crtr_ymd")))
+    if d["note"]:
+        src += " · " + d["note"]
     body.append('<div class="mc-note">%s</div></div>' % _esc(src))
     return "".join(body)
 
 
-def _fmt_ymd(s) -> str:
-    s = str(s or "")
-    return "%s.%s.%s." % (s[:4], s[4:6], s[6:8]) if len(s) == 8 and s.isdigit() else s
+def _open_facility(line: str, station: str, toward: str | None, time_bin: str | None):
+    """경로 결과 → 역사 안내(같은 역·방면·시간대)."""
+    st.session_state["fac_line"] = str(line)
+    st.session_state["fac_station"] = station
+    if toward:
+        st.session_state["fac_toward"] = toward
+    if time_bin:
+        st.session_state["fac_bin"] = time_bin
+    _go("역사 안내", "엘리베이터 하차 칸")
 
 
 def render_timeline(segs, hints: dict | None = None, facility: dict | None = None):
@@ -1413,7 +1549,13 @@ def route_card(title, ev, o, d_, note=None, tone="normal",
         else:
             c[4].metric("혼잡 주의 구간", "%d개" % ev.get("p95_exposure_count", 0))
 
-        render_timeline(ev["segments"], car_hints(ev), facility_hint(ev))
+        fac = facility_hint(ev)
+        render_timeline(ev["segments"], car_hints(ev), fac)
+        if fac.get("elevators"):
+            cr = fac.get("crowd") or {}
+            st.button("♿ 역사 안내에서 %s 하차 칸 보기 →" % fac["station"], key="fac_cta_%s" % (profile_key or title),
+                      on_click=_open_facility,
+                      args=(fac["line"], fac["station"], fac.get("toward"), cr.get("time_bin")))
         if ev.get("td_policy"):
             st.caption("혼잡도는 각 구간에 **실제로 도착하는 시각**의 과거 패턴으로 계산했습니다 "
                        "(출발 %s → 도착 약 %02d:%02d). 실시간 정보가 아닙니다."
@@ -2893,18 +3035,20 @@ def page_map_editor():
 
 
 # --------------------------------------------------------------------------
-# 공모전판: 역 시설·공간정보 (Facility + 공간정보)
+# 공모전판: 역사 안내 (Facility + 공간정보)
 #   - 엘리베이터 하차 칸: 빠른하차정보(1~8호선) × 칸별 혼잡도 샘플(4호선)
 #   - 역사 도면: 공모전 제공 동묘앞역 2D SHP·3D GLB. 안전시설 위치는 원본이 있을 때만 그린다 (임의로 만들지 않는다)
 # --------------------------------------------------------------------------
 SPATIAL_DIR = ROOT / "data" / "raw" / "spatial_dongmyo"
 SAFETY_DIR = ROOT / "data" / "raw" / "safety_facility"     # 안전시설 위치정보 원본(명세 열: 위도·경도·층번호·시설명)을 두는 곳
 SPATIAL_STATION = "동묘앞"
-SPATIAL_FLOOR_LABEL = {"B1F": "B1 (지하 1층)", "B2F": "B2 (지하 2층)", "B3F": "B3 (지하 3층)"}
+SPATIAL_FLOOR_LABEL = {"B1F": "B1", "B2F": "B2", "B3F": "B3"}
 FLOOR_ETYPE = {"unclassified": ("공간", "rgba(203,213,225,0.55)", "#94A3B8"),
                "stair": ("계단", "rgba(234,88,12,0.55)", "#C2410C"),
                "column": ("기둥", "rgba(107,114,128,0.8)", "#4B5563"),
                "inner_wall": ("내벽", "rgba(55,65,81,0.8)", "#374151")}
+POC_BADGE = ('<span style="display:inline-block;background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;'
+             'border-radius:10px;padding:1px 9px;font-size:0.74rem;font-weight:700;margin-right:6px">%s</span>')
 
 
 def _line_neighbors(line: str, station: str) -> set[str]:
@@ -2920,118 +3064,127 @@ def _fac_reset(*keys):
         st.session_state.pop(k, None)
 
 
-def _train_diagram(n: int, elevator_cars: set[int], pick: int | None, toward: str, color: str) -> str:
-    """열차 칸 그림. 오른쪽이 진행 방향(방면). 엘리베이터 칸 = ♿, 권하는 옆 칸 = 초록 테두리."""
-    cells = []
-    for c in range(1, n + 1):
-        el = c in elevator_cars
-        bg = "#DBEAFE" if el else "#F3F4F6"
-        bd = "3px solid #16A34A" if (pick and c == pick and c not in elevator_cars) else (
-            "2px solid %s" % color if el else "1px solid #D1D5DB")
-        cells.append('<div style="flex:1;min-width:26px;background:%s;border:%s;border-radius:6px;'
-                     'padding:6px 0;text-align:center;font-size:0.8rem;color:#111827">%s<div style="font-size:0.95rem">'
-                     '%s</div></div>' % (bg, bd, c, "♿" if el else "&nbsp;"))
-    return ('<div style="color:#4B5563;font-size:0.82rem;margin-top:4px">%s 방면 열차 · %d칸 편성</div>'
-            '<div style="display:flex;gap:4px;align-items:stretch;margin:4px 0 2px 0">%s</div>'
-            '<div style="color:#6B7280;font-size:0.74rem">칸 번호는 빠른하차정보 표기(진행 방향 기준)를 따릅니다 · '
-            '♿ = 엘리베이터와 가까운 칸 · 초록 테두리 = 권하는 옆 칸</div>' % (_esc(toward), n, "".join(cells)))
+def _public_card(text: str):
+    st.markdown('<div style="border:1px dashed #94A3B8;border-radius:10px;padding:10px 14px;color:#334155;'
+                'font-size:0.86rem;background:#F8FAFC">🔒 %s</div>' % _esc(text), unsafe_allow_html=True)
 
 
 def page_facility_elevator():
+    """역사 안내 › 엘리베이터 하차 칸 — 결론 → 칸 그림 → 근거(접힘) 순서."""
     import plotly.graph_objects as go
-    from yeoyuro_v2.facility_match import LINE_CARS, match
+    from yeoyuro_v2.facility_match import LINE_CARS, alight_crowd_match
     mart = load_mart("fast_exit_elevator")
     if mart is None:
-        st.info("엘리베이터 칸 자료가 없습니다. `python scripts/v2/38_build_elevator_mart.py` 를 실행하세요.")
+        _public_card(PUBLIC_ELEVATOR_NOTE)
         return
-    lines = sorted(mart.line.astype(str).unique(), key=int)
-    st.session_state.setdefault("fac_line", "4" if "4" in lines else lines[0])
-    c1, c2, c3 = st.columns([0.8, 1.4, 1.4])
-    line = c1.selectbox("노선", lines, format_func=line_label, key="fac_line",
-                        on_change=_fac_reset, args=("fac_station", "fac_toward", "fac_bin"))
-    sub = mart[mart.line.astype(str) == line]
-    stations = sorted(sub.station.unique())
-    if st.session_state.get("fac_station") not in stations:
-        st.session_state["fac_station"] = ("동대문역사문화공원" if "동대문역사문화공원" in stations else stations[0])
-    stn = c2.selectbox("하차역", stations, key="fac_station", on_change=_fac_reset, args=("fac_toward", "fac_bin"))
-    towards = sorted(sub[sub.station == stn].toward.unique())
-    if st.session_state.get("fac_toward") not in towards:
-        # 처음 열 때는 기획서 장면 3 의 예(동대문 → 동대문역사문화공원, 충무로 방면)를 보여준다
-        st.session_state["fac_toward"] = "충무로" if (stn == "동대문역사문화공원" and "충무로" in towards) else towards[0]
-    tw = c3.selectbox("타고 가는 열차의 방면", towards, format_func=lambda x: "%s 방면" % x, key="fac_toward",
-                      on_change=_fac_reset, args=("fac_bin",))
-    els = sub[(sub.station == stn) & (sub.toward == tw)].sort_values(["car", "door"])
-    n = LINE_CARS.get(line, int(sub.car.max()))
-    rows = [{"car": int(r.car), "door": None if pd.isna(r.door) else int(r.door), "label": r.label} for r in els.itertuples()]
+    left, right = st.columns([0.8, 2.4], gap="medium")
+    with left:
+        lines = sorted(mart.line.astype(str).unique(), key=int)
+        st.session_state.setdefault("fac_line", "4" if "4" in lines else lines[0])
+        line = st.selectbox("노선", lines, format_func=line_label, key="fac_line",
+                            on_change=_fac_reset, args=("fac_station", "fac_toward", "fac_bin"))
+        sub = mart[mart.line.astype(str) == line]
+        stations = sorted(sub.station.unique())
+        if st.session_state.get("fac_station") not in stations:
+            st.session_state["fac_station"] = ("동대문역사문화공원" if "동대문역사문화공원" in stations else stations[0])
+        stn = st.selectbox("하차역", stations, key="fac_station", on_change=_fac_reset, args=("fac_toward", "fac_bin"))
+        towards = sorted(sub[sub.station == stn].toward.unique())
+        if st.session_state.get("fac_toward") not in towards:
+            # 처음 열 때는 기획서 장면 3 의 예(동대문 → 동대문역사문화공원, 충무로 방면)를 보여준다
+            st.session_state["fac_toward"] = "충무로" if (stn == "동대문역사문화공원" and "충무로" in towards) else towards[0]
+        tw = st.selectbox("타고 가는 열차", towards, format_func=lambda x: "%s 방면" % x, key="fac_toward",
+                          on_change=_fac_reset, args=("fac_bin",))
+        els_df = sub[(sub.station == stn) & (sub.toward == tw)].sort_values(["car", "door"])
+        elevators = [{"car": int(r.car), "door": None if pd.isna(r.door) else int(r.door), "label": r.label,
+                      "toward": r.toward, "crtr_ymd": r.crtr_ymd} for r in els_df.itertuples()]
+        crowd, public, prev_st = None, None, None
+        prev = _line_neighbors(line, stn) - {tw}
+        if line == "4" and elevators:
+            pat = _load_car_pattern()
+            if pat is None:
+                public = PUBLIC_SAMPLE_NOTE
+            elif len(prev) == 1:
+                prev_st = next(iter(prev))
+                bins = sorted(pat[(pat.line.astype(str) == "4") & (pat.from_station == prev_st)
+                                  & (pat.to_station == stn)].time_bin.unique())
+                if bins:
+                    if st.session_state.get("fac_bin") not in bins:
+                        st.session_state["fac_bin"] = "07:30" if "07:30" in bins else bins[0]
+                    tb = st.selectbox("평일 도착 시간대", bins, key="fac_bin",
+                                      help="칸별 혼잡도 샘플에 표본(통과 3회·2일 이상)이 있는 30분 구간만 고를 수 있습니다.")
+                    crowd = alight_crowd_match(pat, "4", prev_st, stn, None, elevators, time_bin=tb)
+                else:
+                    crowd = {"no_sample": True}
 
-    pick = None
-    crowd_msg = None
-    pat_file = DATA_ROOT / "data" / "marts" / "car_pattern_sample.parquet"
-    prev = _line_neighbors(line, stn) - {tw}
-    if line == "4" and pat_file.exists() and len(prev) == 1 and rows:
-        prev_st = next(iter(prev))
-        pat = load_mart("car_pattern_sample", stamp=pat_file.stat().st_mtime)
-        ps = pat[(pat.line.astype(str) == "4") & (pat.from_station == prev_st) & (pat.to_station == stn)]
-        ps = ps.sort_values("time_bin")
-        if not ps.empty:
-            bins = ps.time_bin.tolist()
-            if st.session_state.get("fac_bin") not in bins:
-                st.session_state["fac_bin"] = "07:30" if "07:30" in bins else bins[0]
-            tb = st.select_slider("평일 도착 시간대 (30분 단위, 표본이 있는 시간대만)", bins, key="fac_bin")
-            r = ps[ps.time_bin == tb].iloc[0]
-            vec = [float(r["car_%d" % i]) for i in range(1, 11)]
-            best = min((match(vec, e["car"]) for e in rows if 1 <= e["car"] <= 10), key=lambda m: m["pick_value"])
-            pick = best["pick"] if best["pick"] != best["nearest"] else None
-            crowd_msg = (best, float(r.train_mean), int(r.n_passages), prev_st, tb, vec)
+    with right:
+        ctx = "%s · %s · %s 방면" % (line_label(line), stn, tw)
+        if crowd and crowd.get("time_bin") and not crowd.get("no_sample"):
+            ctx += " · 평일 %s" % crowd["time_bin"]
+        st.markdown('<div style="color:#475569;font-size:0.9rem;font-weight:600;margin-bottom:4px">%s</div>'
+                    % _esc(ctx), unsafe_allow_html=True)
+        if not elevators:
+            st.info("이 역·방면은 빠른하차정보에 엘리베이터 칸이 없습니다. 역 안내를 확인해 주세요.")
+            return
+        d = facility_decision(stn, line, elevators, crowd, public)
+        with st.container(border=True):
+            html = ['<div style="font-size:1.45rem;font-weight:800;color:#0B3D75;margin-bottom:4px">%s</div>'
+                    % _esc(d["title"])]
+            html += ['<div style="font-size:0.98rem;color:#1F2937;margin-top:2px">%s</div>' % ln for ln in d["lines"]]
+            if d["warn"]:
+                html.append('<div style="margin-top:8px;color:#9A3412;font-weight:700">⚠️ %s</div>' % _esc(d["warn"]))
+            st.markdown("".join(html), unsafe_allow_html=True)
+            b1, b2, _sp = st.columns([1, 1, 0.6])
+            b1.button("🕒 출발 시각 바꿔 보기", key="fac_to_time", width="stretch",
+                      on_click=_go, args=("경로 추천", "시간 바꿔 보기"),
+                      help="경로 추천의 '시간 바꿔 보기'에서 ±60분 출발 시각별 혼잡을 비교합니다.")
+            if stn == SPATIAL_STATION:
+                b2.button("🗺️ 역사 도면에서 보기", key="fac_to_map", width="stretch",
+                          on_click=_go, args=("역사 안내", "역사 도면"))
+            else:
+                b2.button("🗺️ 역사 도면에서 보기", key="fac_to_map", width="stretch", disabled=True,
+                          help="공모전 제공 역사 도면 샘플은 동묘앞역만 있습니다.")
 
-    color = LINE_COLORS.get(line, PRIMARY)
-    with st.container(border=True):
-        st.markdown("**♿ %s · %s %s 방면 열차에서 내릴 때 엘리베이터와 가까운 위치: %s**"
-                    % (_esc(stn), _esc(line_label(line)), _esc(tw),
-                       " · ".join(_esc(_car_door_text(e)) for e in rows) or "정보 없음"))
-        st.markdown(_train_diagram(n, {e["car"] for e in rows}, pick, tw, color), unsafe_allow_html=True)
-        pos = els.position.iloc[0] if len(els) and str(els.position.iloc[0]).strip() else ""
-        st.caption("원문 위치: %s · 서울교통공사 빠른하차정보 · %s 기준"
-                   % (pos or ", ".join(els.label), _fmt_ymd(els.crtr_ymd.iloc[0]) if len(els) else "-"))
+        n = LINE_CARS.get(line, int(sub.car.max()))
+        st.markdown(car_strip_html(n, d["pct"], d["ev_labels"], d["pick"], d["gain_pct"], tw),
+                    unsafe_allow_html=True)
+        st.markdown(strip_legend_html(bool(d["pct"])), unsafe_allow_html=True)
+        if public:
+            st.write("")
+            _public_card(public)
 
-    if crowd_msg:
-        best, tmean, npass, prev_st, tb, vec = crowd_msg
-        st.markdown("**칸별 평소 혼잡도 — %s → %s, 평일 %s대 (열차 평균 %.0f%%, 통과 %d회 평균)**"
-                    % (_esc(prev_st), _esc(stn), tb, tmean, npass))
-        cols = []
-        for c in range(1, 11):
-            cols.append("#2563EB" if c in {e["car"] for e in rows} else ("#16A34A" if c == pick else "#CBD5E1"))
-        fig = go.Figure(go.Bar(x=["%d" % c for c in range(1, 11)], y=vec, marker_color=cols,
-                               text=["%.0f" % v for v in vec], textposition="outside",
-                               hovertemplate="%{x}번째 칸 · 평소 %{y:.0f}%<extra></extra>"))
-        fig.add_hline(y=100, line=dict(color="#E8A33D", dash="dash", width=1),
-                      annotation_text="정원 100%", annotation_position="top right")
-        fig.update_layout(height=300, margin=dict(l=10, r=10, t=30, b=10), plot_bgcolor="#FFFFFF",
-                          paper_bgcolor="#FFFFFF", dragmode=False, showlegend=False,
-                          xaxis=dict(title="칸 (진행 방향 기준)", fixedrange=True, type="category"),
-                          yaxis=dict(title="평소 혼잡도(%)", fixedrange=True, rangemode="tozero",
-                                     range=[0, max(130.0, max(vec) * 1.15)]))
-        st.plotly_chart(fig, width="stretch", key="fac_bar", config={"displayModeBar": False})
-        if pick:
-            st.success("엘리베이터 칸(%d번째, 평소 %.0f%%) 대신 **%d칸 더 걸어 %d번째 칸**에 타면 평소 약 %.0f%%p 덜 붐빕니다 (%.0f%%)."
-                       % (best["nearest"], best["nearest_value"], best["extra_cars"], best["pick"], best["gain"],
-                          best["pick_value"]))
-        else:
-            st.info("엘리베이터 칸(%d번째)이 양옆 칸보다 5%%p 이상 붐비지 않습니다 · 그대로 타셔도 됩니다." % best["nearest"])
-        if best.get("all_crowded"):
-            st.warning("엘리베이터 주변 칸 모두 평소 정원 100% 이상입니다 · 경로 추천의 출발 시각 대안을 함께 확인해 보세요.")
-        st.caption("파랑 = 엘리베이터 칸 · 초록 = 권하는 옆 칸 (엘리베이터 칸 ±1칸 중 5%p 이상 덜 붐빌 때만) · "
-                   + CAR_HINT_NOTE + " · 샘플의 칸 번호 기준은 공사 확인이 필요합니다")
-    elif line == "4" and not pat_file.exists():
-        st.caption("칸별 혼잡 비교는 공모전 제공 4호선 칸별 혼잡도 샘플이 있을 때 표시됩니다 (이 배포판에는 포함하지 않았습니다).")
-    elif line != "4":
-        st.caption("칸별 혼잡도 샘플은 4호선만 제공되어, 다른 노선은 엘리베이터 위치만 안내합니다. "
-                   "칸별 혼잡도가 개방되면 같은 방식으로 비교합니다.")
-    elif rows:
-        st.caption("이 역·방면은 칸별 혼잡도 샘플에 기준(통과 3회·2일 이상)을 넘는 시간대가 없어 비교를 생략했습니다.")
-
-    if stn == SPATIAL_STATION:
-        st.button("🗺️ %s역 도면 보기 →" % SPATIAL_STATION, on_click=_go, args=("역 시설·공간정보", "역사 도면"))
+        if crowd and crowd.get("pct") and prev_st:
+            pct = crowd["pct"]
+            ev_cars = set(d["ev_labels"])
+            with st.expander("왜 %s인가요? — 칸별 평소 혼잡도 근거"
+                             % ("%d번째 칸" % d["pick"] if d["pick"] else "이 칸")):
+                st.caption("%s → %s, 평일 %s대 · 열차 평균 %.0f%% · 통과 %d회 평균"
+                           % (prev_st, stn, crowd["time_bin"], crowd["train_mean"], crowd["n_passages"]))
+                lw = [3 if (c in ev_cars or c == d["pick"]) else 0 for c in range(1, 11)]
+                lc = [EV_BORDER if c in ev_cars else (PICK_BORDER if c == d["pick"] else "#FFFFFF")
+                      for c in range(1, 11)]
+                fig = go.Figure(go.Bar(x=["%d" % c for c in range(1, 11)], y=pct,
+                                       marker=dict(color=[_cong_bg(v) for v in pct], line=dict(width=lw, color=lc)),
+                                       text=["%d%%" % v for v in pct], textposition="outside",
+                                       hovertemplate="%{x}번째 칸 · 평소 %{y}%<extra></extra>"))
+                fig.add_hline(y=100, line=dict(color="#E8A33D", dash="dash", width=1),
+                              annotation_text="정원 100%", annotation_position="top right")
+                fig.update_layout(height=290, margin=dict(l=10, r=10, t=24, b=10), plot_bgcolor="#FFFFFF",
+                                  paper_bgcolor="#FFFFFF", dragmode=False, showlegend=False,
+                                  xaxis=dict(title="칸 (진행 방향 기준)", fixedrange=True, type="category"),
+                                  yaxis=dict(title="평소 혼잡도(%)", fixedrange=True, rangemode="tozero",
+                                             range=[0, max(130.0, max(pct) * 1.15)]))
+                st.plotly_chart(fig, width="stretch", key="fac_bar", config={"displayModeBar": False})
+                # 칸별 혼잡도 샘플의 칸 번호 기준이 빠른하차정보와 반대일 가능성(미확인)을 이 화면의 사례마다 계산해 밝힌다
+                from yeoyuro_v2.facility_match import match as _match
+                chosen = d["pick"] or crowd["nearest"]
+                mir = _match(pct, crowd["nearest"], mirrored=True)["pick"]
+                mir_txt = ("칸 번호 기준을 반대로 보고 계산해도 이 경우 추천 칸은 같습니다." if mir == chosen else
+                           "칸 번호 기준을 반대로 보면 추천 칸이 %d번째 칸으로 달라집니다 — 공사 확인 전까지 시범 기능입니다." % mir)
+                st.caption("엘리베이터 칸 양옆 1칸까지를 후보로 두고, 옆 칸이 5%p 이상 덜 붐빌 때만 추천합니다. "
+                           "샘플 검증: 4호선 엘리베이터 역에 도착하는 붐비는 구간·시간대 129개 중 40%에서 옆 칸이 평균 10.8%p 덜 붐볐습니다. "
+                           "칸별 혼잡도 샘플의 칸 번호 기준(진행 방향 여부)은 공사 확인이 필요합니다. " + mir_txt)
+        st.caption("%s · %s 기준%s" % (FAST_EXIT_NOTE, _fmt_ymd(elevators[0]["crtr_ymd"]),
+                                       (" · " + d["note"]) if d["note"] else ""))
 
 
 @st.cache_data(show_spinner=False)
@@ -3058,8 +3211,8 @@ def _load_safety_facilities() -> pd.DataFrame | None:
     return df if {"위도", "경도", "층번호"} <= set(df.columns) else None
 
 
-def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None) -> go.Figure:
-    """한 층 도면 (단위 m, 세 층 공통 원점). 계단은 주황."""
+def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None):
+    """한 층 도면 (단위 m, 세 층 공통 원점). 계단은 주황. 시설은 원본 좌표가 있을 때만 그린다."""
     import plotly.graph_objects as go
     x0 = min(f["bbox"][0] for f in floors.values())
     y0 = min(f["bbox"][1] for f in floors.values())
@@ -3081,107 +3234,167 @@ def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None)
             fig.add_trace(go.Scatter(x=f.x - x0, y=f.y - y0, mode="markers+text", text=f.name,
                                      textposition="top center", name="안전시설",
                                      marker=dict(size=11, color="#DC2626", symbol="diamond")))
-    fig.update_layout(height=520, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor="#FFFFFF",
-                      paper_bgcolor="#FFFFFF", legend=dict(orientation="h", y=1.02, x=0),
-                      xaxis=dict(title="m", showgrid=False, zeroline=False),
-                      yaxis=dict(title="m", showgrid=False, zeroline=False, scaleanchor="x", scaleratio=1))
+    fig.update_layout(height=500, margin=dict(l=4, r=4, t=4, b=4), plot_bgcolor="#F8FAFC",
+                      paper_bgcolor="#F8FAFC", legend=dict(orientation="h", y=1.0, x=0.01),
+                      xaxis=dict(visible=False), yaxis=dict(visible=False, scaleanchor="x", scaleratio=1))
     return fig
 
 
 @st.cache_resource(show_spinner="3D 모델을 불러오는 중…")
-def _spatial_mesh_figure(folder: str, stamp: float, max_faces: int = 20000):
-    """GLB 세 층 → plotly Mesh3d (면이 많으면 균등 표본). 높이는 3배 과장."""
-    import plotly.graph_objects as go
+def _spatial_meshes(folder: str, stamp: float, max_faces: int = 20000) -> dict:
+    """GLB 층별 메시 (면이 많으면 균등 표본). {'B1': (x, y, z, i, j, k, n_faces_원본), ...} — glTF Y-up → z 가 높이."""
     import trimesh
-    colors = {"B1": "#60A5FA", "B2": "#F59E0B", "B3": "#10B981"}
     rng = np.random.default_rng(0)
-    fig = go.Figure()
+    out = {}
     for p in sorted(Path(folder).glob("*.glb")):
         m = trimesh.load(str(p), force="mesh")
         faces = m.faces
+        n0 = len(faces)
         if len(faces) > max_faces:
             faces = faces[rng.choice(len(faces), max_faces, replace=False)]
         used, inv = np.unique(faces.ravel(), return_inverse=True)
         v = m.vertices[used]
         f = inv.reshape(-1, 3)
         key = re.search(r"B\d", p.stem)
-        k = key.group(0) if key else p.stem
-        fig.add_trace(go.Mesh3d(x=v[:, 0], y=-v[:, 2], z=v[:, 1], i=f[:, 0], j=f[:, 1], k=f[:, 2],
-                                color=colors.get(k, "#9CA3AF"), opacity=0.85, name=k, showlegend=True,
-                                flatshading=True, hoverinfo="name"))
-    fig.update_layout(height=560, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="#FFFFFF",
-                      scene=dict(aspectmode="manual", aspectratio=dict(x=2.0, y=1.25, z=0.75),
+        out[key.group(0) if key else p.stem] = (v[:, 0], -v[:, 2], v[:, 1], f[:, 0], f[:, 1], f[:, 2], n0)
+    return out
+
+
+def _mesh_figure(meshes: dict, focus: str, cam_rev: int):
+    """같은 자리 3D 보기. focus 층은 진하게, 나머지는 옅게. 쿼터뷰·연회색 배경."""
+    import plotly.graph_objects as go
+    colors = {"B1": "#3B82F6", "B2": "#F59E0B", "B3": "#10B981"}
+    fig = go.Figure()
+    for k, (x, y, z, i, j, kk, _n) in meshes.items():
+        op = 0.95 if focus in ("전체", k) else 0.12
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=kk, color=colors.get(k, "#9CA3AF"), opacity=op,
+                                name=k, showlegend=True, flatshading=True, hoverinfo="name",
+                                lighting=dict(ambient=0.55, diffuse=0.8)))
+    fig.update_layout(height=500, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="#EEF1F4",
+                      uirevision="cam%d" % cam_rev,
+                      scene=dict(bgcolor="#EEF1F4", aspectmode="manual", aspectratio=dict(x=2.0, y=1.25, z=0.75),
                                  xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False),
-                                 camera=dict(eye=dict(x=0.85, y=-1.05, z=0.65))),
-                      legend=dict(orientation="h", y=1.0, x=0))
+                                 camera=dict(eye=dict(x=1.15, y=-1.15, z=0.95), center=dict(x=0, y=0, z=-0.1))),
+                      legend=dict(orientation="h", y=0.99, x=0.01, bgcolor="rgba(255,255,255,0.6)"))
     return fig
 
 
-def page_spatial():
-    st.markdown("**%s역 (1·6호선) — 공모전 제공 역사 도면 2D·3D 샘플**" % SPATIAL_STATION)
-    shp = sorted(SPATIAL_DIR.glob("*.shp")) if SPATIAL_DIR.exists() else []
-    if not shp:
-        st.info("공모전 제공 역사 도면 샘플은 이 배포판에 포함하지 않았습니다 (데이터 이용 조건 확인 중). "
-                "로컬 실행에서 도면이 표시됩니다.")
-        img = ROOT / "reports" / "v2" / "fig_spatial_2d.png"
-        if img.exists():
-            st.image(str(img), caption="동묘앞역 B1·B2·B3 도면 (공모전 제공 SHP, 로컬에서 그린 그림)")
+def _station_elevator_card(mart, station: str):
+    """도면 옆 '이동편의 정보' — 칸-문 위치는 도면 좌표가 아니므로 글로만 보여준다."""
+    st.markdown("**♿ 이동편의 정보**")
+    if mart is None:
+        st.caption(PUBLIC_ELEVATOR_NOTE)
         return
-    floors = _spatial_floors(str(SPATIAL_DIR), max(p.stat().st_mtime for p in shp))
-    names = [f for f in ("B1F", "B2F", "B3F") if f in floors]
-    st.session_state.setdefault("sp_floor", "B2F" if "B2F" in names else names[0])   # 승강장·계단이 가장 많은 층
-    c1, c2 = st.columns([2.2, 1])
-    fl = c1.segmented_control("층", names, key="sp_floor", required=True,
-                              format_func=lambda x: SPATIAL_FLOOR_LABEL.get(x, x))
-    fl = fl if fl in names else names[0]
-    show_fac = c2.toggle("안전시설 레이어", key="sp_fac",
-                         help="공모전 안전시설 위치정보(위도·경도·층번호)를 이 도면 위에 겹칩니다.")
+    s = mart[mart.station == station].sort_values(["line", "toward", "car", "door"])
+    if s.empty:
+        st.caption("이 역의 엘리베이터 칸 정보가 없습니다.")
+        return
+    rows = []
+    for (ln, tw), g in s.groupby(["line", "toward"], sort=False):
+        rows.append("<div style='margin:2px 0'><span style='color:%s;font-weight:700'>%s</span> %s 방면 · "
+                    "엘리베이터 <b>%s</b></div>" % (LINE_COLORS.get(str(ln), PRIMARY), _esc(line_label(ln)), _esc(tw),
+                                                  " · ".join("<span style='white-space:nowrap'>%s</span>" % _esc(x) for x in g.label)))
+    st.markdown("<div style='font-size:0.86rem'>%s</div>" % "".join(rows), unsafe_allow_html=True)
+    st.caption("승강장 칸-문 위치와 이 도면 좌표를 잇는 공식 연결정보가 없어, 지도 위에는 정확한 위치를 표시하지 않습니다.")
 
-    fac_df = None
-    if show_fac:
-        from yeoyuro_v2.spatial_poc import place_facilities
-        raw = _load_safety_facilities()
-        if raw is None:
-            st.info("안전시설 위치정보 원본이 아직 없습니다. 원본이 개방되면 위도·경도는 좌표 변환으로, "
-                    "층번호(-1 = B1)는 층 배정으로 이 도면 위에 그립니다. **위치를 임의로 만들어 그리지 않습니다.**")
+
+def page_spatial():
+    """역사 안내 › 역사 도면 — 2D 도면과 3D 모델을 같은 자리에서 전환. 기술 정보는 접어 둔다."""
+    st.markdown('<div style="font-size:1.25rem;font-weight:800;color:#002D56">%s역 역사 구조 '
+                '<span style="font-size:0.85rem;color:#6B7280;font-weight:500">1·6호선</span></div>'
+                % SPATIAL_STATION, unsafe_allow_html=True)
+    st.markdown(POC_BADGE % "공간정보 PoC" + '<span style="color:#6B7280;font-size:0.82rem">현재는 공모전 제공 역사 도면을 '
+                '표시하며, 안전시설 좌표는 정식 데이터 개방 후 연동됩니다.</span>', unsafe_allow_html=True)
+    mode = st.segmented_control("보기", ["2D 도면", "3D 모델"], key="sp_mode", required=True,
+                                default="2D 도면", label_visibility="collapsed") or "2D 도면"
+    shp = sorted(SPATIAL_DIR.glob("*.shp")) if SPATIAL_DIR.exists() else []
+    glbs = sorted(SPATIAL_DIR.glob("*.glb")) if SPATIAL_DIR.exists() else []
+    mart = load_mart("fast_exit_elevator")
+    raw_fac = _load_safety_facilities()
+    left, right = st.columns([2.7, 1], gap="medium")
+    floors = None
+    with left:
+        if not shp:
+            _public_card(PUBLIC_SAMPLE_NOTE)
+            img = ROOT / "reports" / "v2" / ("fig_spatial_2d.png" if mode == "2D 도면" else "fig_spatial_3d.png")
+            if img.exists():
+                st.image(str(img), caption="로컬 시연판에서 만든 그림 (공모전 제공 동묘앞역 도면)")
+        elif mode == "2D 도면":
+            floors = _spatial_floors(str(SPATIAL_DIR), max(p.stat().st_mtime for p in shp))
+            names = [f for f in ("B1F", "B2F", "B3F") if f in floors]
+            st.session_state.setdefault("sp_floor", "B2F" if "B2F" in names else names[0])  # 승강장·계단이 가장 많은 층
+            fl = st.segmented_control("층", names, key="sp_floor", required=True,
+                                      format_func=lambda x: SPATIAL_FLOOR_LABEL.get(x, x),
+                                      label_visibility="collapsed") or names[0]
+            fac_df = None
+            if raw_fac is not None and st.session_state.get("sp_fac"):
+                from yeoyuro_v2.spatial_poc import place_facilities
+                fac_df = place_facilities(raw_fac, floors)
+            st.plotly_chart(_floor_figure(floors, fl, fac_df), width="stretch", key="sp_floor_fig",
+                            config={"displayModeBar": False, "scrollZoom": True})
         else:
-            fac_df = place_facilities(raw, floors)
-            st.caption("안전시설 %d건 중 이 역 도면 범위 안 %d건 표시" % (len(fac_df), int(fac_df.in_bbox.sum())))
+            try:
+                import trimesh  # noqa: F401
+                ok3d = bool(glbs)
+            except Exception:
+                ok3d = False
+            c1, c2 = st.columns([3, 1])
+            focus = c1.segmented_control("층 강조", ["전체", "B1", "B2", "B3"], key="sp_floor3d", required=True,
+                                         default="전체", label_visibility="collapsed") or "전체"
+            if c2.button("시점 초기화", key="sp_cam_reset", width="stretch"):
+                st.session_state["sp_cam"] = st.session_state.get("sp_cam", 0) + 1
+            if ok3d:
+                meshes = _spatial_meshes(str(SPATIAL_DIR), max(p.stat().st_mtime for p in glbs))
+                st.plotly_chart(_mesh_figure(meshes, focus, st.session_state.get("sp_cam", 0)),
+                                width="stretch", key="sp_3d_fig")
+            else:
+                img = ROOT / "reports" / "v2" / "fig_spatial_3d.png"
+                if img.exists():
+                    st.image(str(img))
+            st.markdown(POC_BADGE % "3D 공간정보 PoC" + '<span style="color:#6B7280;font-size:0.8rem">역사 구조 확인용이며, '
+                        '실내 길찾기 기능은 아닙니다. 마우스로 돌리고 휠로 확대합니다.</span>', unsafe_allow_html=True)
 
-    f = floors[fl]
-    n_stair = sum(1 for p in f["polygons"] if p["etype"] == "stair")
-    w, h = f["bbox"][2] - f["bbox"][0], f["bbox"][3] - f["bbox"][1]
-    st.plotly_chart(_floor_figure(floors, fl, fac_df), width="stretch", key="sp_floor_fig",
-                    config={"displayModeBar": False, "scrollZoom": True})
-    st.caption("%s · 폴리곤 %d개 (계단 %d) · 약 %.0f m × %.0f m · 좌표계 %s · 세 층 공통 원점 (m)"
-               % (SPATIAL_FLOOR_LABEL.get(fl, fl), len(f["polygons"]), n_stair, w, h, f["crs"]))
+    with right:
+        with st.container(border=True):
+            _station_elevator_card(mart, SPATIAL_STATION)
+            st.divider()
+            if raw_fac is None:
+                st.toggle("🔒 안전시설 위치", key="sp_fac", value=False, disabled=True,
+                          help="안전시설 위치정보 원본이 개방되면 위도·경도·층번호로 이 도면에 겹쳐 표시합니다.")
+                st.caption("정식 데이터 개방 후 활성화")
+            else:
+                st.toggle("안전시설 위치", key="sp_fac", help="원본의 위도·경도·층번호를 도면 좌표로 바꿔 겹칩니다.")
+            st.button("♿ 엘리베이터 하차 칸 보기 →", key="sp_to_fac", width="stretch",
+                      on_click=_open_facility, args=("6", SPATIAL_STATION, None, None))
 
-    st.markdown("**3D 역사 모델 (GLB)**")
-    glbs = sorted(SPATIAL_DIR.glob("*.glb"))
-    img3d = ROOT / "reports" / "v2" / "fig_spatial_3d.png"
-    try:
-        import trimesh  # noqa: F401
-        has_trimesh = True
-    except Exception:
-        has_trimesh = False
-    if glbs and has_trimesh:
-        if st.toggle("3D 모델 돌려 보기 (마우스로 회전)", key="sp_3d"):
-            st.plotly_chart(_spatial_mesh_figure(str(SPATIAL_DIR), max(p.stat().st_mtime for p in glbs)),
-                            width="stretch", key="sp_3d_fig")
-        elif img3d.exists():
-            st.image(str(img3d))
-    elif img3d.exists():
-        st.image(str(img3d))
-    st.caption("2D 도면의 층 바닥 높이와 3D 모델의 층 바닥 높이가 세 층 모두 일치했습니다 (차이 0.0 m). "
-               "3D 모델의 수평 좌표와 2D 도면의 정합 규칙, 안전시설 X·Y·Z 좌표의 기준은 확인이 필요합니다. "
-               "3D 길찾기·동선 최적화는 이번 범위가 아닙니다.")
-    st.button("♿ 엘리베이터 하차 칸 보기 →", on_click=_go, args=("역 시설·공간정보", "엘리베이터 하차 칸"))
+    with st.expander("데이터 범위 및 한계"):
+        st.markdown(
+            "- 도면: 공모전 제공 동묘앞역 2D 도면(SHP, B1~B3)과 3D 모델(GLB).\n"
+            "- 안전시설 위치정보 원본은 아직 받지 못했습니다. **위치를 임의로 만들어 그리지 않습니다.** "
+            "원본이 개방되면 위도·경도는 좌표 변환으로, 층번호(−1 = B1)는 층 배정으로 같은 도면에 겹칩니다.\n"
+            "- 2D 도면의 층 바닥 높이와 3D 모델의 층 바닥 높이는 세 층 모두 일치했습니다(차이 0.0 m).\n"
+            "- 확인이 필요한 것: 3D 모델의 수평 좌표와 2D 도면의 정합 규칙, 안전시설 X·Y·Z 좌표의 기준, "
+            "승강장 칸-문 위치와 도면 좌표의 연결.\n"
+            "- 3D 길찾기·동선 최적화는 이번 범위가 아닙니다.")
+    with st.expander("개발자 정보 보기"):
+        if shp:
+            floors = floors or _spatial_floors(str(SPATIAL_DIR), max(p.stat().st_mtime for p in shp))
+            rows = []
+            for k, f in floors.items():
+                et = pd.Series([p["etype"] for p in f["polygons"]]).value_counts().to_dict()
+                rows.append({"층": SPATIAL_FLOOR_LABEL.get(k, k), "좌표계": f["crs"], "폴리곤": len(f["polygons"]),
+                             "계단": et.get("stair", 0), "크기(m)": "%.0f × %.0f" % (f["bbox"][2] - f["bbox"][0],
+                                                                                  f["bbox"][3] - f["bbox"][1])})
+            st.table(pd.DataFrame(rows))
+            st.caption("원본: " + ", ".join(p.name for p in shp + glbs))
+        else:
+            st.caption("이 실행 환경에는 공모전 제공 도면 원본이 없습니다.")
 
 
 PAGE_CAPTION = {"경로 추천": "출발·도착·시각을 한 번 입력하면 경로와 출발 시각 대안을 함께 봅니다.",
                 "혼잡 탐색": "역·노선별 시간대 혼잡과, 네트워크 전체에서 혼잡을 피할 수 있는 곳을 봅니다.",
                 "이벤트 분석": "과거 이벤트 날의 실제 기록(근거)과, 그 근거로 만든 what-if 시나리오를 봅니다.",
-                "역 시설·공간정보": "교통약자를 위한 엘리베이터 하차 칸과, 역사 2D·3D 도면 위 안전시설 표시 구조를 봅니다.",
+                "역사 안내": "교통약자가 내릴 칸을 정하고, 역 안 구조를 도면으로 확인합니다.",
                 "프로젝트 & 검증": "데이터·방법론·검증 결과·한계 (면접관·심사위원·개발자용)."}
 
 VIEW_FN = {("경로 추천", "경로"): "page_route",
@@ -3190,8 +3403,8 @@ VIEW_FN = {("경로 추천", "경로"): "page_route",
            ("혼잡 탐색", "네트워크 지도"): "page_atlas",
            ("이벤트 분석", "시나리오"): "page_event_scenario",
            ("이벤트 분석", "과거 데이터"): "page_event",
-           ("역 시설·공간정보", "엘리베이터 하차 칸"): "page_facility_elevator",
-           ("역 시설·공간정보", "역사 도면"): "page_spatial",
+           ("역사 안내", "엘리베이터 하차 칸"): "page_facility_elevator",
+           ("역사 안내", "역사 도면"): "page_spatial",
            ("프로젝트 & 검증", None): "page_project",
            ("노선도 편집", None): "page_map_editor"}
 
@@ -3215,7 +3428,11 @@ def main():
         page = st.session_state["nav_page"] = PAGES[0]
 
     st.sidebar.title("🚇 여유로 서울")
-    st.sidebar.caption("서울 지하철 혼잡도 기반  \n쾌적 경로 추천 시스템  \n· 공모전 제출판")
+    st.sidebar.caption("서울 지하철 혼잡도 기반  \n쾌적 경로 추천 시스템")
+    _dm = data_mode()
+    st.sidebar.caption("공모전 제출판 · " + ("시연판 (전체 데이터)" if all(_dm.values()) else "공개 배포판 (일부 기능 비활성)"),
+                       help="공모전 제공 샘플과 이용허락범위를 확인하지 않은 자료는 공개 배포판에 넣지 않았습니다. "
+                            "해당 기능은 비활성 사유를 화면에 표시합니다.")
     for m in PAGES + (["노선도 편집"] if edit else []):
         st.sidebar.button(m, width="stretch", key="nav_%s" % m,
                           type="primary" if page == m else "secondary",
