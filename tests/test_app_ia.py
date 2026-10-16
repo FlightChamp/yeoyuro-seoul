@@ -4,7 +4,7 @@ tests/test_app_ia.py
 v2 IA 리팩토링(D-057) 회귀 테스트. 앱을 AppTest 로 실제로 실행한다.
 
 1. 계산 결과 불변   : 엔진 결과 + 경로 화면 metric·요약 줄이 리팩토링 전 기준값(tests/fixtures/app_baseline.json)과 같음
-2. 사이드바         : 1차 메뉴가 정확히 4개
+2. 사이드바         : 1차 메뉴가 정확히 5개 (공모전판: 역 시설·공간정보 추가)
 3. 직접 진입        : 모든 페이지·subview·예전 메뉴 이름으로 들어가 3회 재실행해도 오류 없음
 4. 공유 입력        : 경로 검색 뒤 다른 페이지를 다녀와도 OD·날짜·시각·결과 유지, 시간 비교 입력부도 같은 OD
 5. CTA              : Time Shift 판정 성공일 때만 표시, 클릭 → '시간 바꿔 보기' 자동 계산, 1순위 시각 = CTA 시각
@@ -32,10 +32,11 @@ pytestmark = pytest.mark.skipif(
     not (ROOT / "data" / "app_v26" / "data" / "marts" / "route_edge_mart.parquet").exists() or not BASE.exists(),
     reason="앱 데이터 폴더 또는 기준값 파일 없음")
 
-PAGES = ["경로 추천", "혼잡 탐색", "이벤트 분석", "프로젝트 & 검증"]
+PAGES = ["경로 추천", "혼잡 탐색", "이벤트 분석", "역 시설·공간정보", "프로젝트 & 검증"]
 VIEWS = [("경로 추천", "view_route", "경로"), ("경로 추천", "view_route", "시간 바꿔 보기"),
          ("혼잡 탐색", "view_explore", "역·노선별"), ("혼잡 탐색", "view_explore", "네트워크 지도"),
          ("이벤트 분석", "view_event", "시나리오"), ("이벤트 분석", "view_event", "과거 데이터"),
+         ("역 시설·공간정보", "view_facility", "엘리베이터 하차 칸"), ("역 시설·공간정보", "view_facility", "역사 도면"),
          ("프로젝트 & 검증", None, None)]
 LEGACY = ["쾌적 경로 찾기", "시간 분산", "혼잡 분산 지도", "이벤트 시나리오", "시간대별 혼잡 조회",
           "빠른 환승 안내", "이벤트 혼잡 경보", "프로젝트 소개 및 검증 리포트"]
@@ -91,7 +92,7 @@ def test_screen_numbers_unchanged(case, baseline):
 
 
 # ---------------------------------------------------------------- 2. 사이드바
-def test_sidebar_exactly_four_menus():
+def test_sidebar_exactly_five_menus():
     at = _fresh()
     at.run()
     _no_exc(at)

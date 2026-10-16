@@ -94,3 +94,88 @@ def parse_position(text: str) -> list[tuple[str, int, int]]:
     for m in re.finditer(r"([^,]+?)\s*방면\s*(\d+)-(\d+)", text or ""):
         out.append((m.group(1).strip(), int(m.group(2)), int(m.group(3))))
     return out
+
+
+# ---------------------------------------------------------------- 공모전판 앱 연결 (1~8호선 엘리베이터 하차 칸)
+STATION_ALIAS = {"총신대입구": "이수", "당고개": "불암산"}     # 빠른하차정보 역명 → 앱 역명
+FAST_EXIT_SOURCE = "서울교통공사 빠른하차정보(공공데이터포털)"
+LINE_CARS = {"1": 10, "2": 10, "3": 10, "4": 10, "5": 8, "6": 8, "7": 8, "8": 6}   # 노선별 편성 칸 수
+
+
+def build_elevator_mart(fe_all: pd.DataFrame) -> pd.DataFrame:
+    """빠른하차정보 원본(전 노선) → 앱용 엘리베이터 표.
+
+    열: line('1'~'8'), station, toward(진행 방향 = 다음 정차역 방면), car, door, label(원문 칸-문), position, elevator_no, crtr_ymd
+    칸-문이 '3-2,3-3 사이' 처럼 적힌 행은 앞 칸 번호를 car 로 쓰고 label 은 원문을 그대로 둔다.
+    """
+    f = fe_all[fe_all.plfmCmgFac == "엘리베이터"].copy()
+    m = f.qckgffVhclDoorNo.astype(str).str.extract(r"^(\d+)-(\d+)")
+    f["car"] = pd.to_numeric(m[0], errors="coerce")
+    f["door"] = pd.to_numeric(m[1], errors="coerce")
+    f = f.dropna(subset=["car"])
+    out = pd.DataFrame({
+        "line": f.lineNm.astype(str).str.replace("호선", "", regex=False).str.strip(),
+        "station": f.stnNm.astype(str).str.strip().replace(STATION_ALIAS),
+        "toward": f.drtnInfo.astype(str).str.strip().replace(STATION_ALIAS),
+        "car": f.car.astype(int), "door": f.door.astype("Int64"),
+        "label": f.qckgffVhclDoorNo.astype(str).str.strip(),
+        "position": f.facPstnNm.astype(str), "elevator_no": f.elvtrNo.astype(str),
+        "crtr_ymd": f.crtrYmd.astype(str)})
+    # 편성 칸 수를 넘는 칸 번호는 원본 오류로 보고 안내하지 않는다 (예: 8량 5호선의 '10-4')
+    cap = out.line.map(LINE_CARS)
+    out = out[cap.isna() | (out.car <= cap)]
+    return out.drop_duplicates(["line", "station", "toward", "label"]).reset_index(drop=True)
+
+
+def alight_elevators(mart: pd.DataFrame | None, line, station: str, prev_station: str | None,
+                     next_station: str | None = None) -> list[dict]:
+    """하차역 엘리베이터와 가까운 칸-문. 방향을 하나로 정할 수 없으면 빈 목록 (틀린 칸을 안내하지 않는다).
+
+    진행 방향 = 이전역이 아닌 쪽 방면. next_station 을 알면 그 방면을 우선한다.
+    남은 방면이 둘 이상이면(분기·종착 등) 안내하지 않는다.
+    """
+    if mart is None or mart.empty or not station or not prev_station:
+        return []
+    s = mart[(mart.line.astype(str) == str(line)) & (mart.station == station)]
+    s = s[s.toward != prev_station]
+    if next_station and (s.toward == next_station).any():
+        s = s[s.toward == next_station]
+    if s.toward.nunique() != 1:
+        return []
+    s = s.sort_values(["car", "door"])
+    return [{"car": int(r.car), "door": None if pd.isna(r.door) else int(r.door), "label": r.label,
+             "toward": r.toward, "position": r.position, "crtr_ymd": r.crtr_ymd} for r in s.itertuples()]
+
+
+def _bin30(minute_of_day: float) -> str:
+    m = int(minute_of_day) % (24 * 60)
+    return "%02d:%02d" % (m // 60, 30 * ((m % 60) // 30))
+
+
+def alight_crowd_match(pattern: pd.DataFrame | None, line, prev_station: str, station: str,
+                       arrive_min: float, elevators: list[dict], busy: float = 60.0) -> dict | None:
+    """하차역 직전 역간(이전역→하차역)의 칸별 패턴으로 엘리베이터 칸 주변을 비교한다.
+
+    패턴이 없으면 None. 평소 붐비지 않는 시간(열차 평균 < busy)이면 {"quiet": True}.
+    여러 엘리베이터가 있으면 권하는 칸의 혼잡이 가장 낮은 쪽을 고른다.
+    """
+    if pattern is None or pattern.empty or not elevators:
+        return None
+    sub = pattern[(pattern.line.astype(str) == str(line)) & (pattern.from_station == prev_station)
+                  & (pattern.to_station == station) & (pattern.time_bin == _bin30(arrive_min))]
+    if sub.empty:
+        # 그 노선 패턴은 있지만 이 역간·시간대 표본이 기준(통과 수·날짜 수)에 못 미침 → 비교를 생략했다고 알린다
+        return {"no_sample": True} if (pattern.line.astype(str) == str(line)).any() else None
+    r = sub.iloc[0]
+    vec = [float(r[f"car_{i}"]) for i in range(1, N_CARS + 1)]
+    base = {"time_bin": r.time_bin, "train_mean": round(float(r.train_mean), 1), "n_passages": int(r.n_passages)}
+    if float(r.train_mean) < busy:
+        return {**base, "quiet": True, "no_sample": False}
+    best = None
+    for e in elevators:
+        if not 1 <= e["car"] <= N_CARS:
+            continue
+        m = match(vec, e["car"])
+        if best is None or m["pick_value"] < best["pick_value"]:
+            best = {**m, "elevator": e["label"]}
+    return None if best is None else {**base, **best, "quiet": False, "no_sample": False}

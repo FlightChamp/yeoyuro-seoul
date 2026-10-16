@@ -71,3 +71,61 @@ def test_survey(tmp_path):
                          "train_mean": sum(VEC) / 10}])
     s = survey(fe, pat)
     assert len(s) == 1 and s.iloc[0].pick == 8 and s.iloc[0].mirror_pick == 8
+
+
+# ---------------------------------------------------------------- 공모전판 앱 연결
+def _raw_all():
+    base = {"upbdnbSe": "", "elvtrNo": "", "facPstnNm": "", "crtrYmd": "20241231", "plfmCmgFac": "엘리베이터"}
+    rows = [
+        {"lineNm": "4호선", "stnNm": "동대문역사문화공원", "drtnInfo": "충무로", "qckgffVhclDoorNo": "7-1"},
+        {"lineNm": "4호선", "stnNm": "동대문역사문화공원", "drtnInfo": "동대문", "qckgffVhclDoorNo": "4-4"},
+        {"lineNm": "4호선", "stnNm": "총신대입구", "drtnInfo": "남태령", "qckgffVhclDoorNo": "3-2"},
+        {"lineNm": "2호선", "stnNm": "성수", "drtnInfo": "건대입구", "qckgffVhclDoorNo": "5-1"},
+        {"lineNm": "2호선", "stnNm": "성수", "drtnInfo": "뚝섬", "qckgffVhclDoorNo": "6-1"},
+        {"lineNm": "2호선", "stnNm": "성수", "drtnInfo": "용답", "qckgffVhclDoorNo": "1-1"},
+        {"lineNm": "3호선", "stnNm": "교대", "drtnInfo": "남부터미널", "qckgffVhclDoorNo": "3-2,3-3 사이"},
+        {"lineNm": "3호선", "stnNm": "교대", "drtnInfo": "고속터미널", "qckgffVhclDoorNo": "8-1", "plfmCmgFac": "계단"},
+        {"lineNm": "5호선", "stnNm": "을지로4가", "drtnInfo": "종로3가", "qckgffVhclDoorNo": "10-4"},   # 8량 편성 → 원본 오류
+    ]
+    return pd.DataFrame([{**base, **r} for r in rows])
+
+
+def test_build_elevator_mart_alias_and_label():
+    from yeoyuro_v2.facility_match import build_elevator_mart
+    m = build_elevator_mart(_raw_all())
+    assert len(m) == 7                                               # 계단 행과 편성 칸 수를 넘는 행은 제외
+    assert "이수" in set(m.station) and "총신대입구" not in set(m.station)
+    gyo = m[m.station == "교대"].iloc[0]
+    assert gyo.car == 3 and gyo.label == "3-2,3-3 사이"
+
+
+def test_alight_elevators_direction_and_ambiguity():
+    from yeoyuro_v2.facility_match import alight_elevators, build_elevator_mart
+    m = build_elevator_mart(_raw_all())
+    assert [e["car"] for e in alight_elevators(m, "4", "동대문역사문화공원", "동대문")] == [7]
+    assert [e["car"] for e in alight_elevators(m, "4", "동대문역사문화공원", "충무로")] == [4]
+    # 성수: 용답(성수지선)에서 오면 남은 방면이 건대입구·뚝섬 둘 → 방향을 정할 수 없으니 안내하지 않는다
+    assert alight_elevators(m, "2", "성수", "용답") == []
+    assert [e["car"] for e in alight_elevators(m, "2", "성수", "용답", next_station="뚝섬")] == [6]
+    assert alight_elevators(m, "4", "동대문역사문화공원", None) == []
+    assert alight_elevators(None, "4", "동대문역사문화공원", "동대문") == []
+
+
+def _pattern(time_bin="07:30", train_mean=110.0):
+    row = {"line": "4", "from_station": "동대문", "to_station": "동대문역사문화공원", "time_bin": time_bin,
+           "train_mean": train_mean, "n_passages": 6, "n_days": 4}
+    row.update({f"car_{i}": v for i, v in enumerate(VEC, start=1)})
+    return pd.DataFrame([row])
+
+
+def test_alight_crowd_match_states():
+    from yeoyuro_v2.facility_match import alight_crowd_match
+    els = [{"car": 7, "label": "7-1"}]
+    c = alight_crowd_match(_pattern(), "4", "동대문", "동대문역사문화공원", 7 * 60 + 45, els)
+    assert c["pick"] == 8 and c["gain"] == 10.1 and c["quiet"] is False and c["no_sample"] is False
+    q = alight_crowd_match(_pattern(train_mean=40.0), "4", "동대문", "동대문역사문화공원", 7 * 60 + 45, els)
+    assert q["quiet"] is True
+    ns = alight_crowd_match(_pattern(), "4", "동대문", "동대문역사문화공원", 8 * 60 + 10, els)
+    assert ns == {"no_sample": True}                                 # 그 시간대 표본 없음 → 비교 생략을 알린다
+    assert alight_crowd_match(_pattern(), "2", "a", "b", 480, els) is None   # 패턴이 없는 노선
+    assert alight_crowd_match(None, "4", "동대문", "동대문역사문화공원", 480, els) is None

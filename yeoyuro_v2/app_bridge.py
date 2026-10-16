@@ -67,6 +67,20 @@ def attach_td(ev: dict, evaluator: TimeDependentEvaluator, depart_min: float) ->
         if sg.get("kind") == "transfer":
             sg["wait_min"] = round(waits[wi].t_end - waits[wi].t_start, 1) if wi < len(waits) else 0.0
             wi += 1
+    # 승차 구간 카드의 '최대 기대 혼잡도'도 실제 도착 시각 기준 값으로 맞춘다
+    # (전에는 출발 시각 기준 v1 값이 남아 경로 지표(최대 기대 혼잡도)와 구간 카드 값이 달랐다)
+    def _st(node: str) -> str:
+        return node.split("_", 1)[1].split("@")[0] if "_" in node else node
+    rides = [(_st(t.u), _st(t.v), t.congestion_max if t.congestion_max is not None else t.congestion)
+             for t in r.trace if t.kind in ("ride", "dwell")]
+    for sg in ev.get("segments") or []:
+        if sg.get("kind") != "ride":
+            continue
+        pairs = set(zip(sg.get("stations") or [], (sg.get("stations") or [])[1:]))
+        vals = [c for a, b, c in rides if c is not None and ((a, b) in pairs or (a == b and a in sg.get("stations", [])[1:-1]))]
+        if vals:
+            sg["v1_max_congestion"] = sg.get("max_congestion")
+            sg["max_congestion"] = round(max(vals), 1)
     return ev
 
 
