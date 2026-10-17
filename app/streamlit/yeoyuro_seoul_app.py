@@ -278,9 +278,11 @@ def ko_event_name(v) -> str:
     """이벤트명을 한글화하고 **연도를 맨 앞으로** 옮긴다.
 
     '서울세계불꽃축제 2022' / '동국대 2023 논술' 처럼 연도 위치가 제각각이면
-    표에서 읽기 어렵다. '2022 서울세계불꽃축제' / '2023 동국대 논술' 로 통일한다.
+    표에서 읽기 어렵다. '2022 서울세계불꽃축제' / '2023학년도 동국대 논술' 로 통일한다.
+    논술·편입은 원자료 연도가 **학년도**다 (예: 2023학년도 논술은 2022년 11월 시행) → '학년도'를 붙인다.
     """
     t = str(v)
+    academic = any(k in t for k in ("essay", "transfer_exam"))
     for a, b in EVENT_NAME_FIX.items():
         t = t.replace(a, b)
     m = re.search(r"(?<!\d)(19|20)\d{2}(?!\d)", t)
@@ -289,7 +291,7 @@ def ko_event_name(v) -> str:
         rest = (t[:m.start()] + t[m.end():]).strip()
         rest = re.sub(r"\s{2,}", " ", rest)
         if rest:
-            t = "%s %s" % (year, rest)
+            t = "%s%s %s" % (year, "학년도" if academic else "", rest)
     return t
 
 
@@ -2716,8 +2718,8 @@ def page_event():
         g = g.rename(columns={"전후비교": "전후비교(배)", "DiD순효과": "DiD 순효과(배)",
                               "절대증가": "절대증가(명)"})
         st.table(round1(g))
-        st.caption("숫자가 작아진 것이 정확해진 것입니다. 비율만 보면 왜곡되므로 "
-                   "절대 증가 인원을 함께 봅니다.")
+        st.caption("DiD 순효과는 그날 도시 전체가 함께 붐빈 몫(대조군 변화)을 뺀 값이라 전후비교보다 작거나 비슷합니다. "
+                   "비율은 평소 이용이 적은 역일수록 커 보이므로 절대 증가 인원(명)을 함께 봅니다.")
 
         st.subheader("이벤트별 상세")
         det = peak.nlargest(15, "spike_ratio").sort_values("date")[
@@ -2732,9 +2734,10 @@ def page_event():
                      "did_ratio_normalized": "DiD 순효과(배)",
                      "did_absolute_lift": "절대증가(명)",
                      "parallel_trend_ok": "평행추세"})).reset_index(drop=True))
-        n_bad = int((did["parallel_trend_ok"] == False).sum())
-        st.caption("평행추세 위반 %d행. 위반 이벤트는 DiD 가정이 깨진 것이므로 "
-                   "효과 추정을 신뢰하지 않습니다." % n_bad)
+        n_bad = int((det["parallel_trend_ok"] == "위반").sum())
+        n_all = int((peak["parallel_trend_ok"] == False).sum())
+        st.caption("평행추세 위반: 위 표 %d건 중 %d건 · 전체 이벤트·역 %d건(각각 급증이 가장 컸던 날 기준) 중 %d건. "
+                   "위반 이벤트는 DiD 가정이 깨진 것이므로 효과 추정을 신뢰하지 않습니다." % (len(det), n_bad, len(peak), n_all))
 
     if spike is not None:
         nb = spike[(spike["event_type"] == "new_year_bell")
@@ -2825,7 +2828,7 @@ def contest_validation():
         k = go3["instances_total_by_kind"]
         sm = go3.get("spec_example_match") or {}
         rows.append(["3D 모델 속 시설 객체", "동묘앞역 GLB 3개 (객체 이름·재질로 분류)",
-                     "구호용품보관함 %d · SOS %d · 소화 설비(추정) %d곳 · 승강장 안전문 %d (2면×10칸×4문, 1번 칸이 두 면에서 반대쪽 끝: %s)"
+                     "구호용품보관함 %d · SOS %d · 소화 설비 %d곳 · 승강장 안전문 %d (2면×10칸×4문, 1번 칸이 두 면에서 반대쪽 끝: %s)"
                      % (k.get("구호용품보관함", 0), k.get("SOS 비상통화장치", 0), k.get("소화 설비(추정)", 0),
                         k.get("승강장 안전문", 0), "예" if go3.get("psd_car1_opposite_ends") else "아니오")
                      + (" · 설명자료 엘리베이터 예시 = 빠른하차정보 동묘앞 행(시설번호·승강기번호 일치)" if sm.get("match") else "")])
@@ -3332,10 +3335,11 @@ def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None,
                                      textposition="top center", name="안전시설",
                                      marker=dict(size=11, color="#DC2626", symbol="diamond")))
     if objects and reg:
-        from yeoyuro_v2.glb_objects import apply_registration
+        from yeoyuro_v2.glb_objects import apply_registration, inside_floor
         sym2d = {"diamond": "diamond", "square-open": "square-open", "square": "line-ns"}
         for kind, (col, sym, size) in GLB_OBJ_STYLE.items():
             obs = [o for o in objects if o["kind"] == kind and o["floor"] + "F" == fl]
+            obs = [o for o in obs if inside_floor(floors[fl], *apply_registration(reg, o["x"], o["z"]))]  # 도면 공간 밖은 2D 에서만 숨김
             if not obs:
                 continue
             xy = [apply_registration(reg, o["x"], o["z"]) for o in obs]
@@ -3346,14 +3350,15 @@ def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None,
                     hover.append("승강장 안전문 %s<br>%d면 %d번째 칸 %d번 문"
                                  % (o["node"], sd, car, door))
                 else:
-                    hover.append("%s · %s<br>근거: %s" % (kind, o["floor"], o["evidence"]))
+                    hover.append("%s · %s<br>근거: %s" % (_kind_label(kind), o["floor"], o["evidence"]))
             fig.add_trace(go.Scatter(
                 x=[a - x0 for a, _ in xy], y=[b - y0 for _, b in xy], mode="markers",
-                name="%s %d" % (kind.replace("(추정)", ""), len(obs)), text=hover, hovertemplate="%{text}<extra></extra>",
+                name="%s %d" % (_kind_label(kind), len(obs)), text=hover, hovertemplate="%{text}<extra></extra>",
                 marker=dict(size=size * 1.6 if kind != "승강장 안전문" else 4, color=col,
                             symbol="square" if kind == "승강장 안전문" else sym2d.get(sym, sym),
                             line=dict(width=1, color="#FFFFFF" if kind != "소화 설비(추정)" else col))))
-        ev = [e for e in (elev or []) if e["floor"] + "F" == fl]
+        ev = [e for e in (elev or []) if e["floor"] + "F" == fl
+              and inside_floor(floors[fl], *apply_registration(reg, e["x"], e["z"]))]
         if ev:
             xy = [apply_registration(reg, e["x"], e["z"]) for e in ev]
             fig.add_trace(go.Scatter(
@@ -3363,7 +3368,7 @@ def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None,
                 hovertext=[_elev_hover(e) for e in ev], hovertemplate="%{hovertext}<extra></extra>",
                 marker=dict(size=ELEV_DOOR_STYLE[1], color=ELEV_DOOR_STYLE[0], symbol="circle",
                             line=dict(width=2, color="#FFFFFF"))))
-    fig.update_layout(height=500, margin=dict(l=4, r=4, t=4, b=4), plot_bgcolor="#F8FAFC",
+    fig.update_layout(height=500, margin=dict(l=4, r=4, t=4, b=4), plot_bgcolor="#F8FAFC", dragmode="pan",
                       paper_bgcolor="#F8FAFC", legend=dict(orientation="h", y=1.0, x=0.01),
                       xaxis=dict(visible=False), yaxis=dict(visible=False, scaleanchor="x", scaleratio=1))
     return fig
@@ -3375,6 +3380,11 @@ ELEV_DOOR_STYLE = ("#1D4ED8", 10)   # 엘리베이터 승하차 문 (빠른하�
 def _elev_hover(e: dict) -> str:
     return ("♿ 엘리베이터 승하차 문<br>%s호선 %s 방면 %d-%d · 승강기 %s<br>빠른하차정보 칸-문 = 3D 모델 안전문 %s"
             % (e["line"], e["toward"], e["car"], e["door"], e.get("elevator_no") or "-", e["psd_node"]))
+
+
+def _kind_label(kind: str) -> str:
+    """화면 표기: '소화 설비(추정)' → '소화 설비' (범례·카드·검증표 표기 통일)."""
+    return kind.replace("(추정)", "")
 
 
 GLB_OBJ_STYLE = {   # 종류: (색, 기호, 크기)
@@ -3440,10 +3450,10 @@ def _mesh_figure(meshes: dict, focus: str, cam_rev: int, objects: list[dict] | N
                 hover.append("승강장 안전문 %s<br>%d면 %d번째 칸 %d번 문"
                              % (o["node"], sd, car, door))
             else:
-                hover.append("%s · %s<br>근거: %s" % (kind, o["floor"], o["evidence"]))
+                hover.append("%s · %s<br>근거: %s" % (_kind_label(kind), o["floor"], o["evidence"]))
         fig.add_trace(go.Scatter3d(
             x=[o["x"] for o in obs], y=[-o["z"] for o in obs], z=[o["y"] + 1.5 for o in obs], mode="markers",
-            name="%s %d" % (kind, len(obs)), text=hover, hovertemplate="%{text}<extra></extra>",
+            name="%s %d" % (_kind_label(kind), len(obs)), text=hover, hovertemplate="%{text}<extra></extra>",
             marker=dict(size=size, color=col, symbol=sym, line=dict(width=1, color="#FFFFFF"))))
     ev = [e for e in (elev or []) if focus in ("전체", e["floor"])]
     if ev:
@@ -3505,9 +3515,9 @@ def _glb_objects_card(objs: list[dict]):
         if c.get(kind):
             unit = "곳" if kind == "소화 설비(추정)" else "개"
             rows.append("<div style='margin:2px 0'><span style='color:%s'>■</span> %s <b>%d%s</b></div>"
-                        % (GLB_OBJ_STYLE[kind][0], _esc(kind.replace("(추정)", "")), c[kind], unit))
+                        % (GLB_OBJ_STYLE[kind][0], _esc(_kind_label(kind)), c[kind], unit))
     st.markdown("<div style='font-size:0.86rem'>%s</div>" % "".join(rows), unsafe_allow_html=True)
-    st.caption("제공 3D 모델(GLB) 안의 객체 이름·재질로 분류하고, 위치는 모델 좌표 그대로 사용합니다.")
+    st.caption("제공 3D 모델(GLB) 안의 객체 이름·재질로 분류하고, 3D는 모델 좌표, 2D는 도면에 맞춘 위치를 사용합니다.")
 
 
 def page_spatial():
@@ -3519,7 +3529,7 @@ def page_spatial():
     st.markdown('<div style="color:#6B7280;font-size:0.82rem;margin:2px 0 6px 0">%s</div>'
                 % ("구조 확인용 · 실내 길찾기 기능 아님 · 3D 모델에 들어 있는 시설 객체를 모델 좌표 그대로 표시합니다"
                    if mode == "3D 모델"
-                   else "공모전 제공 역사 도면입니다. 안전시설 좌표 원본은 아직 연동하지 않아 시설 위치를 임의로 표시하지 않습니다"),
+                   else "공모전 제공 역사 도면입니다. 안전시설 좌표 원본 대신, 3D 모델에 들어 있는 시설 객체를 표시합니다"),
                 unsafe_allow_html=True)
     mode = st.segmented_control("보기", ["2D 도면", "3D 모델"], key="sp_mode", required=True,
                                 default="2D 도면", label_visibility="collapsed") or "2D 도면"
@@ -3557,7 +3567,7 @@ def page_spatial():
                             width="stretch", key="sp_floor_fig",
                             config={"displayModeBar": False, "scrollZoom": True})
             if objs2d and reg:
-                st.caption("마우스 드래그(회전) · 휠(확대/축소) | 시설 마커 오버 시 원본 데이터(객체명·재질) 확인")
+                st.caption("마우스 드래그(이동) · 휠(확대/축소) | 시설 마커 오버 시 원본 데이터(객체명·재질) 확인")
         else:
             try:
                 import trimesh  # noqa: F401

@@ -333,6 +333,24 @@ def apply_registration(reg: dict, x: float, z: float) -> tuple[float, float]:
     return float(p[0]), float(p[1])
 
 
+def _in_ring(ring, x: float, y: float) -> bool:
+    """점이 다각형 고리 안에 있는가 (반직선 교차 판정)."""
+    r = np.asarray(ring, float)
+    if len(r) < 3:
+        return False
+    xi, yi = r[:, 0], r[:, 1]
+    xj, yj = np.roll(xi, 1), np.roll(yi, 1)
+    cross = (yi > y) != (yj > y)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        xc = (xj - xi) * (y - yi) / (yj - yi) + xi
+    return bool(np.count_nonzero(cross & (x < xc)) % 2)
+
+
+def inside_floor(floor: dict, x: float, y: float) -> bool:
+    """SHP 좌표 (x, y) 가 그 층 도면 공간(어느 한 고리) 안인가. scripts/v2/40 의 objects_inside_floor_polygon 과 같은 기준."""
+    return any(_in_ring(r, x, y) for poly in floor["polygons"] for r in poly["rings"])
+
+
 # ---------------------------------------------------------------- 엘리베이터 승하차 문 (D-071)
 # 동묘앞 1호선 승강장 안전문(psd_면_칸문)의 면 ↔ 열차 방면.
 #   근거 ① 두 면의 1번 칸이 서로 반대쪽 끝 → 칸 번호가 진행 방향 기준(1번 칸 = 앞)

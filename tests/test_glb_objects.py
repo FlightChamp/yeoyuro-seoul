@@ -77,6 +77,13 @@ def test_registration_helpers():
     assert abs(s - 2) < 1e-9 and np.allclose(R, [[0, -1], [1, 0]]) and np.allclose(t, [5, 5])
 
 
+def test_inside_floor_point_in_polygon():
+    floor = {"polygons": [{"etype": "x", "rings": [[(0, 0), (10, 0), (10, 10), (0, 10)]]},
+                          {"etype": "y", "rings": [[(20, 0), (30, 0), (25, 8)]]}]}
+    assert g.inside_floor(floor, 5, 5) and g.inside_floor(floor, 25, 2)
+    assert not g.inside_floor(floor, 15, 5) and not g.inside_floor(floor, 5, 11)
+
+
 def test_registration_report_quality():
     rep = ROOT / "reports" / "v2" / "glb_objects.json"
     if not rep.exists():
