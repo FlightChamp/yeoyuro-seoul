@@ -574,17 +574,11 @@ def _query_sig():
 # --------------------------------------------------------------------------
 CANVAS_W, CANVAS_H = 5120, 2880
 
-# 역명 라벨 미세 조정 파라미터.
-#   LABEL_FONT_SCALE : 워크북 label_size_px 에 곱하는 배율(약 5~7% 축소)
-#   LABEL_DY_*       : 마커와 라벨 사이 간격 (아래 정의). 예전의 LABEL_GAP_*(빈 줄 방식)는 v2.6 에서 제거.
-LABEL_FONT_SCALE = 0.95
-
-# 역명 라벨을 마커 아래로 내리는 거리(캔버스 좌표 단위). 이 값이 실제 간격을 정한다 (v2.6 부터 사용).
-# 화면 픽셀이 아니라 데이터 좌표라, 축소하면 간격이 좁아지고 확대하면 넓어진다.
-# 더 붙이거나 띄우려면 이 두 숫자만 바꾸면 된다.
-LABEL_DY_NORMAL = 32      # 일반역 (v2.6: 40 → 32, 역명을 점에 조금 더 가깝게)
-LABEL_DY_MAJOR = 44       # 환승역(마커가 커서 조금 더 띄운다. v2.6: 52 → 44)
-LABEL_SIZE_DELTA = -0.3   # 워크북 label_size_px 대비 축소폭(약 7%)
+# 역명은 yeoyuro_v2.map_labels 가 캔버스 좌표 단위 SVG 한 장으로 그린다 (D-067).
+# 글자 크기·간격: map_labels.LABEL_FONT_UNITS / LABEL_DY_NORMAL / LABEL_DY_MAJOR.
+# 역명이 확대 배율만큼 커지므로 확대 수단을 열어 둔다: 마우스 휠 확대, 오른쪽 위 +/− · 원래대로 버튼, 더블클릭 = 전체 보기.
+MAP_ZOOM_CONFIG = {"scrollZoom": True, "displayModeBar": True, "displaylogo": False,
+                   "modeBarButtonsToRemove": ["select2d", "lasso2d", "toImage", "autoScale2d", "zoom2d"]}
 # 노선도 표시 범위의 기본값 (데이터가 없을 때만 사용). 실제 범위는 map_bounds() 가
 # 역 점·역명 좌표에서 계산한다 → 좌표를 옮겨도 잘리지 않는다 (v2.6: 9호선 개화 x=640 이 잘리던 문제).
 X0, X1, Y0, Y1 = 700, 4450, 150, 2750
@@ -684,23 +678,11 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
                                          line=dict(width=2.4, color="#111827")),
                              hoverinfo="skip", showlegend=False))
 
-    # 4. 역명 label
-    #    간격을 데이터 좌표로 주면 확대/축소에 따라 자연스럽게 함께 변한다.
-    #    전체보기에서는 마커에 가깝게, 확대하면 여유가 생긴다.
-    if lb is not None:
-        big_mask = pd.to_numeric(lb["label_size_px"], errors="coerce").fillna(10.5) > 10.5
-        for size, t in lb.groupby("label_size_px"):
-            # v2.6: 역명을 역 점에서 LABEL_DY_* (캔버스 좌표) 만큼 아래에 둔다.
-            #   이전에는 보이지 않는 빈 줄(<br>, 글자 크기의 약 1.3배)로 간격을 만들어 미세 조정이 불가능했고,
-            #   LABEL_DY_* 상수는 정의만 있고 쓰이지 않았다.
-            dy = LABEL_DY_MAJOR if float(size) > 10.5 else LABEL_DY_NORMAL
-            fig.add_trace(go.Scatter(
-                x=t["label_x_px"], y=t["label_y_px"] + dy, mode="text",
-                text=["<b>%s</b>" % k for k in t["station_key"]],
-                textposition="bottom center",
-                textfont=dict(size=round(float(size) * LABEL_FONT_SCALE, 1),
-                              color="#111827"),
-                hoverinfo="skip", showlegend=False))
+    # 4. 역명 label — 캔버스 좌표에 묶인 SVG 이미지 (D-067)
+    #    Plotly text 는 화면 픽셀 고정이라 확대해도 커지지 않는다. 이미지로 얹으면 확대 배율만큼 글자도 커져
+    #    지도 앱처럼 전체 보기에서는 작게, 확대하면 읽기 좋게 보인다. layer="above" 라 노선·경로 띠 위에 그려진다.
+    if lb is not None and len(lb):
+        fig.add_layout_image(**_map_labels.layout_image(lb, CANVAS_W, CANVAS_H))
 
     # 5. 추천 경로 highlight (반투명 띠 + 구간별 원래 노선색)
     if highlight_path:
@@ -767,6 +749,8 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
 
 
 from html import escape as _esc
+
+from yeoyuro_v2 import map_labels as _map_labels
 
 
 def _set_endpoint(kind: str, key: str):
@@ -1679,7 +1663,7 @@ def page_route():
                 path = res["recommended"]["path"]
             ev = st.plotly_chart(draw_map(bundle, path), width="stretch",
                                  on_select="rerun", key="subway_map",
-                                 selection_mode="points")
+                                 selection_mode="points", config=MAP_ZOOM_CONFIG)
             try:
                 pts = ev.selection["points"] if ev and ev.selection else []
                 if pts:
@@ -2314,12 +2298,10 @@ def page_atlas():
                                  line=dict(color=col, width=11), opacity=0.92))
         fig.add_trace(go.Scatter(x=hx, y=hy, mode="markers", marker=dict(size=14, color="rgba(0,0,0,0)"),
                                  hovertext=ht, hoverinfo="text", showlegend=False))
-    # 혼잡 띠가 역명 위를 덮지 않도록 역명(text) 레이어를 맨 위로 올린다 (클릭 영역 레이어 순서는 그대로)
-    fig.data = tuple([d for d in fig.data if getattr(d, "mode", None) != "text"]
-                     + [d for d in fig.data if getattr(d, "mode", None) == "text"])
+    # 역명은 layout image(layer="above") 라 혼잡 띠 위에 그려진다 (D-067)
     fig.update_layout(height=760, showlegend=True,
                       legend=dict(orientation="h", y=1.02, x=0, title=dict(text=label + "  ")))
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="atlas_map")
+    st.plotly_chart(fig, width="stretch", config=MAP_ZOOM_CONFIG, key="atlas_map")
     st.caption("%s. 양방향 중 %s 쪽 값을 칠했습니다. 비율 지표는 그 구간에서 100%%+ 를 겪은 표본이 5건 이상인 구간만 "
                "표시합니다." % (desc, "더 나쁜" if tone == "bad" else "더 낮은"))
 
