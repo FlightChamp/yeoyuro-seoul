@@ -1,0 +1,148 @@
+{
+  "source": [
+    "Dongmyo_B1.glb",
+    "Dongmyo_B2.glb",
+    "Dongmyo_B3.glb"
+  ],
+  "cluster_gap": 4.0,
+  "instances": [
+    {
+      "floor": "B2",
+      "kind": "SOS 비상통화장치",
+      "n": 6
+    },
+    {
+      "floor": "B2",
+      "kind": "구호용품보관함",
+      "n": 5
+    },
+    {
+      "floor": "B2",
+      "kind": "소화 설비(추정)",
+      "n": 17
+    },
+    {
+      "floor": "B2",
+      "kind": "승강장 안전문",
+      "n": 80
+    },
+    {
+      "floor": "B3",
+      "kind": "소화 설비(추정)",
+      "n": 2
+    }
+  ],
+  "instances_total_by_kind": {
+    "승강장 안전문": 80,
+    "SOS 비상통화장치": 6,
+    "소화 설비(추정)": 19,
+    "구호용품보관함": 5
+  },
+  "psd_layout": {
+    "0": {
+      "n": 40,
+      "cars": 10,
+      "doors_per_car": 4,
+      "car1_x": 962.60077459998,
+      "car1_end": "high",
+      "monotonic": true,
+      "step": 14.885594828900594
+    },
+    "1": {
+      "n": 40,
+      "cars": 10,
+      "doors_per_car": 4,
+      "car1_x": 426.57814659795326,
+      "car1_end": "low",
+      "monotonic": true,
+      "step": 14.933764686979885
+    }
+  },
+  "psd_car1_opposite_ends": true,
+  "spec_example_match": {
+    "spec": {
+      "시설아이디": "1041999",
+      "승강기일련번호": "0000-946",
+      "역명": "동묘앞",
+      "상세위치": "신설동 방면6-2"
+    },
+    "fast_exit_rows": [
+      {
+        "stnNm": "동묘앞",
+        "lineNm": "1호선",
+        "qckgffVhclDoorNo": "6-2",
+        "facPstnNm": "신설동 방면6-2",
+        "facNo": "1041999",
+        "elvtrNo": "0000-946"
+      }
+    ],
+    "match": true
+  },
+  "registration": {
+    "scale": 0.4220751430669919,
+    "R": [
+      [
+        0.946629691278621,
+        -0.32232317259195453
+      ],
+      [
+        0.32232317259195453,
+        0.9466296912786211
+      ]
+    ],
+    "t": [
+      14139300.576261638,
+      4518972.847256702
+    ],
+    "angle_deg": 18.803478843120104,
+    "psd_direction": {
+      "0": {
+        "travel_bearing_deg": 69.2,
+        "on_left_of_travel": true
+      },
+      "1": {
+        "travel_bearing_deg": 249.3,
+        "on_left_of_travel": true
+      }
+    },
+    "lat_deg": 37.57261,
+    "mercator_k": 1.2617,
+    "model_unit_m": 0.3345,
+    "per_floor": {
+      "B1": {
+        "iou": 0.706,
+        "boundary_dist_median_m": 0.34,
+        "boundary_dist_p90_m": 1.81
+      },
+      "B2": {
+        "iou": 0.87,
+        "boundary_dist_median_m": 0.22,
+        "boundary_dist_p90_m": 0.86
+      },
+      "B3": {
+        "iou": 0.823,
+        "boundary_dist_median_m": 0.21,
+        "boundary_dist_p90_m": 0.76
+      }
+    },
+    "psd_pitch_m": 4.99,
+    "objects_inside_floor_polygon": {
+      "승강장 안전문": {
+        "inside": 80,
+        "n": 80
+      },
+      "SOS 비상통화장치": {
+        "inside": 6,
+        "n": 6
+      },
+      "소화 설비(추정)": {
+        "inside": 15,
+        "n": 19
+      },
+      "구호용품보관함": {
+        "inside": 5,
+        "n": 5
+      }
+    }
+  }
+}

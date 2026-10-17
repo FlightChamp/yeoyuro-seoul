@@ -2785,6 +2785,7 @@ def contest_validation():
             return None
     car, fac, sp, tr = (_j("car_sample_validation.json"), _j("facility_poc.json"),
                         _j("spatial_poc.json"), _j("transfer_car.json"))
+    go3 = _j("glb_objects.json")
     st.markdown("##### 공모전 데이터 검증")
     rows = []
     if car:
@@ -2820,6 +2821,25 @@ def contest_validation():
         rows.append(["역사 도면 2D·3D", "동묘앞역 SHP(B1~B3) · GLB 3개",
                      "층 바닥 높이 2D = 3D: " + " · ".join("%s %.2f m" % (x["floor"][:2], x["shp_floor_z"]) for x in vc)
                      + " (차이 %.1f m)" % max((abs(x["diff_m"]) for x in vc), default=0)])
+    if go3:
+        k = go3["instances_total_by_kind"]
+        sm = go3.get("spec_example_match") or {}
+        rows.append(["3D 모델 속 시설 객체", "동묘앞역 GLB 3개 (객체 이름·재질로 분류)",
+                     "구호용품보관함 %d · SOS %d · 소화 설비(추정) %d곳 · 승강장 안전문 %d (2면×10칸×4문, 1번 칸이 두 면에서 반대쪽 끝: %s)"
+                     % (k.get("구호용품보관함", 0), k.get("SOS 비상통화장치", 0), k.get("소화 설비(추정)", 0),
+                        k.get("승강장 안전문", 0), "예" if go3.get("psd_car1_opposite_ends") else "아니오")
+                     + (" · 설명자료 엘리베이터 예시 = 빠른하차정보 동묘앞 행(시설번호·승강기번호 일치)" if sm.get("match") else "")])
+        rg = go3.get("registration")
+        if rg:
+            pf = rg["per_floor"]
+            ins = rg["objects_inside_floor_polygon"]
+            rows.append(["3D 모델 ↔ 2D 도면 정합", "세 층 공통 닮음변환 1개 (공식 정합 규칙 없음)",
+                         "도면 겹침(IoU) %s · 경계 거리 중앙값 %s m · 안전문 간격 %.2f m (모델 1단위 %.3f m) · "
+                         "시설이 같은 층 도면 공간 안 %d/%d"
+                         % (" · ".join("%s %.2f" % (k, v["iou"]) for k, v in sorted(pf.items())),
+                            "/".join("%.2f" % v["boundary_dist_median_m"] for _, v in sorted(pf.items())),
+                            rg["psd_pitch_m"], rg["model_unit_m"],
+                            sum(v["inside"] for v in ins.values()), sum(v["n"] for v in ins.values()))])
     if tr:
         p = tr["primary_alight"]
         rows.append(["환승동선 인접 칸 (보조분석, 사전 등록)", "열차 통과 %d회 · %d일" % (p["n_passages"], p["n_dates"]),
@@ -3095,6 +3115,7 @@ def page_map_editor():
 # 공모전판: 역사 안내 (Facility + 공간정보)
 #   - 엘리베이터 하차 칸: 빠른하차정보(1~8호선) × 칸별 혼잡도 샘플(4호선)
 #   - 역사 도면: 공모전 제공 동묘앞역 2D SHP·3D GLB. 안전시설 위치는 원본이 있을 때만 그린다 (임의로 만들지 않는다)
+#     3D 보기에는 GLB 안에 모델링된 시설 객체(구호용품보관함·SOS·소화 설비(추정)·승강장 안전문)를 모델 좌표 그대로 표시 (D-069)
 # --------------------------------------------------------------------------
 SPATIAL_DIR = ROOT / "data" / "raw" / "spatial_dongmyo"
 SAFETY_DIR = ROOT / "data" / "raw" / "safety_facility"     # 안전시설 위치정보 원본(명세 열: 위도·경도·층번호·시설명)을 두는 곳
@@ -3275,8 +3296,20 @@ def _load_safety_facilities() -> pd.DataFrame | None:
     return df if {"위도", "경도", "층번호"} <= set(df.columns) else None
 
 
-def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None):
-    """한 층 도면 (단위 m, 세 층 공통 원점). 계단은 주황. 시설은 원본 좌표가 있을 때만 그린다."""
+def _glb_registration() -> dict | None:
+    """3D 모델 → 2D 도면 정합 변환 (scripts/v2/40 산출물). 없으면 None — 2D 에 시설 객체를 그리지 않는다."""
+    import json
+    try:
+        d = json.loads((ROOT / "reports" / "v2" / "glb_objects.json").read_text(encoding="utf-8"))
+        return d.get("registration")
+    except Exception:
+        return None
+
+
+def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None,
+                  objects: list[dict] | None = None, reg: dict | None = None, elev: list[dict] | None = None):
+    """한 층 도면 (단위 m, 세 층 공통 원점). 계단은 주황. 시설은 원본 좌표가 있을 때만 그린다.
+    objects + reg: 3D 모델 속 시설 객체를 정합 변환으로 도면 좌표에 옮겨 그린다 (D-070)."""
     import plotly.graph_objects as go
     x0 = min(f["bbox"][0] for f in floors.values())
     y0 = min(f["bbox"][1] for f in floors.values())
@@ -3298,10 +3331,68 @@ def _floor_figure(floors: dict, fl: str, facilities: pd.DataFrame | None = None)
             fig.add_trace(go.Scatter(x=f.x - x0, y=f.y - y0, mode="markers+text", text=f.name,
                                      textposition="top center", name="안전시설",
                                      marker=dict(size=11, color="#DC2626", symbol="diamond")))
+    if objects and reg:
+        from yeoyuro_v2.glb_objects import apply_registration
+        sym2d = {"diamond": "diamond", "square-open": "square-open", "square": "line-ns"}
+        for kind, (col, sym, size) in GLB_OBJ_STYLE.items():
+            obs = [o for o in objects if o["kind"] == kind and o["floor"] + "F" == fl]
+            if not obs:
+                continue
+            xy = [apply_registration(reg, o["x"], o["z"]) for o in obs]
+            hover = []
+            for o in obs:
+                if o.get("psd"):
+                    sd, car, door = o["psd"]
+                    hover.append("승강장 안전문 %s<br>%d면 %d번째 칸 %d번 문"
+                                 % (o["node"], sd, car, door))
+                else:
+                    hover.append("%s · %s<br>근거: %s" % (kind, o["floor"], o["evidence"]))
+            fig.add_trace(go.Scatter(
+                x=[a - x0 for a, _ in xy], y=[b - y0 for _, b in xy], mode="markers",
+                name="%s %d" % (kind.replace("(추정)", ""), len(obs)), text=hover, hovertemplate="%{text}<extra></extra>",
+                marker=dict(size=size * 1.6 if kind != "승강장 안전문" else 4, color=col,
+                            symbol="square" if kind == "승강장 안전문" else sym2d.get(sym, sym),
+                            line=dict(width=1, color="#FFFFFF" if kind != "소화 설비(추정)" else col))))
+        ev = [e for e in (elev or []) if e["floor"] + "F" == fl]
+        if ev:
+            xy = [apply_registration(reg, e["x"], e["z"]) for e in ev]
+            fig.add_trace(go.Scatter(
+                x=[a - x0 for a, _ in xy], y=[b - y0 for _, b in xy], mode="markers+text",
+                name="엘리베이터 승하차 문 %d" % len(ev), text=["%d-%d" % (e["car"], e["door"]) for e in ev],
+                textposition="top center", textfont=dict(size=11, color=ELEV_DOOR_STYLE[0]),
+                hovertext=[_elev_hover(e) for e in ev], hovertemplate="%{hovertext}<extra></extra>",
+                marker=dict(size=ELEV_DOOR_STYLE[1], color=ELEV_DOOR_STYLE[0], symbol="circle",
+                            line=dict(width=2, color="#FFFFFF"))))
     fig.update_layout(height=500, margin=dict(l=4, r=4, t=4, b=4), plot_bgcolor="#F8FAFC",
                       paper_bgcolor="#F8FAFC", legend=dict(orientation="h", y=1.0, x=0.01),
                       xaxis=dict(visible=False), yaxis=dict(visible=False, scaleanchor="x", scaleratio=1))
     return fig
+
+
+ELEV_DOOR_STYLE = ("#1D4ED8", 10)   # 엘리베이터 승하차 문 (빠른하차정보 칸-문 × 3D 모델 안전문, D-071)
+
+
+def _elev_hover(e: dict) -> str:
+    return ("♿ 엘리베이터 승하차 문<br>%s호선 %s 방면 %d-%d · 승강기 %s<br>빠른하차정보 칸-문 = 3D 모델 안전문 %s"
+            % (e["line"], e["toward"], e["car"], e["door"], e.get("elevator_no") or "-", e["psd_node"]))
+
+
+GLB_OBJ_STYLE = {   # 종류: (색, 기호, 크기)
+    "구호용품보관함": ("#DC2626", "diamond", 7),
+    "SOS 비상통화장치": ("#7C3AED", "diamond", 7),
+    "소화 설비(추정)": ("#B91C1C", "square-open", 5),
+    "승강장 안전문": ("#334155", "square", 3.5),
+}
+
+
+@st.cache_data(show_spinner=False)
+def _spatial_objects(folder: str, stamp: float) -> list[dict]:
+    """GLB 속 시설 객체(개체 단위). trimesh 가 없거나 읽기에 실패하면 빈 목록."""
+    try:
+        from yeoyuro_v2.glb_objects import read_instances
+        return read_instances(Path(folder))
+    except Exception:
+        return []
 
 
 @st.cache_resource(show_spinner="3D 모델을 불러오는 중…")
@@ -3324,16 +3415,45 @@ def _spatial_meshes(folder: str, stamp: float, max_faces: int = 20000) -> dict:
     return out
 
 
-def _mesh_figure(meshes: dict, focus: str, cam_rev: int):
-    """같은 자리 3D 보기. focus 층은 진하게, 나머지는 옅게. 쿼터뷰·연회색 배경."""
+def _mesh_figure(meshes: dict, focus: str, cam_rev: int, objects: list[dict] | None = None,
+                 elev: list[dict] | None = None):
+    """같은 자리 3D 보기. focus 층은 진하게, 나머지는 옅게. 쿼터뷰·연회색 배경.
+    objects: GLB 속 시설 객체(모델 좌표 그대로). 선택 층의 객체만, 바닥 위로 조금 띄워 표시한다."""
     import plotly.graph_objects as go
     colors = {"B1": "#3B82F6", "B2": "#F59E0B", "B3": "#10B981"}
     fig = go.Figure()
     for k, (x, y, z, i, j, kk, _n) in meshes.items():
         op = 1.0 if focus in ("전체", k) else 0.22      # 선택 층 100%, 나머지 20~30%
+        if objects and focus in ("전체", k):
+            op = 0.38                                     # 시설 표시를 켜면 천장·벽에 가리지 않게 반투명
         fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=kk, color=colors.get(k, "#9CA3AF"), opacity=op,
                                 name=k, showlegend=True, flatshading=True, hoverinfo="name",
                                 lighting=dict(ambient=0.55, diffuse=0.8)))
+    for kind, (col, sym, size) in GLB_OBJ_STYLE.items():
+        obs = [o for o in (objects or []) if o["kind"] == kind and focus in ("전체", o["floor"])]
+        if not obs:
+            continue
+        hover = []
+        for o in obs:
+            if o.get("psd"):
+                sd, car, door = o["psd"]
+                hover.append("승강장 안전문 %s<br>%d면 %d번째 칸 %d번 문"
+                             % (o["node"], sd, car, door))
+            else:
+                hover.append("%s · %s<br>근거: %s" % (kind, o["floor"], o["evidence"]))
+        fig.add_trace(go.Scatter3d(
+            x=[o["x"] for o in obs], y=[-o["z"] for o in obs], z=[o["y"] + 1.5 for o in obs], mode="markers",
+            name="%s %d" % (kind, len(obs)), text=hover, hovertemplate="%{text}<extra></extra>",
+            marker=dict(size=size, color=col, symbol=sym, line=dict(width=1, color="#FFFFFF"))))
+    ev = [e for e in (elev or []) if focus in ("전체", e["floor"])]
+    if ev:
+        fig.add_trace(go.Scatter3d(
+            x=[e["x"] for e in ev], y=[-e["z"] for e in ev], z=[e["y"] + 3.0 for e in ev], mode="markers+text",
+            name="엘리베이터 승하차 문 %d" % len(ev), text=["%d-%d" % (e["car"], e["door"]) for e in ev],
+            textposition="top center", textfont=dict(size=11, color=ELEV_DOOR_STYLE[0]),
+            hovertext=[_elev_hover(e) for e in ev], hovertemplate="%{hovertext}<extra></extra>",
+            marker=dict(size=ELEV_DOOR_STYLE[1] * 0.8, color=ELEV_DOOR_STYLE[0], symbol="circle",
+                        line=dict(width=2, color="#FFFFFF"))))
     fig.update_layout(height=500, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="#EEF1F4",
                       uirevision="cam%d" % cam_rev,
                       scene=dict(bgcolor="#EEF1F4", aspectmode="manual", aspectratio=dict(x=2.0, y=1.25, z=0.75),
@@ -3359,7 +3479,35 @@ def _station_elevator_card(mart, station: str):
                     "엘리베이터 <b>%s</b></div>" % (LINE_COLORS.get(str(ln), PRIMARY), _esc(line_label(ln)), _esc(tw),
                                                   " · ".join("<span style='white-space:nowrap'>%s</span>" % _esc(x) for x in g.label)))
     st.markdown("<div style='font-size:0.86rem'>%s</div>" % "".join(rows), unsafe_allow_html=True)
-    st.caption("승강장 칸-문 위치와 이 도면 좌표를 잇는 공식 연결정보가 없어, 지도 위에는 정확한 위치를 표시하지 않습니다.")
+
+
+def _elev_doors(mart, objs: list[dict] | None) -> list[dict]:
+    """빠른하차정보 엘리베이터 칸-문 → 3D 모델 안전문 위치 (안전문이 있는 노선만)."""
+    if mart is None or not objs:
+        return []
+    from yeoyuro_v2.glb_objects import elevator_doors
+    rows = mart[mart.station == SPATIAL_STATION].to_dict("records")
+    for r in rows:
+        r["door"] = None if pd.isna(r.get("door")) else int(r["door"])
+    return elevator_doors(objs, rows, SPATIAL_STATION)
+
+
+def _glb_objects_card(objs: list[dict]):
+    """3D 모델에서 읽은 시설 객체 요약 (개수·근거)."""
+    st.markdown("**🧯 3D 모델 속 시설**")
+    if not objs:
+        st.caption("이 실행 환경에서는 3D 모델의 시설 객체를 읽지 못했습니다.")
+        return
+    from collections import Counter
+    c = Counter(o["kind"] for o in objs)
+    rows = []
+    for kind in GLB_OBJ_STYLE:
+        if c.get(kind):
+            unit = "곳" if kind == "소화 설비(추정)" else "개"
+            rows.append("<div style='margin:2px 0'><span style='color:%s'>■</span> %s <b>%d%s</b></div>"
+                        % (GLB_OBJ_STYLE[kind][0], _esc(kind.replace("(추정)", "")), c[kind], unit))
+    st.markdown("<div style='font-size:0.86rem'>%s</div>" % "".join(rows), unsafe_allow_html=True)
+    st.caption("제공 3D 모델(GLB) 안의 객체 이름·재질로 분류하고, 위치는 모델 좌표 그대로 사용합니다.")
 
 
 def page_spatial():
@@ -3369,8 +3517,9 @@ def page_spatial():
                 % (SPATIAL_STATION, POC_BADGE % "공간정보 PoC"), unsafe_allow_html=True)
     mode = st.session_state.get("sp_mode") or "2D 도면"
     st.markdown('<div style="color:#6B7280;font-size:0.82rem;margin:2px 0 6px 0">%s</div>'
-                % ("구조 확인용 · 실내 길찾기 기능 아님 · 안전시설 좌표는 정식 데이터 개방 후 연동됩니다" if mode == "3D 모델"
-                   else "현재는 공모전 제공 역사 도면을 표시하며, 안전시설 좌표는 정식 데이터 개방 후 연동됩니다"),
+                % ("구조 확인용 · 실내 길찾기 기능 아님 · 3D 모델에 들어 있는 시설 객체를 모델 좌표 그대로 표시합니다"
+                   if mode == "3D 모델"
+                   else "공모전 제공 역사 도면입니다. 안전시설 좌표 원본은 아직 연동하지 않아 시설 위치를 임의로 표시하지 않습니다"),
                 unsafe_allow_html=True)
     mode = st.segmented_control("보기", ["2D 도면", "3D 모델"], key="sp_mode", required=True,
                                 default="2D 도면", label_visibility="collapsed") or "2D 도면"
@@ -3393,41 +3542,61 @@ def page_spatial():
             fl = st.segmented_control("층", names, key="sp_floor", required=True,
                                       format_func=lambda x: SPATIAL_FLOOR_LABEL.get(x, x),
                                       label_visibility="collapsed") or names[0]
+            reg = _glb_registration() if glbs else None
             fac_df = None
             if raw_fac is not None and st.session_state.get("sp_fac"):
                 from yeoyuro_v2.spatial_poc import place_facilities
                 fac_df = place_facilities(raw_fac, floors)
-            st.plotly_chart(_floor_figure(floors, fl, fac_df), width="stretch", key="sp_floor_fig",
+            objs2d = None
+            if reg:
+                show2d = st.toggle("모델 속 시설", key="sp_objs", value=True,
+                                   help="3D 모델(GLB) 안의 시설 객체를, 3D 모델을 2D 도면에 맞춘 변환으로 옮겨 표시합니다.")
+                if show2d:
+                    objs2d = _spatial_objects(str(SPATIAL_DIR), max(p.stat().st_mtime for p in glbs))
+            st.plotly_chart(_floor_figure(floors, fl, fac_df, objs2d, reg, _elev_doors(mart, objs2d)),
+                            width="stretch", key="sp_floor_fig",
                             config={"displayModeBar": False, "scrollZoom": True})
+            if objs2d and reg:
+                st.caption("마우스 드래그(회전) · 휠(확대/축소) | 시설 마커 오버 시 원본 데이터(객체명·재질) 확인")
         else:
             try:
                 import trimesh  # noqa: F401
                 ok3d = bool(glbs)
             except Exception:
                 ok3d = False
-            c1, c2 = st.columns([3, 1])
+            c1, c3, c2 = st.columns([2.2, 1.3, 1])
             focus = c1.segmented_control("층 강조", ["전체", "B1", "B2", "B3"], key="sp_floor3d", required=True,
                                          default="전체", label_visibility="collapsed") or "전체"
+            show_objs = c3.toggle("모델 속 시설", key="sp_objs", value=True,
+                                  help="3D 모델(GLB) 안에 모델링된 시설 객체를 모델 좌표 그대로 표시합니다. "
+                                       "공모전 안전시설 위치정보(위도·경도·층번호) 원본과는 다른 자료입니다.")
             if c2.button("시점 초기화", key="sp_cam_reset", width="stretch"):
                 st.session_state["sp_cam"] = st.session_state.get("sp_cam", 0) + 1
             if ok3d:
-                meshes = _spatial_meshes(str(SPATIAL_DIR), max(p.stat().st_mtime for p in glbs))
-                st.plotly_chart(_mesh_figure(meshes, focus, st.session_state.get("sp_cam", 0)),
+                stamp = max(p.stat().st_mtime for p in glbs)
+                meshes = _spatial_meshes(str(SPATIAL_DIR), stamp)
+                objs = _spatial_objects(str(SPATIAL_DIR), stamp) if show_objs else None
+                st.plotly_chart(_mesh_figure(meshes, focus, st.session_state.get("sp_cam", 0), objs,
+                                             _elev_doors(mart, objs)),
                                 width="stretch", key="sp_3d_fig")
             else:
                 img = ROOT / "reports" / "v2" / "fig_spatial_3d.png"
                 if img.exists():
                     st.image(str(img))
-            st.caption("마우스로 돌리고 휠로 확대합니다.")
+            st.caption("마우스 드래그(회전) · 휠(확대/축소) | 시설 마커 오버 시 원본 데이터(객체명·재질) 확인")
 
     with right:
         with st.container(border=True):
             _station_elevator_card(mart, SPATIAL_STATION)
             st.divider()
+            if glbs:
+                _glb_objects_card(_spatial_objects(str(SPATIAL_DIR), max(p.stat().st_mtime for p in glbs)))
+                st.divider()
             if raw_fac is None:
-                st.toggle("🔒 안전시설 위치", key="sp_fac", value=False, disabled=True,
-                          help="안전시설 위치정보 원본이 개방되면 위도·경도·층번호로 이 도면에 겹쳐 표시합니다.")
-                st.caption("정식 데이터 개방 후 활성화")
+                st.toggle("🔒 안전시설 위치(원본 좌표)", key="sp_fac", value=False, disabled=True,
+                          help="공모전 설명자료의 안전시설 위치정보(위도·경도·층번호·X·Y·Z) 원본을 연동하면 "
+                               "좌표를 검증한 뒤 이 도면에 겹쳐 표시합니다.")
+                st.caption("안전시설 좌표 원본 연동·검증 후 활성화")
             else:
                 st.toggle("안전시설 위치", key="sp_fac", help="원본의 위도·경도·층번호를 도면 좌표로 바꿔 겹칩니다.")
             st.button("♿ 엘리베이터 하차 칸 보기 →", key="sp_to_fac", width="stretch",
@@ -3435,13 +3604,19 @@ def page_spatial():
 
     with st.expander("데이터 범위 및 한계"):
         st.markdown(
-            "- 도면: 공모전 제공 동묘앞역 2D 도면(SHP, B1~B3)과 3D 모델(GLB).\n"
-            "- 안전시설 위치정보 원본은 아직 받지 못했습니다. **위치를 임의로 만들어 그리지 않습니다.** "
-            "원본이 개방되면 위도·경도는 좌표 변환으로, 층번호(−1 = B1)는 층 배정으로 같은 도면에 겹칩니다.\n"
-            "- 2D 도면의 층 바닥 높이와 3D 모델의 층 바닥 높이는 세 층 모두 일치했습니다(차이 0.0 m).\n"
-            "- 확인이 필요한 것: 3D 모델의 수평 좌표와 2D 도면의 정합 규칙, 안전시설 X·Y·Z 좌표의 기준, "
-            "승강장 칸-문 위치와 도면 좌표의 연결.\n"
-            "- 3D 길찾기·동선 최적화는 이번 범위가 아닙니다.")
+            "- 공간정보: 공모전에서 제공한 동묘앞역 2D 도면(SHP, B1~B3)과 3D 모델(GLB)을 사용합니다.\n"
+            "- 안전시설 위치: 공모전 설명자료에는 위도·경도·층번호·X·Y·Z 좌표가 정의되어 있지만, 현재 시연판에는 "
+            "해당 원본 좌표 데이터가 연동되지 않았습니다. 따라서 시설 위치를 임의로 생성해 표시하지 않습니다.\n"
+            "- 3D 시설 표시: 화면에 표시되는 시설은 제공된 3D 모델 안에 실제로 포함된 객체를 이용합니다. "
+            "구호용품보관함은 재질명으로 확인했으며, SOS·승강장 안전문·소화설비 일부는 객체명 또는 재질명을 바탕으로 "
+            "식별·추정합니다.\n"
+            "- 데이터 연결 가능성: 동묘앞역 엘리베이터는 빠른하차정보와 공모전 설명자료의 예시에서 "
+            "시설번호·승강기 일련번호·상세위치가 일치했습니다. 향후 원본 위치 데이터가 연동되면 시설번호를 기준으로 "
+            "연결할 수 있습니다.\n"
+            "- 현재 확인된 사항: 2D 도면과 3D 모델의 층별 바닥 높이는 B1~B3 모두 일치했습니다. 다만 수평 좌표 "
+            "정합 방식, 안전시설 X·Y·Z 좌표 기준, 승강장 칸·문과 도면 좌표의 연결관계는 추가 확인이 필요합니다.\n"
+            "- 범위: 이번 시연은 역사 구조와 시설정보를 확인하는 공간정보 PoC이며, 3D 실내 길찾기나 동선 최적화는 "
+            "포함하지 않습니다.")
     with st.expander("개발자 정보 보기"):
         if shp:
             floors = floors or _spatial_floors(str(SPATIAL_DIR), max(p.stat().st_mtime for p in shp))
