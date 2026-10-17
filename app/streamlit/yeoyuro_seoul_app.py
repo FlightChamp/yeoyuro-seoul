@@ -875,7 +875,7 @@ def transfer_tip(station: str, from_line: str, to_line: str,
         # 원본에 '모든 호차'/'모든 문' 으로 적힌 조합이 있다(예: 성수 본선-성수지선).
         # 접미사를 그대로 붙이면 '모든 호차호차' 가 되므로 원문을 그대로 쓴다.
         c, d = _n(car), _n(door)
-        c = c if c.startswith("모든") else "%s호차" % c
+        c = "모든 칸" if c.startswith("모든") else "%s번째 칸" % c     # 화면 용어는 'n번째 칸'으로 통일 (D-066)
         d = d if d.startswith("모든") else "%s번 문" % d
         return "%s %s" % (c, d)
 
@@ -972,7 +972,7 @@ def transfer_detail(stn: str, fl: str, tl: str):
         st.caption("이 환승 조합은 원본 자료에 빠른 환승 위치가 없어 안내하지 않습니다.")
     notes = []
     if has_tip:
-        notes.append("승하차 위치는 호차-문 입니다, (2-1 = 2번째 칸 1번 문)")
+        notes.append("승하차 위치는 칸-문 입니다, (2-1 = 2번째 칸 1번 문)")
     if has_edge:
         notes.append("환승 페널티 = 도보 소요시간 + 환승인원 기반 가산(5만 명당 1분, 최대 3분)")
     if notes:
@@ -1834,12 +1834,19 @@ def _cf_cell(col, title, opt, base, highlight=False):
             st.markdown("**%s 출발**" % opt["depart"])
         same = opt["kind"] == "now"
         d = lambda k: None if same else opt[k] - base[k]
+
+        def _dl(k, fmt):
+            # 반올림해 0 이 되는 변화는 표시하지 않는다 ('+0분' 이 빨간 ↑ 로 보여 늘어난 것처럼 읽히는 문제)
+            if same:
+                return None
+            v = d(k)
+            return None if round(v) == 0 else fmt % v
         st.metric("100%+ 혼잡 노출", "%.0f분" % opt["exp100"],
-                  None if same else "%+.0f분" % d("exp100"), delta_color="inverse")
+                  _dl("exp100", "%+.0f분"), delta_color="inverse")
         st.metric("예상 소요시간", "%.0f분" % opt["actual"],
-                  None if same else "%+.0f분" % d("actual"), delta_color="inverse")
+                  _dl("actual", "%+.0f분"), delta_color="inverse")
         st.metric("최대 기대 혼잡도", "%.0f%%" % opt["max_cong"],
-                  None if same else "%+.0f%%p" % d("max_cong"), delta_color="inverse")
+                  _dl("max_cong", "%+.0f%%p"), delta_color="inverse")
         st.caption("환승 %d회 · %s" % (opt["transfers"], _path_lines(opt["path"])))
         if not opt["ok"] and opt["reason"]:
             st.caption("가장 가까운 후보도 기준 미달: **%s**" % opt["reason"])
@@ -1910,10 +1917,12 @@ def render_time_cta(c):
     else:
         effect = "최대 기대 혼잡도가 %.0f%% → %.0f%% 로 낮아집니다" % (b["max_cong"], t["max_cong"])
     with st.container(border=True):
-        st.markdown("⏰ **%s(%s) 출발하면** %s." % (_shift_label(t["shift_min"]), t["depart"], effect))
+        # 결론(🕒 추천 한 줄)은 위에 이미 있으므로 여기서는 다음 행동만 안내한다. effect 문장은 버튼 도움말로.
+        st.markdown("**다른 출발 시각도 비교해 보세요**")
         handoff = {"sig": st.session_state.get("route_query"), "path": list(b["path"]),
                    "shift_min": int(t["shift_min"])}
-        st.button("시간 비교 보기 →", key="cta_time", type="primary", on_click=_cta_go, args=(handoff,))
+        st.button("시간대별 비교 보기 →", key="cta_time", type="primary", on_click=_cta_go, args=(handoff,),
+                  help="%s(%s) 출발하면 %s." % (_shift_label(t["shift_min"]), t["depart"], effect))
     return True
 
 
@@ -2305,6 +2314,9 @@ def page_atlas():
                                  line=dict(color=col, width=11), opacity=0.92))
         fig.add_trace(go.Scatter(x=hx, y=hy, mode="markers", marker=dict(size=14, color="rgba(0,0,0,0)"),
                                  hovertext=ht, hoverinfo="text", showlegend=False))
+    # 혼잡 띠가 역명 위를 덮지 않도록 역명(text) 레이어를 맨 위로 올린다 (클릭 영역 레이어 순서는 그대로)
+    fig.data = tuple([d for d in fig.data if getattr(d, "mode", None) != "text"]
+                     + [d for d in fig.data if getattr(d, "mode", None) == "text"])
     fig.update_layout(height=760, showlegend=True,
                       legend=dict(orientation="h", y=1.02, x=0, title=dict(text=label + "  ")))
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="atlas_map")
@@ -2377,9 +2389,16 @@ def page_event_scenario():
                           yaxis=dict(title="평시 유형", autorange="reversed"))
         st.subheader("유형 전이 (이벤트 구간을 지나는 이동)")
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="evs_heat")
-        st.caption("대각선 밖의 칸이 이벤트 때문에 대응 방법이 바뀐 이동입니다.  \n"
-                   "평시 '시간 조정' → 이벤트 '회피 어려움' = 평소엔 조금 일찍 나서면 됐지만 이벤트 날엔 "
-                   "탐색한 대안 범위에서 개선안을 찾지 못함.")
+        # 고정 예시는 이벤트에 따라 0건일 수 있어(예: 불꽃축제는 평시가 모두 '여유'), 이 이벤트에서 가장 많이 바뀐 칸을 예로 든다
+        meaning = {"calm": "혼잡 구간을 지나지 않음", "time_shiftable": "출발 시각을 옮겨야 혼잡을 줄일 수 있음",
+                   "dual": "경로나 출발 시각을 바꿔야 혼잡을 줄일 수 있음",
+                   "route_shiftable": "다른 경로로 가야 혼잡을 줄일 수 있음",
+                   "structural": "탐색한 대안 범위에서 개선안을 찾지 못함"}
+        off = [(int(ct.loc[a_, b_]), a_, b_) for a_ in order for b_ in order if a_ != b_ and ct.loc[a_, b_] > 0]
+        ex = ("평시 '%s' → 이벤트 '%s' %d건 = 이벤트 날엔 %s."
+              % (TYPE_SHORT[max(off)[1]], TYPE_SHORT[max(off)[2]], max(off)[0], meaning[max(off)[2]])) if off else \
+            "이 이벤트에서는 대응 방법이 바뀐 이동이 없습니다."
+        st.caption("대각선 밖의 칸이 이벤트 때문에 대응 방법이 바뀐 이동입니다.  \n" + ex)
         changed = t[t.baseline_type != t.event_shiftability_type]
         if len(changed):
             st.subheader("대응 방법이 바뀐 이동 예시")
@@ -2430,7 +2449,7 @@ def show_station_info(station_key: str):
     st.table(round1(one[["방향", "mean_congestion", "max_congestion",
                          "peak_time_bin", "peak_duration_min"]]
                     .rename(columns={"mean_congestion": "평균(%)",
-                                     "max_congestion": "최대(%)",
+                                     "max_congestion": "관측 최대(%)",
                                      "peak_time_bin": "피크",
                                      "peak_duration_min": "지속(분)"}))
              .reset_index(drop=True))
@@ -2490,7 +2509,7 @@ def page_congestion_station():
                          "p95_congestion", "peak_time_bin", "peak_duration_min",
                          "am_peak_mean", "pm_peak_mean"]]
                     .rename(columns={"mean_congestion": "평균(%)",
-                                     "max_congestion": "최대(%)",
+                                     "max_congestion": "관측 최대(%)",
                                      "p95_congestion": "상위5%(%)",
                                      "peak_time_bin": "피크 시간대",
                                      "peak_duration_min": "피크 지속(분)",
@@ -2512,6 +2531,8 @@ def page_congestion_station():
 
     st.divider()
     st.subheader("평일 최혼잡 구간 Top 10")
+    st.caption("관측 최대 = 11개 시점(2022.12~2026.6) 가운데 가장 높았던 값입니다. 경로 추천과 위 그래프의 "
+               "'기대 혼잡도'는 시점별 중앙값이라 더 낮게 나옵니다 (예: 성신여대입구 하행 08:00대 관측 최대 185.5% · 기대 134.0%).")
     top = prof[prof["day_type"] == "weekday"].nlargest(10, "max_congestion").copy()
     top["호선"] = top["line_id"].map(line_label)
     top["방향"] = top["direction"].map(DIRECTION_KO).fillna(top["direction"])
@@ -2519,7 +2540,7 @@ def page_congestion_station():
                          "mean_congestion", "max_congestion", "peak_duration_min"]]
                     .rename(columns={"station_name": "역명", "peak_time_bin": "피크 시간대",
                                      "mean_congestion": "평균(%)",
-                                     "max_congestion": "최대(%)",
+                                     "max_congestion": "관측 최대(%)",
                                      "peak_duration_min": "피크 지속(분)"}))
              .reset_index(drop=True))
     st.caption("최댓값이 가장 큰 역과 피크가 가장 오래 지속되는 역은 서로 다릅니다.")
@@ -2671,8 +2692,8 @@ def page_congestion_line():
 
     c = st.columns(3)
     top = d.loc[d["congestion_median"].idxmax()]
-    c[0].metric("최대 기대 혼잡도", "%.1f%%" % top["congestion_median"],
-                top["표시역명"], delta_color="off")
+    c[0].metric("최대 기대 혼잡도", "%.1f%%" % top["congestion_median"])
+    c[0].caption("최대 지점: %s" % top["표시역명"])     # delta 칸에 넣으면 '증가(↑)'로 읽혀 글로 표시
     c[1].metric("구간 평균", "%.1f%%" % d["congestion_median"].mean())
     c[2].metric("역 수", "%d개" % len(d))
 
@@ -2770,6 +2791,70 @@ def graph_scope(stamp: float = 0.0) -> dict:
     return out
 
 
+def contest_validation():
+    """공모전 데이터 검증 요약. 숫자는 reports/v2/*.json(스크립트 32·35·36·37 산출물)에서 읽는다 — 화면에 직접 적지 않는다."""
+    import json
+    rep = ROOT / "reports" / "v2"
+
+    def _j(name):
+        try:
+            return json.loads((rep / name).read_text(encoding="utf-8"))
+        except Exception:
+            return None
+    car, fac, sp, tr = (_j("car_sample_validation.json"), _j("facility_poc.json"),
+                        _j("spatial_poc.json"), _j("transfer_car.json"))
+    st.markdown("##### 공모전 데이터 검증")
+    rows = []
+    if car:
+        r = car["treatments"]["raw"]
+        ex = r["external"]["by_day"]["weekday"]
+        th = r["external"]["threshold100_weekday_cell"]
+        rows.append(["기대 혼잡도 외부 정합성", "평일 구간×방향×30분 %d칸 (샘플 실측 vs 앱)" % ex["cells"],
+                     "Pearson %.2f · Spearman %.2f · 평균 절대 차이 %.1f%%p" % (ex["pearson"], ex["spearman"], ex["mae"])])
+        rows.append(["정원 100% 초과 구간 판정", "같은 %d칸 중 실측 100%% 초과 %d칸" % (ex["cells"], th["tp"] + th["fn"]),
+                     "재현율 %.0f%% · 정밀도 %.2f (놓친 칸 중 기대값이 100%%에서 20%%p 이내인 비율 %.0f%%)"
+                     % (100 * th["recall"], th["precision"], 100 * th["fn_exp_gap_below_100"]["share_within_20"])])
+        for k, lab, smp in (("lodo", "하루씩 빼고 학습", "출퇴근 열차 평균 60%% 이상 통과 %d건"),
+                            ("lofo", "편성 하나씩 빼고 학습", "출퇴근 열차 평균 60%% 이상 통과 %d건"),
+                            ("deploy", "배포 방식 (혼잡 구간·시간도 학습 자료로만 선정)",
+                             "학습 자료의 혼잡 구간·30분 통과 전부 %d건")):
+            v = r[k]
+            rows.append(["여유 칸 추천 · %s" % lab, smp % v["n"],
+                         "추천 칸이 열차 중앙값 이하 %.1f%% · 열차 평균보다 %.1f%%p 덜 붐빔 (무작위 칸 %+.1f%%p)"
+                         % (100 * v["hit_rate"], v["gain_mean"], v["random_gain_mean"])])
+        g = car.get("grade_only_fallback_lodo")
+        if g:
+            rows.append(["등급(1~4)만 개방될 때", "같은 %d건" % g["n_eval"],
+                         "칸 구분 가능 %.0f%% · 그중 %.1f%% · %.1f%%p (같은 사례를 %%로 안내하면 %.1f%% · %.1f%%p)"
+                         % (100 * g["coverage"], 100 * g["hit_rate"], g["gain_mean"],
+                            100 * g["pct_on_same_cases"]["hit_rate"], g["pct_on_same_cases"]["gain_mean"])])
+    if fac:
+        s = fac["survey"]
+        rows.append(["교통약자 하차 칸", "4호선 엘리베이터 역 도착 구간×30분 %d개 (열차 평균 60%% 이상)" % s["combos"],
+                     "옆 칸이 5%%p 이상 덜 붐빔 %.0f%% · 평균 %.1f%%p · 칸 번호 기준을 반대로 봐도 같은 칸 %.0f%%"
+                     % (100 * s["neighbor_better_share"], s["gain_when_moved_mean"], 100 * s["orientation_same_pick_share"])])
+    if sp:
+        vc = sp.get("vertical_check") or []
+        rows.append(["역사 도면 2D·3D", "동묘앞역 SHP(B1~B3) · GLB 3개",
+                     "층 바닥 높이 2D = 3D: " + " · ".join("%s %.2f m" % (x["floor"][:2], x["shp_floor_z"]) for x in vc)
+                     + " (차이 %.1f m)" % max((abs(x["diff_m"]) for x in vc), default=0)])
+    if tr:
+        p = tr["primary_alight"]
+        rows.append(["환승동선 인접 칸 (보조분석, 사전 등록)", "열차 통과 %d회 · %d일" % (p["n_passages"], p["n_dates"]),
+                     "사전등록 기준 미충족 · 주장에 미사용 (효과 %+.2f%%p, 95%% CI [%+.2f, %+.2f])"
+                     % (p["pooled"], p["ci95"][0], p["ci95"][1])])
+    if not rows:
+        st.caption("검증 결과 파일(reports/v2/*.json)이 없습니다.")
+        return
+    st.dataframe(pd.DataFrame(rows, columns=["항목", "표본", "결과"]), hide_index=True, width="stretch",
+                 column_config={"항목": st.column_config.TextColumn(width="medium"),
+                                "표본": st.column_config.TextColumn(width="medium"),
+                                "결과": st.column_config.TextColumn(width="large")})
+    n = (car or {}).get("sample", {})
+    st.caption("칸별 혼잡도 샘플: 공모전 제공 4호선 편성 %s개 (%s) · 결과는 이 표본 기준이며 다른 노선·계절로 일반화하지 않습니다. "
+               "재현: scripts/v2/32·35·36·37." % (n.get("trains", "-"), " ~ ".join(str(x) for x in n.get("dates", []))))
+
+
 def page_project():
     tabs = st.tabs(["프로젝트 개요", "데이터", "방법론", "검증 결과", "한계"])
     gs = graph_scope(ensure_map_fresh())
@@ -2777,7 +2862,7 @@ def page_project():
     line_txt = "1~9호선 (9호선 일반·급행)" if has9 else "1~8호선"
 
     with tabs[0]:
-        st.markdown("#### 서울 지하철 %s 혼잡도 기반 쾌적 경로 추천 · v2" % line_txt.split(" ")[0])
+        st.markdown("#### 서울 지하철 %s 혼잡도 기반 쾌적 경로 추천 · v2 공모전판" % line_txt.split(" ")[0])
         st.dataframe(pd.DataFrame([
             ["버전", "v2 (시간 진행형 경로 판정 · Counterfactual · 혼잡 분산 지도 · 이벤트 시나리오)"],
             ["지원 노선", line_txt],
@@ -2787,6 +2872,8 @@ def page_project():
                                      "(step policy). v1 은 출발 시각 bin 을 경로 전체에 고정"],
             ["경로/시간 대안 판정", "v2.3 사전 등록 기준 T1 (100%+ 노출 5분 이상 또는 절반 이상 감소)"],
             ["혼잡도 의미", "과거 패턴 기반 기대값 (정원 대비 승차 인원, 100% = 1칸 160명) · 실시간 정보 아님"],
+            ["공모전판 추가", "여유 칸 안내(칸별 혼잡도 샘플, 4호선 시범) · 교통약자 하차 칸(빠른하차정보 1~8호선 + 4호선 칸 비교) · "
+                             "역사 도면 2D·3D(동묘앞, 공간정보 PoC) — 검증은 '검증 결과' 탭"],
         ], columns=["항목", "현재 앱"]), hide_index=True, width="stretch")
         st.caption("그래프 수치는 앱 데이터 폴더(route_edge_mart · transfer_edge_mart · station_display_master)에서 "
                    "실행 시 직접 셉니다. v2 상세 결과는 README / 리포트(docs/v2)에 정리합니다.")
@@ -2794,7 +2881,8 @@ def page_project():
         for col, (a, b, d) in zip(c, [("승하차 원본", "797,946행", "48개월"),
                                       ("혼잡도 셀", "715,065", "11 스냅샷"),
                                       ("검증 이벤트", "87건", "DiD 순효과")]):
-            col.metric(a, b, d, delta_color="off")
+            col.metric(a, b)
+            col.caption(d)                                # delta 칸에 넣으면 '증가(↑)'로 읽혀 글로 표시
         st.caption("위 세 수치는 v1 데이터 구축 단계(서울교통공사 1~8호선 자료) 기준입니다.")
         st.markdown("""
 ##### 핵심 발견
@@ -2882,6 +2970,8 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
         ], columns=["레이어", "문제 유형", "표준 지표"]), width="stretch", hide_index=True)
 
     with tabs[3]:
+        contest_validation()
+        st.markdown("##### v1 경로 추천 평가")
         st.caption("아래는 v1 경로 추천 평가(1~8호선, 미리 계산한 대표 OD)입니다. "
                    "v2 상세 검증 결과는 README / docs/v2 리포트에서 보강합니다.")
         tags = precomputed_tags()
@@ -2923,7 +3013,7 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
         st.subheader("데이터가 없어서 못 하는 것")
         st.dataframe(pd.DataFrame([
             ["실시간 혼잡도 예측", "실시간 위치·재차 데이터 없음", "과거 패턴 기반 기대 혼잡도"],
-            ["객차별 혼잡도 예측", "객차 단위 재차 데이터 없음", "환승 동선상 유리한 호차/문"],
+            ["전 노선 칸별 혼잡도", "칸별 혼잡도는 공모전 샘플(4호선 편성 6개)만 확보", "4호선 여유 칸 안내(시범) · 환승 동선상 유리한 칸·문"],
             ["착석 확률", "좌석 점유 데이터 없음", "착석 가능성 proxy 점수"],
             ["이벤트 당일 실제 혼잡도", "혼잡도가 분기 평균 패턴", "이벤트성 spike 기반 위험 보정"],
             ["신분당선·경의중앙선 등 우회", "1~9호선 외 운영 노선 자료 미포함", "1~9호선 내 대안 경로"],
@@ -3082,7 +3172,7 @@ def page_facility_elevator():
         els_df = sub[(sub.station == stn) & (sub.toward == tw)].sort_values(["car", "door"])
         elevators = [{"car": int(r.car), "door": None if pd.isna(r.door) else int(r.door), "label": r.label,
                       "toward": r.toward, "crtr_ymd": r.crtr_ymd} for r in els_df.itertuples()]
-        crowd, public, prev_st = None, None, None
+        crowd, public, prev_st, bin_note = None, None, None, None
         prev = _line_neighbors(line, stn) - {tw}
         if line == "4" and elevators:
             pat = _load_car_pattern()
@@ -3093,8 +3183,19 @@ def page_facility_elevator():
                 bins = sorted(pat[(pat.line.astype(str) == "4") & (pat.from_station == prev_st)
                                   & (pat.to_station == stn)].time_bin.unique())
                 if bins:
-                    if st.session_state.get("fac_bin") not in bins:
-                        st.session_state["fac_bin"] = "07:30" if "07:30" in bins else bins[0]
+                    req = st.session_state.get("fac_bin")
+                    if req not in bins:
+                        # 경로 결과에서 넘어온 시간대에 표본이 없으면 가장 가까운 시간대를 고르고, 바꿨다는 사실을 화면에 밝힌다
+                        def _m(x):
+                            h, mm = map(int, str(x).split(":"))
+                            return h * 60 + mm
+                        if req and re.fullmatch(r"\d\d:\d\d", str(req)):
+                            near = min(bins, key=lambda b: (abs(_m(b) - _m(req)), _m(b)))
+                            bin_note = ("평일 %s대는 칸별 혼잡도 샘플 표본이 부족해, 가장 가까운 %s대 결과를 보여줍니다."
+                                        % (req, near))
+                        else:
+                            near = "07:30" if "07:30" in bins else bins[0]
+                        st.session_state["fac_bin"] = near
                     tb = st.selectbox("평일 도착 시간대", bins, key="fac_bin",
                                       help="칸별 혼잡도 샘플에 표본(통과 3회·2일 이상)이 있는 30분 구간만 고를 수 있습니다.")
                     crowd = alight_crowd_match(pat, "4", prev_st, stn, None, elevators, time_bin=tb)
@@ -3107,6 +3208,9 @@ def page_facility_elevator():
             ctx += " · 평일 %s" % crowd["time_bin"]
         st.markdown('<div style="color:#475569;font-size:0.9rem;font-weight:600;margin-bottom:4px">%s</div>'
                     % _esc(ctx), unsafe_allow_html=True)
+        if bin_note:
+            st.markdown('<div style="color:#9A3412;font-size:0.82rem;margin:-2px 0 6px 0">ⓘ %s</div>' % _esc(bin_note),
+                        unsafe_allow_html=True)
         if not elevators:
             st.info("이 역·방면은 빠른하차정보에 엘리베이터 칸이 없습니다. 역 안내를 확인해 주세요.")
             return

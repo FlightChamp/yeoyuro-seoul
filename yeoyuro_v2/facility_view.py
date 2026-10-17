@@ -47,23 +47,25 @@ def decision(station: str, line, elevators: list[dict], crowd: dict | None, publ
         if c["pick"] != c["nearest"]:
             out.update(pick=c["pick"], gain_pct=c["gain_pct"])
             out["title"] = "♿ 추천: %d번째 칸" % c["pick"]
-            out["lines"] = ["엘리베이터 <b>%s</b>에서 %d칸 이동하면 %d번째 칸 %d%% → <b>%d번째 칸 %d%% (−%d%%p)</b>"
-                            % (_esc(lab), c["extra_cars"], c["nearest"], c["near_pct"], c["pick"], c["pick_pct"],
-                               c["gain_pct"])]
+            out["lines"] = ["엘리베이터 칸(%d번째 칸 · 빠른하차정보 %s)에서 %d칸 이동하면 %d번째 칸 %d%% → "
+                            "<b>%d번째 칸 %d%% (−%d%%p)</b>"
+                            % (c["nearest"], _esc(lab), c["extra_cars"], c["nearest"], c["near_pct"], c["pick"],
+                               c["pick_pct"], c["gain_pct"])]
             if c["near_pct"] >= 100 and c["pick_pct"] >= 100:
                 out["warn"] = "두 칸 모두 평소 정원 100%를 넘어 혼잡합니다."
             elif c["pick_pct"] >= 100:
                 out["warn"] = "추천 칸도 평소 정원 100%를 넘어 혼잡합니다."
         else:
             out["title"] = "♿ 추천: %d번째 칸 (엘리베이터 칸)" % c["nearest"]
-            out["lines"] = ["엘리베이터 <b>%s</b> 바로 앞 칸입니다. 양옆 칸과 차이가 5%%p 미만이라 더 걸을 필요가 없습니다 "
-                            "(평소 %d%%)" % (_esc(lab), c["near_pct"])]
+            out["lines"] = ["엘리베이터 바로 앞 칸입니다(빠른하차정보 %s). 양옆 칸과 차이가 5%%p 미만이라 더 걸을 필요가 "
+                            "없습니다 (평소 %d%%)" % (_esc(lab), c["near_pct"])]
             if c["near_pct"] >= 100:
                 out["warn"] = "이 칸도 평소 정원 100%를 넘어 혼잡합니다."
         out["note"] = CAR_HINT_NOTE
         return out
     out["title"] = "♿ %s 근처에서 내리세요" % where
-    out["lines"] = ["%s 엘리베이터와 가장 가까운 위치입니다" % _esc(station)]
+    labs = " · ".join(_esc(e["label"]) for e in elevators)
+    out["lines"] = ["%s 엘리베이터와 가장 가까운 위치입니다 (빠른하차정보 %s)" % (_esc(station), labs)]
     if stt == "quiet":
         out["lines"].append("평소 이 시간에는 붐비지 않는 구간이라 칸을 옮길 필요가 크지 않습니다 (열차 평균 %.0f%%)"
                             % c["train_mean"])

@@ -73,7 +73,7 @@ def _no_exc(at):
 
 
 def _cta(at):
-    return [b for b in at.button if b.label == "시간 비교 보기 →"]
+    return [b for b in at.button if b.label == "시간대별 비교 보기 →"]
 
 
 # ---------------------------------------------------------------- 1. 계산 결과 불변
@@ -167,7 +167,7 @@ def test_cta_to_time_view(case, baseline):
     at = H.search(case)
     cta = _cta(at)
     assert len(cta) == 1
-    msg = [m.value for m in at.markdown if "⏰" in m.value][0]
+    msg = [m.value for m in at.markdown if "🕒 추천" in m.value][0]      # 결론은 진단 위 한 줄, CTA 상자는 다음 행동만 (D-066)
     shift = cf["time"]["shift"]
     assert "%d분 %s" % (abs(shift), "일찍" if shift < 0 else "늦게") in msg
     cta[0].click().run()

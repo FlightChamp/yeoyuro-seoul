@@ -188,3 +188,51 @@ def test_route_access_quiet_case():
     at.toggle(key="w_access").set_value(True).run()
     _no_exc(at)
     assert len(_acc_text(at)) == 1
+
+
+def test_cta_from_no_sample_time_uses_nearest_bin_with_notice():
+    """경로 08:00 (도착 08:16, 08:00대 표본 없음) → 역사 안내는 가장 가까운 07:30대를 보여주고 바꿨다고 밝힌다."""
+    if not (HAS_ELEV and HAS_CAR):
+        pytest.skip("엘리베이터 표·칸별 샘플 없음")
+    at = H.search(("수유", "동대문역사문화공원", "2026-10-16", "08:00", "calm"))
+    at.toggle(key="w_access").set_value(True).run()
+    _no_exc(at)
+    [b for b in at.button if b.label.startswith("♿ 역사 안내에서")][0].click().run()
+    _no_exc(at)
+    assert at.session_state["fac_bin"] == "07:30"
+    assert any("08:00대는 칸별 혼잡도 샘플 표본이 부족해, 가장 가까운 07:30대" in x for x in _md(at))
+
+
+def test_zero_change_has_no_delta_arrow():
+    """혼잡 진단 카드에서 반올림해 0 인 변화는 '+0분'(빨간 ↑)으로 표시하지 않는다."""
+    at = H.search(("수유", "동대문역사문화공원", "2026-10-16", "08:00", "calm"))
+    _no_exc(at)
+    assert not [m for m in at.metric if (m.delta or "") in ("+0분", "-0분", "+0%p", "-0%p")]
+
+
+def test_project_page_contest_validation_matches_reports():
+    """프로젝트 & 검증의 공모전 검증 표가 reports/v2 json 숫자를 그대로 보여준다 (기획서 수치와 같은 원천)."""
+    import json
+    from streamlit.testing.v1 import AppTest
+    rep = ROOT / "reports" / "v2" / "car_sample_validation.json"
+    if not rep.exists():
+        pytest.skip("검증 리포트 없음")
+    lodo = json.loads(rep.read_text(encoding="utf-8"))["treatments"]["raw"]["lodo"]
+    at = AppTest.from_file(str(H.APP), default_timeout=300)
+    at.session_state["nav_page"] = "프로젝트 & 검증"
+    at.run()
+    _no_exc(at)
+    tbl = [d.value for d in at.dataframe if "결과" in d.value.columns][0]
+    row = tbl[tbl["항목"].str.contains("하루씩")].iloc[0]
+    assert "%.1f%%" % (100 * lodo["hit_rate"]) in row["결과"] and "%.1f%%p" % lodo["gain_mean"] in row["결과"]
+    assert tbl["결과"].str.contains("사전등록 기준 미충족").any()              # 실패한 보조분석도 숨기지 않는다
+
+
+def test_metrics_do_not_use_delta_as_label():
+    """설명 글자를 delta 칸에 넣어 '↑ 증가'처럼 보이게 하지 않는다 (프로젝트 개요·노선별 혼잡도)."""
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(str(H.APP), default_timeout=300)
+    at.session_state["nav_page"] = "프로젝트 & 검증"
+    at.run()
+    _no_exc(at)
+    assert not [m for m in at.metric if m.delta and not re.match(r"^[+\-−]?\d", str(m.delta))]
