@@ -8,4 +8,5 @@ pandas>=2.2
 numpy>=1.26
 plotly>=5.24          # 클릭형 벡터 노선도. minallowed/maxallowed 는 5.24+ 필요
 pyarrow>=15.0         # parquet 마트 읽기
+openpyxl>=3.1         # 노선도 좌표 워크북(xlsx) 읽기. 배포 직후 워크북이 노선도 CSV 보다 새로우면 앱이 다시 가져온다
 tzdata                # Asia/Seoul 기본 시각. 컨테이너에 tz 데이터가 없는 경우 대비
