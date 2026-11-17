@@ -13,7 +13,8 @@ yeoyuro_seoul_app.py — 여유로 서울 쾌적 경로 추천
    환승역에서 어떤 노선을 처음 탈지는 알고리즘이 후보로 비교하며,
    **최초 승차 노선 선택은 환승으로 계산하지 않는다.**
 3. 마트 로딩은 @st.cache_data, 그래프/스코어러 객체는 @st.cache_resource.
-4. 계산 실패 시 precomputed demo 로 자연스럽게 fallback. 에러 창을 띄우지 않는다.
+4. 계산 실패 시 v1 값 또는 precomputed demo 로 fallback 하되, 결과에 계산 출처(provenance)를 붙이고
+   화면에 대체 결과임을 알리며 로그(yeoyuro.route)에 남긴다 (D-075). 에러 창은 띄우지 않는다.
 5. 혼잡도는 실시간이 아니라 **과거 패턴 기반 기대 혼잡 위험도**임을 상시 명시한다.
 6. 환승 호차/문은 원본에 있는 조합만 표시한다(추정 금지).
 7. 대안이 없으면 억지 추천하지 않고 no_meaningful_alternative 정책을 표시한다.
@@ -21,6 +22,7 @@ yeoyuro_seoul_app.py — 여유로 서울 쾌적 경로 추천
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from datetime import date, datetime, time as dtime
@@ -58,6 +60,8 @@ MAP_WORKBOOK = ROOT / "data" / "master" / "yeoyuro_seoul_vector_map_coordinate_w
 for extra in (ROOT, ROOT / "scripts", ROOT / "app" / "streamlit"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
+
+from yeoyuro_v2 import provenance as _PV  # noqa: E402 — 계산 출처 기록 (D-075)
 
 st.set_page_config(page_title="여유로 서울", page_icon="🚇", layout="wide",
                    initial_sidebar_state="expanded")
@@ -403,6 +407,7 @@ def get_td_evaluator(day_type: str, depart: str, query_date):
         scorer = get_scorer(day_type, depart, query_date)
         return TimeDependentEvaluator(scorer, sr_module().load_headway(DATA_ROOT), "step")
     except Exception:
+        _PV.LOGGER.warning("v2 evaluator unavailable: %s %s %s", day_type, depart, query_date, exc_info=True)
         return None
 
 
@@ -413,18 +418,27 @@ def _query_args():
     return day_type, hhmm, str(st.session_state["q_date"])
 
 
-def retime_with_v2(result):
-    """find_route_by_station 결과를 구간 진입 시각 기준으로 다시 판정한다."""
+def _force_degrade() -> str:
+    """점검용 강제 대체: 환경변수 YEOYURO_FORCE_DEGRADE = v1 | precomputed (평소에는 빈 값)."""
+    return os.environ.get("YEOYURO_FORCE_DEGRADE", "").strip().lower()
+
+
+def retime_with_v2(result, context: str = ""):
+    """find_route_by_station 결과를 구간 진입 시각 기준으로 다시 판정한다.
+
+    실패하면 v1 값을 그대로 쓰되, result["provenance"] 에 대체 사유를 남긴다 (D-075).
+    """
     try:
         from yeoyuro_v2.app_bridge import retime_result
         from yeoyuro_v2.time_dependent import parse_hhmm
-        day_type, hhmm, qd = _query_args()
-        ev = get_td_evaluator(day_type, hhmm, qd)
-        if ev is None:
-            return result
-        return retime_result(result, lambda b: ev, parse_hhmm(hhmm), st.session_state["q_mode"])
-    except Exception:
-        return result
+    except Exception as e:                                   # noqa: BLE001
+        return _PV.attach(result, _PV.Provenance(_PV.Source.V1, "import_error", type(e).__name__),
+                          context=context, exc=e)
+    day_type, hhmm, qd = _query_args()
+    return _PV.retime_with_provenance(
+        result, lambda: get_td_evaluator(day_type, hhmm, qd), retime_result,
+        depart_min=parse_hhmm(hhmm), mode=st.session_state["q_mode"], context=context,
+        force_degrade=_force_degrade() == "v1")
 
 
 # Streamlit selectbox 는 옵션 텍스트를 평문으로만 렌더링한다(HTML/CSS 미적용).
@@ -1407,20 +1421,33 @@ def page_route():
                               st.session_state["q_time"].minute)
         sr = sr_module()
         result, fallback = None, False
+        ctx = "od=%s->%s %s %s %s mode=%s" % (o, d_, st.session_state["q_date"], hhmm, day_type,
+                                              st.session_state["q_mode"])
+        why, err = None, None
         with st.spinner("과거 혼잡도 패턴을 분석하여 최적의 대안 경로를 탐색 중입니다..."):
             try:
+                if _force_degrade() == "precomputed":
+                    raise RuntimeError("YEOYURO_FORCE_DEGRADE=precomputed")
                 rs = get_scorer(day_type, hhmm, str(st.session_state["q_date"]))
                 result = sr.find_route_by_station(rs, load_display_master(), o, d_,
                                                   st.session_state["q_mode"])
                 if not result.get("ok"):
-                    result = None
+                    result, why = None, "search_not_ok"
                 else:
-                    result = retime_with_v2(result)
-            except Exception:
-                result = None
+                    result = retime_with_v2(result, ctx)
+            except Exception as e:                           # noqa: BLE001
+                result, err = None, e
+                why = "forced" if _force_degrade() == "precomputed" else "search_error"
             if result is None:
                 result = fallback_route(o, d_)
                 fallback = bool(result)
+                if fallback:
+                    _PV.attach(result, _PV.Provenance(_PV.Source.PRECOMPUTED, why,
+                                                      type(err).__name__ if err and why != "forced" else None),
+                               context=ctx, exc=err if why != "forced" else None)
+                else:
+                    _PV.LOGGER.warning("route search failed without fallback: reason=%s %s", why, ctx,
+                                       exc_info=(type(err), err, err.__traceback__) if err else None)
         st.session_state["route_result"] = result
         st.session_state["route_fallback"] = fallback
         st.session_state["route_query"] = _query_sig()
@@ -1666,9 +1693,12 @@ def _cta_go(handoff: dict):
 
 def _render_route_result(result, fallback, o, d_):
 
-    if fallback:
-        st.info("현재 입력하신 조건의 실시간 연산이 제한되어, "
-                "가장 유사한 **대표 시나리오(미리 계산된 결과)** 를 제공합니다.")
+    # 계산 출처 안내 (D-075): v2 가 아닌 결과는 반드시 알린다
+    notice = _PV.notice_ko(result.get("provenance"))
+    if notice:
+        st.warning(notice, icon="⚠️")
+    elif fallback:
+        st.warning("지금 조건으로 계산하지 못해 **미리 계산한 대표 시나리오**를 보여 드립니다.", icon="⚠️")
 
     rec, alt = result["recommended"], result.get("alternative")
     st.subheader("추천 경로")
