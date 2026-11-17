@@ -1693,12 +1693,15 @@ def _cta_go(handoff: dict):
 
 def _render_route_result(result, fallback, o, d_):
 
-    # 계산 출처 안내 (D-075): v2 가 아닌 결과는 반드시 알린다
-    notice = _PV.notice_ko(result.get("provenance"))
+    # 계산 출처 안내 (D-075·D-076): v2 가 아닌 결과는 반드시 알린다.
+    #   경고 박스 = 사용자용 쉬운 문구, 바로 아래 ⓘ 툴팁 = 계산 방식·사유 코드(시연·디버깅용)
+    prov = result.get("provenance")
+    notice = _PV.notice_ko(prov)
     if notice:
         st.warning(notice, icon="⚠️")
+        st.caption("ⓘ 계산 정보", help=_PV.detail_ko(prov))
     elif fallback:
-        st.warning("지금 조건으로 계산하지 못해 **미리 계산한 대표 시나리오**를 보여 드립니다.", icon="⚠️")
+        st.warning("지금 조건으로는 계산하지 못해 **미리 계산해 둔 예시 결과**를 보여 드려요.", icon="⚠️")
 
     rec, alt = result["recommended"], result.get("alternative")
     st.subheader("추천 경로")

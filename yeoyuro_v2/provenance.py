@@ -15,7 +15,7 @@ Phase 1-3 (D-075) — 경로 결과의 **계산 출처(provenance)** 를 기록�
      source: v2_time_dependent | v1_static | precomputed
 2. v2 재계산은 **복사본**에서 하고, 실패하면 원본(v1 값)을 그대로 돌려준다 → 값이 섞이지 않는다.
 3. v2 가 아닌 결과는 logger `yeoyuro.route` 에 WARNING 으로 남긴다 (Streamlit Cloud 로그에서 확인).
-4. 화면 안내 문구(notice_ko)를 한곳에서 만든다.
+4. 화면 안내 문구를 한곳에서 만든다 — 사용자용 문구(notice_ko)와 기술 상세(detail_ko, 툴팁·시연용)를 나눈다 (D-076).
 
 fallback 자체는 유지한다 (앱이 멈추는 것보다 낫다). 바뀌는 것은 '조용히'가 아니라 '알리고' 바꾼다는 점이다.
 Streamlit 에 의존하지 않으므로 pytest 로 검증한다 (tests/test_provenance.py).
@@ -113,16 +113,31 @@ def retime_with_provenance(result: dict,
     return attach(out, Provenance(Source.V2), context=context)
 
 
-def notice_ko(prov_dict: Optional[dict]) -> Optional[str]:
-    """대체 결과일 때 화면에 띄울 문구. 정상(v2)이거나 정보가 없으면 None."""
+def _degraded(prov_dict: Optional[dict]) -> Optional[Provenance]:
     prov = Provenance.from_dict(prov_dict)
-    if prov is None or not prov.degraded:
+    return prov if prov is not None and prov.degraded else None
+
+
+def notice_ko(prov_dict: Optional[dict]) -> Optional[str]:
+    """대체 결과일 때 화면 경고 박스 문구 (사용자용: 내부 용어·사유 없이). 정상(v2)·정보 없음이면 None."""
+    prov = _degraded(prov_dict)
+    if prov is None:
+        return None
+    if prov.source is Source.V1:
+        return ("이번 결과는 **간이 계산**으로 보여 드려요. 출발 시각의 혼잡도를 경로 전체에 그대로 적용해서, "
+                "환승 뒤 구간은 실제 혼잡도와 다를 수 있어요.")
+    return ("지금 조건으로는 계산하지 못해 **미리 계산해 둔 예시 결과**를 보여 드려요. "
+            "입력한 날짜·시각과 다른 조건의 결과예요.")
+
+
+def detail_ko(prov_dict: Optional[dict]) -> Optional[str]:
+    """대체 결과의 기술 상세 (툴팁·시연·디버깅용): 계산 방식과 사유 코드. 정상이면 None."""
+    prov = _degraded(prov_dict)
+    if prov is None:
         return None
     why = REASON_KO.get(prov.reason or "", prov.reason or "알 수 없음")
     if prov.error_type:
         why += " · %s" % prov.error_type
-    if prov.source is Source.V1:
-        return ("이 결과는 **출발 시각 고정 방식(v1)** 으로 계산했습니다 — 구간마다 실제 진입 시각의 혼잡도를 "
-                "반영하는 v2 계산이 이번 요청에서 실패했습니다 (%s). 소요시간·혼잡도가 v2 결과와 다를 수 있습니다." % why)
-    return ("지금 조건으로 계산하지 못해 **미리 계산한 대표 시나리오**를 보여 드립니다 (%s). "
-            "입력한 날짜·시각과 다른 조건의 결과일 수 있습니다." % why)
+    how = ("시간 진행형 계산(v2) 실패 → 출발 시각 고정 계산(v1)으로 대체" if prov.source is Source.V1
+           else "실시간 계산 실패 → 미리 계산한 대표 시나리오로 대체")
+    return "%s · 사유: %s (source=%s, reason=%s)" % (how, why, prov.source.value, prov.reason)

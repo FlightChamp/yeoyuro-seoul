@@ -10,7 +10,7 @@ Phase 1-3 (D-075) 계산 출처(provenance) 회귀 테스트.
  4. 재계산 중간 실패     → v1_static / retime_error, **값이 섞이지 않음** (복사본에서 계산)
  5. 강제 대체 스위치     → v1_static / forced, 평가기를 아예 만들지 않음
  6. 대체 결과는 yeoyuro.route 로거에 WARNING
- 7. 화면 문구            → v1·precomputed 각각 사유 포함, v2·정보 없음은 None
+ 7. 화면 문구 (D-076)    → 사용자용 문구에는 내부 용어(v1·v2·환경변수) 없음, 사유는 상세(툴팁) 문구에만
 
 앱 (AppTest, 앱 데이터 있을 때만)
  8. YEOYURO_FORCE_DEGRADE=v1          → 경고 박스 + 오류 없음
@@ -107,12 +107,27 @@ def test_success_does_not_log(caplog):
     assert not [r for r in caplog.records if r.name == "yeoyuro.route"]
 
 
+V1_ERR = {"source": "v1_static", "reason": "retime_error", "error_type": "ValueError"}
+PRE_ERR = {"source": "precomputed", "reason": "search_error", "error_type": None}
+
+
+@pytest.mark.parametrize("prov", [V1_ERR, PRE_ERR, {"source": "v1_static", "reason": "forced", "error_type": None}])
+def test_user_notice_has_no_internal_terms(prov):
+    text = pv.notice_ko(prov)
+    assert text
+    for term in ("v1", "v2", "YEOYURO", "Error", "reason", "source"):
+        assert term not in text, (term, text)
+
+
 def test_notice_text():
-    v1 = pv.notice_ko({"source": "v1_static", "reason": "retime_error", "error_type": "ValueError"})
-    assert "v1" in v1 and "v2 재계산 중 오류" in v1 and "ValueError" in v1
-    pre = pv.notice_ko({"source": "precomputed", "reason": "search_error", "error_type": None})
-    assert "대표 시나리오" in pre and "경로 탐색 중 오류" in pre
-    assert pv.notice_ko(None) is None
+    assert "간이 계산" in pv.notice_ko(V1_ERR)
+    assert "예시 결과" in pv.notice_ko(PRE_ERR)
+    d1 = pv.detail_ko(V1_ERR)
+    assert "v2" in d1 and "v1" in d1 and "v2 재계산 중 오류" in d1 and "ValueError" in d1
+    assert "경로 탐색 중 오류" in pv.detail_ko(PRE_ERR)
+    ok = {"source": "v2_time_dependent", "reason": None, "error_type": None}
+    for f in (pv.notice_ko, pv.detail_ko):
+        assert f(None) is None and f(ok) is None
 
 
 # ---------------------------------------------------------------- 앱 (AppTest)
@@ -131,8 +146,9 @@ def test_app_force_v1_shows_warning(monkeypatch):
     at = H.search(H.CASES[1])
     assert not at.exception
     w = _warnings(at)
-    assert any("출발 시각 고정 방식(v1)" in x and "점검용 강제 대체" in x for x in w), w
+    assert any("간이 계산" in x for x in w), w
     assert at.session_state["route_result"]["provenance"]["source"] == "v1_static"
+    assert any(c.value == "ⓘ 계산 정보" for c in at.caption)
 
 
 @needs_app
@@ -151,7 +167,7 @@ def test_app_force_precomputed_shows_warning(monkeypatch):
     at = H.search((o, d, "2026-10-14", "08:30", "calm"))
     assert not at.exception
     assert at.session_state["route_fallback"] is True
-    assert any("대표 시나리오" in x for x in _warnings(at)), _warnings(at)
+    assert any("예시 결과" in x for x in _warnings(at)), _warnings(at)
 
 
 @needs_app
@@ -160,4 +176,5 @@ def test_app_normal_has_no_degrade_warning(monkeypatch):
     monkeypatch.delenv("YEOYURO_FORCE_DEGRADE", raising=False)
     at = H.search(H.CASES[1])
     assert at.session_state["route_result"]["provenance"]["source"] == "v2_time_dependent"
-    assert not [x for x in _warnings(at) if "v1" in x or "대표 시나리오" in x]
+    assert not [x for x in _warnings(at) if "간이 계산" in x or "예시 결과" in x]
+    assert not any(c.value == "ⓘ 계산 정보" for c in at.caption)
