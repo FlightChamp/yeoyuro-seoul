@@ -149,6 +149,7 @@ def test_app_force_v1_shows_warning(monkeypatch):
     assert any("간이 계산" in x for x in w), w
     assert at.session_state["route_result"]["provenance"]["source"] == "v1_static"
     assert any(c.value == "ⓘ 계산 정보" for c in at.caption)
+    assert any("점검 모드" in w.value for w in at.sidebar.warning)          # D-077 사이드바 표시
 
 
 @needs_app
@@ -178,3 +179,4 @@ def test_app_normal_has_no_degrade_warning(monkeypatch):
     assert at.session_state["route_result"]["provenance"]["source"] == "v2_time_dependent"
     assert not [x for x in _warnings(at) if "간이 계산" in x or "예시 결과" in x]
     assert not any(c.value == "ⓘ 계산 정보" for c in at.caption)
+    assert not any("점검 모드" in w.value for w in at.sidebar.warning)

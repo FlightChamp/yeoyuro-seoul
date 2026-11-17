@@ -2838,6 +2838,11 @@ def main():
                           on_click=_go, args=(m,))
     st.sidebar.divider()
     st.sidebar.caption(RESULT_NOTE, help=DISCLAIMER)
+    if _force_degrade():
+        # 점검용 강제 대체가 켜진 채 앱을 쓰는 실수를 막는다 (D-077). 평소에는 표시되지 않는다.
+        st.sidebar.warning("🔧 점검 모드: 강제 대체 켜짐 (`YEOYURO_FORCE_DEGRADE=%s`). "
+                           "끄려면 터미널에서 `Remove-Item Env:YEOYURO_FORCE_DEGRADE` 후 앱을 다시 실행하세요."
+                           % _force_degrade())
 
     if page == "노선도 편집":
         page_map_editor()
