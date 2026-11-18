@@ -2547,6 +2547,44 @@ def graph_scope(stamp: float = 0.0) -> dict:
     return out
 
 
+def render_v2_results():
+    """'검증 결과' 탭 맨 위: v2 핵심 결과 (D-084). 숫자는 커밋된 mart 에서 계산 — 리포트·테스트와 같은 정의."""
+    from yeoyuro_v2 import headline as HL
+    v23 = HL.v23_summary(load_mart("od_shiftability_mart", "data/marts/v2"))
+    v26 = HL.v26_summary(load_mart("line9_shiftability_mart", "data/marts/v2"))
+    st.markdown("##### v2 핵심 결과 — 출퇴근 혼잡, 경로나 출발 시각을 바꾸면 피할 수 있을까?")
+    if v23 is None:
+        st.info("v2.3 결과 데이터(od_shiftability_mart)가 없습니다.")
+        return
+    c = st.columns(3)
+    c[0].metric("출발 시각을 바꿀 대안 있음", "%.1f%%" % v23["time_alternative"],
+                help="혼잡 이동 중 ±60분 안에서 출발 시각을 옮기면 100%%+ 혼잡 노출이 기준만큼 줄어드는 비율 "
+                     "(시간 조정 %.1f%% + 경로·시간 모두 %.1f%%). 혼잡 감소율이 아닙니다."
+                     % (v23["shares"]["time_shiftable"], v23["shares"]["dual"]))
+    c[1].metric("경로만 바꿔서 해결", "%.1f%%" % v23["shares"]["route_shiftable"])
+    c[2].metric("회피 어려움", "%.1f%%" % v23["shares"]["structural"],
+                help="경로만 또는 출발 시각만(±60분) 바꿔서는 노출을 기준만큼 줄이지 못하는 이동")
+    st.caption("1~8호선 · 역 쌍 %d개(무작위 600 + 지정 20) × 평일 출퇴근 기준 출발 6개 = %s건 중 "
+               "정원 100%% 이상 구간을 지나는 혼잡 이동 %s건 기준. 판정 기준은 분석 전에 커밋한 사전 등록(T1)입니다."
+               % (v23["n_od"], format(v23["n_units"], ","), format(v23["n_hot"], ",")))
+    st.dataframe(HL.comparison_table(v23, v26), hide_index=True, width="stretch")
+    st.markdown("""
+| 표본 | 가장 피하기 어려운 혼잡이 몰린 곳 |
+|---|---|
+| 1~8호선 | **7호선 상봉 → 건대입구 남행** (회피 어려움 이동의 노출 상위 7개 구간이 모두 이 회랑) |
+| 9호선 포함 | **9호선 급행 동작 ↔ 노량진 ↔ 여의도, 고속터미널 ↔ 신논현** (양방향). 7호선 회랑은 2순위 |
+""")
+    st.info("**읽을 때 주의**  \n"
+            "· 1~8호선 결과와 9호선 포함 결과는 **표본이 달라 직접 비교하지 않습니다** "
+            "(9호선 포함 표본은 9호선 역을 출발·도착으로 넣은 별도 표본).  \n"
+            "· 비율은 무작위로 고른 역 쌍 기준이며 서울 전체 이동량 비율이 아닙니다.  \n"
+            "· 혼잡도는 과거 패턴 기반 기대값입니다. 9호선 환승 보행시간은 공식 환승거리로 보정한 추정치입니다.  \n"
+            "· '회피 어려움'은 경로와 출발 시각을 함께 바꾸면 풀리는 경우가 있습니다.")
+    st.caption("근거·재현 방법: `docs/v2/v2_results.md` · 이 화면의 숫자는 저장소에 커밋된 결과 데이터에서 직접 계산하며, "
+               "같은 숫자를 자동 테스트(tests/test_headline_numbers.py)가 확인합니다.")
+    st.divider()
+
+
 def page_project():
     tabs = st.tabs(["프로젝트 개요", "데이터", "방법론", "검증 결과", "한계"])
     gs = graph_scope(ensure_map_fresh())
@@ -2566,7 +2604,7 @@ def page_project():
             ["혼잡도 의미", "과거 패턴 기반 기대값 (정원 대비 승차 인원, 100% = 1칸 160명) · 실시간 정보 아님"],
         ], columns=["항목", "현재 앱"]), hide_index=True, width="stretch")
         st.caption("그래프 수치는 앱 데이터 폴더(route_edge_mart · transfer_edge_mart · station_display_master)에서 "
-                   "실행 시 직접 셉니다. v2 상세 결과는 README / 리포트(docs/v2)에 정리합니다.")
+                   "실행 시 직접 셉니다. v2 결과 요약은 docs/v2/v2_results.md 에 정리합니다.")
         c = st.columns(3)
         for col, (a, b, d) in zip(c, [("승하차 원본", "797,946행", "48개월"),
                                       ("혼잡도 셀", "715,065", "11 스냅샷"),
@@ -2574,7 +2612,9 @@ def page_project():
             col.metric(a, b, d, delta_color="off")
         st.caption("위 세 수치는 v1 데이터 구축 단계(서울교통공사 1~8호선 자료) 기준입니다.")
         st.markdown("""
-##### 핵심 발견
+##### 핵심 발견 (v1)
+v2 결과(경로·출발 시각으로 혼잡을 피할 수 있는지)는 **검증 결과** 탭에 있습니다.
+
 | # | 발견 |
 |---|---|
 | 1 | 쾌적 대안은 일부 OD 에서만 나타난다 (v1 평가: 08:30 3/13, 18:00 2/13). 저녁의 병목은 혼잡 감소폭 단일 조건 |
@@ -2659,8 +2699,9 @@ multi-objective scoring 문제로 재정의했습니다. 혼잡도(%)와 시간(
         ], columns=["레이어", "문제 유형", "표준 지표"]), width="stretch", hide_index=True)
 
     with tabs[3]:
-        st.caption("아래는 v1 경로 추천 평가(1~8호선, 미리 계산한 대표 OD)입니다. "
-                   "v2 상세 검증 결과는 README / docs/v2 리포트에서 보강합니다.")
+        render_v2_results()
+        st.markdown("##### v1 경로 추천 평가")
+        st.caption("1~8호선, 미리 계산한 대표 OD 기준입니다.")
         tags = precomputed_tags()
         if not tags:
             st.info("`10_evaluate_routes.py` 실행이 필요합니다.")
