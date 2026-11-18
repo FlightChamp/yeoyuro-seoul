@@ -119,11 +119,11 @@ def test_base_map_workbook_has_lines_1_to_9():
     for s in ("Station_Display_Master", "Station_Visual_Nodes", "Station_Click_Areas", "Station_Labels",
               "Line_Sequences", "Transfer_Links"):
         assert s in xl.sheet_names
-    v = xl.parse("Station_Visual_Nodes")
+    v = pd.read_excel(xl, "Station_Visual_Nodes")
     assert sorted(v.line_id.unique().tolist()) == list(range(1, 10))
     assert len(v) == 315 and v.x_px.notna().all() and v.y_px.notna().all()
     assert (v.line_id == 9).sum() == 38
-    seq = xl.parse("Line_Sequences")
+    seq = pd.read_excel(xl, "Line_Sequences")
     assert seq[seq.line_id == 9].path_order.tolist() == list(range(1, 39))
 
 

@@ -10,12 +10,22 @@ on:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    # 3.12 = v1 배포·로컬(conda metrocalm)과 같은 버전, 3.14 = Streamlit Cloud 새 앱 기본값 (D-078).
+    # 최신 쪽(3.14)에서는 pandas 폐지 예고 경고(Pandas4Warning)를 오류로 바꿔, 다음 pandas 에서 깨질 코드를 미리 잡는다.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.12"
+            warn-flags: ""
+          - python-version: "3.14"
+            warn-flags: "-W error::pandas.errors.Pandas4Warning"
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       # 테스트는 저장소에 커밋된 경량 runtime mart 만 읽는다.
@@ -28,4 +38,6 @@ jobs:
           pip install pytest
 
       - name: Run tests
-        run: pytest tests/ -q
+        run: |
+          python -c "import sys, pandas, numpy, pyarrow, streamlit; print(sys.version.split()[0], 'pandas', pandas.__version__, 'numpy', numpy.__version__, 'pyarrow', pyarrow.__version__, 'streamlit', streamlit.__version__)"
+          pytest tests/ -q ${{ matrix.warn-flags }}

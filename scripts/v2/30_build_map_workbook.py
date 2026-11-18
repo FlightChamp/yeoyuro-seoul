@@ -73,7 +73,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     src = Path(args.src)
     xl = pd.ExcelFile(src)
-    d = {s: xl.parse(s) for s in xl.sheet_names}
+    d = {s: pd.read_excel(xl, s) for s in xl.sheet_names}
 
     # ---------------- 노드: 정렬 + 다른 역 겹침 보정
     vn = d["Station_Visual_Nodes"].copy()

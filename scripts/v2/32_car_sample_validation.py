@@ -58,7 +58,7 @@ def load_sample(src: Path) -> pd.DataFrame:
     d["t"] = pd.to_datetime(d["발생일자"])
     d["date"] = d.t.dt.date
     d["bin"] = d.t.dt.floor("30min").dt.strftime("%H:%M")
-    dow = d.t.dt.dayofweek
+    dow = d.t.dt.day_of_week
     d["day_type"] = np.where(dow == 5, "saturday", np.where(dow == 6, "sunday", "weekday"))
     return d
 

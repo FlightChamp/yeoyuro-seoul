@@ -72,7 +72,7 @@ def main(argv=None) -> int:
         unmatched |= set(df.loc[~df.station_key.isin(keys), "역명"].astype(str))
         df = df[df.station_key.isin(keys)]
         df["날짜"] = pd.to_datetime(df["날짜"])
-        dow = df["날짜"].dt.dayofweek
+        dow = df["날짜"].dt.day_of_week
         df["day_type"] = dow.map(lambda x: "saturday" if x == 5 else ("sunday" if x == 6 else "weekday"))
         long = df.melt(id_vars=["날짜", "day_type", "station_key", "구분"], value_vars=hc,
                        var_name="hc", value_name="n")

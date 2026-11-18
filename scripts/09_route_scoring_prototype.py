@@ -177,7 +177,7 @@ class RouteScorer:
         self.mart = root / "data" / "marts"
         self.query_date = query_date
         if query_date:
-            dow = pd.Timestamp(query_date).dayofweek
+            dow = pd.Timestamp(query_date).day_of_week
             auto = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
             if auto != day_type:
                 day_type = auto

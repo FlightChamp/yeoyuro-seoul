@@ -69,7 +69,7 @@ def check_prereg() -> dict:
 
 
 def day_type_of(date: str) -> str:
-    d = pd.Timestamp(date).dayofweek
+    d = pd.Timestamp(date).day_of_week
     return "saturday" if d == 5 else ("sunday" if d == 6 else "weekday")
 
 

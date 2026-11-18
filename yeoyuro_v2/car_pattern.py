@@ -89,7 +89,7 @@ def build_pattern(raw: pd.DataFrame, line: str = "4") -> pd.DataFrame:
     d = d[vals.notna().all(axis=1)].copy()                 # 원본 빈 칸 있는 행 제외 (검증과 같은 정의)
     d[pc] = vals.loc[d.index]
     d["t"] = pd.to_datetime(d["발생일자"])
-    d = d[d.t.dt.dayofweek < 5]                            # 평일
+    d = d[d.t.dt.day_of_week < 5]                            # 평일
     d["date"] = d.t.dt.date
     d["time_bin"] = d.t.dt.floor("30min").dt.strftime("%H:%M")
     d["from_station"] = d["현재역 명"].replace(ALIAS)
@@ -162,7 +162,7 @@ def build_grade_pattern(raw: pd.DataFrame, line: str = "4") -> pd.DataFrame:
     d = d[g.notna().all(axis=1)].copy()
     d[gc] = g.loc[d.index]
     d["t"] = pd.to_datetime(d["발생일자"])
-    d = d[d.t.dt.dayofweek < 5]
+    d = d[d.t.dt.day_of_week < 5]
     d["date"] = d.t.dt.date
     d["time_bin"] = d.t.dt.floor("30min").dt.strftime("%H:%M")
     d["from_station"] = d["현재역 명"].replace(ALIAS)

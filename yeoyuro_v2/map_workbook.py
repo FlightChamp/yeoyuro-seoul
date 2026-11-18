@@ -30,7 +30,7 @@ def read_all(path: Path) -> dict[str, pd.DataFrame]:
     tmp = Path(tempfile.mkdtemp()) / "wb.xlsx"
     shutil.copy(path, tmp)
     xl = pd.ExcelFile(tmp)
-    out = {s: xl.parse(s) for s in xl.sheet_names if not s.startswith("_")}
+    out = {s: pd.read_excel(xl, s) for s in xl.sheet_names if not s.startswith("_")}
     xl.close()
     return out
 

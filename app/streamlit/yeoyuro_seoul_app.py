@@ -412,7 +412,7 @@ def get_td_evaluator(day_type: str, depart: str, query_date):
 
 
 def _query_args():
-    dow = pd.Timestamp(st.session_state["q_date"]).dayofweek
+    dow = pd.Timestamp(st.session_state["q_date"]).day_of_week
     day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
     hhmm = "%02d:%02d" % (st.session_state["q_time"].hour, st.session_state["q_time"].minute)
     return day_type, hhmm, str(st.session_state["q_date"])
@@ -1110,7 +1110,7 @@ def _current_scorer():
     get_scorer 는 @st.cache_resource 라 같은 인자면 이미 만들어진 객체를 준다.
     여기서 새로 계산하는 것은 없다.
     """
-    dow = pd.Timestamp(st.session_state["q_date"]).dayofweek
+    dow = pd.Timestamp(st.session_state["q_date"]).day_of_week
     day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
     hhmm = "%02d:%02d" % (st.session_state["q_time"].hour,
                           st.session_state["q_time"].minute)
@@ -1415,7 +1415,7 @@ def page_route():
     ready = bool(o and d_ and o != d_)
 
     if ready and do_search:
-        dow = pd.Timestamp(st.session_state["q_date"]).dayofweek
+        dow = pd.Timestamp(st.session_state["q_date"]).day_of_week
         day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
         hhmm = "%02d:%02d" % (st.session_state["q_time"].hour,
                               st.session_state["q_time"].minute)
@@ -1851,7 +1851,7 @@ def page_time_shift():
 
     if auto:
         o, d_, qd, hhmm = sig[0], sig[1], sig[2], sig[3]
-        dow = pd.Timestamp(qd).dayofweek
+        dow = pd.Timestamp(qd).day_of_week
         day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
         b1, b2, b3 = st.columns([3, 1, 1])
         b1.markdown("**%s → %s** · %s %s 기준 · 경로 추천 결과의 최속 경로" % (o, d_, qd, hhmm))
@@ -1899,7 +1899,7 @@ def page_time_shift():
         st.info("출발역과 도착역이 같습니다.")
         return
 
-    dow = pd.Timestamp(q_date).dayofweek
+    dow = pd.Timestamp(q_date).day_of_week
     day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
     hhmm = "%02d:%02d" % (q_time.hour, q_time.minute)
     with st.spinner("시각별로 같은 경로를 다시 계산하는 중입니다..."):

@@ -246,7 +246,7 @@ class MartBuilder:
         long["station_name"] = long["station_uid"].map(
             dict(zip(self.sm["station_uid"], self.sm["station_name"])))
         long["date"] = long["날짜"].dt.date
-        long["dow"] = long["날짜"].dt.dayofweek
+        long["dow"] = long["날짜"].dt.day_of_week
         long["day_type"] = np.select(
             [long["dow"] == 5, long["dow"] == 6], ["saturday", "sunday"], default="weekday")
         long["year"] = long["날짜"].dt.year

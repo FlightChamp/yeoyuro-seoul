@@ -219,7 +219,7 @@ class CongestionStagingBuilder:
         day_sheets = [s for s in sheets if str(s).strip() in DAY_TYPE_MAP]
         if day_sheets:                                   # schema C
             for s in day_sheets:
-                d = xl.parse(s)
+                d = pd.read_excel(xl, s)
                 if d.empty:
                     continue
                 d["__sheet_day__"] = str(s).strip()
@@ -227,7 +227,7 @@ class CongestionStagingBuilder:
             return pd.concat(parts, ignore_index=True), "C"
 
         for s in sheets:                                  # schema A(xlsx)
-            d = xl.parse(s)
+            d = pd.read_excel(xl, s)
             if d.empty or d.shape[1] < 5:
                 continue                                  # 빈 'Sheet1' 스킵
             parts.append(d)

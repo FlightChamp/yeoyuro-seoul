@@ -86,7 +86,7 @@ class MapWorkbookImporter:
         xl = pd.ExcelFile(self.xlsx)
         missing = [s for s in SHEETS if s not in xl.sheet_names]
         self.add("필수 시트 존재", not missing, missing or "6개 모두 존재")
-        d = {s: xl.parse(s) for s in SHEETS if s in xl.sheet_names}
+        d = {s: pd.read_excel(xl, s) for s in SHEETS if s in xl.sheet_names}
 
         # pct 는 엑셀 수식일 수 있으므로 px 에서 재계산한다
         for key, xc, yc in (("Station_Visual_Nodes", "x_px", "y_px"),

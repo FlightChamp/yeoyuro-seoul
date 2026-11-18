@@ -150,7 +150,7 @@ def main() -> int:
     d = raw[v.notna().all(axis=1)].copy()                     # 원본 빈 칸 행 제외
     d[pc] = v.loc[d.index]
     d["t"] = pd.to_datetime(d["발생일자"])
-    d = d[d.t.dt.dayofweek < 5]                               # 평일
+    d = d[d.t.dt.day_of_week < 5]                               # 평일
     d["a"], d["b"] = d["현재역 명"].map(norm), d["다음역 명"].map(norm)
 
     seg = segments(d, pc)

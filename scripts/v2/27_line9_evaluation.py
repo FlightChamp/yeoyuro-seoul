@@ -212,7 +212,7 @@ def main(argv=None) -> int:
     ev_rows = []
     ev_tasks = [t for t in tasks if t[2] == "A"][:nE]
     for eid, date, times in EVENTS:
-        dt = pd.Timestamp(date).dayofweek
+        dt = pd.Timestamp(date).day_of_week
         day = "saturday" if dt == 5 else ("sunday" if dt == 6 else "weekday")
         on = classify_map(run(ev_tasks, args.workers, "base", f"b4_{eid}_on", day_type=day, query_date=date,
                               base_times=times, **wkw))

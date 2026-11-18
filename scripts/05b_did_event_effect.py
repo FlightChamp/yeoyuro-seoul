@@ -128,7 +128,7 @@ class DiDEstimator:
              .groupby(["date", "line_id", "station_uid", "station_name"], as_index=False)
              ["passenger_count"].sum())
         d["date"] = pd.to_datetime(d["date"]).dt.date
-        d["dow"] = pd.to_datetime(d["date"]).dt.dayofweek
+        d["dow"] = pd.to_datetime(d["date"]).dt.day_of_week
         self.notes.append("일별 역총량 %d행 / 역 %d개" % (len(d), d["station_name"].nunique()))
         return d
 
