@@ -14,10 +14,11 @@
 
 | 문서 | 단계 | 상태 |
 |---|---|---|
+| **[v2_results.md](v2_results.md)** | 전 단계 | **v2 결과 요약 (1~8호선 / 1~9호선) — 먼저 읽을 문서** |
 | [decision_log.md](decision_log.md) | 전 단계 | 작성 중 |
 | [time_dependent_routing.md](time_dependent_routing.md) | v2.0 | 초판 |
 | [temporal_shift.md](temporal_shift.md) | v2.2 | 초판 |
-| v2_roadmap.md | v2.0 | 예정 (Phase 2-3 에서 작성) |
+| [v2_roadmap.md](v2_roadmap.md) | 전 단계 | 초판 (공모전 이후 Phase 0~4 포함) |
 | [line9.md](line9.md) | v2.6 | Phase A·B·C(정원 보정) 완료 |
 | [counterfactual.md](counterfactual.md) | Release | 초판 |
 | [app_ia.md](app_ia.md) | Release | 초판 (앱 IA 리팩토링) |
@@ -28,7 +29,7 @@
 | [od_shiftability.md](od_shiftability.md) | v2.3 | 초판 |
 | [preregistration_v23b_robustness.md](preregistration_v23b_robustness.md) | v2.3b | 고정 |
 | [robustness.md](robustness.md) | v2.3b | 초판 |
-| v2_evaluation_strategy.md | v2.3 | 예정 (Phase 2-3 에서 작성) |
+| [v2_evaluation_strategy.md](v2_evaluation_strategy.md) | 전 단계 | 초판 (사전 등록·강건성·코드 검증 체계) |
 | [mobility_atlas.md](mobility_atlas.md) | v2.4 | 초판 |
 | [preregistration_v25.md](preregistration_v25.md) | v2.5 | 고정 |
 | [event_stress_test.md](event_stress_test.md) | v2.5 | 초판 |
