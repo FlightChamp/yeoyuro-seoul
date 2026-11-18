@@ -146,9 +146,9 @@ perceived_time = travel_time × (1 + 0.5 × max(0, 기대혼잡도 − 80) / 100
 | Regime | 모델 | MAE | R² | Skill Score |
 |---|---|---|---|---|
 | A. 시간축 valid | L2 baseline | **2.364** | 0.947 | (기준) |
-| A. 시간축 valid | LGBM Model-1 | 3.174 | 0.925 | **−0.464** |
+| A. 시간축 valid | LGBM Model-1 | 3.174 | 0.925 | **−0.343** |
 | B. 미관측 역 valid | L1 baseline(폴백) | **11.019** | 0.401 | (기준) |
-| B. 미관측 역 valid | LGBM Model-2 | 11.291 | 0.354 | **−0.012** |
+| B. 미관측 역 valid | LGBM Model-2 | 11.291 | 0.354 | **−0.025** |
 | C. 시간축 test(2026) | L2 baseline | **2.215** | 0.962 | (기준) |
 | C. 시간축 test(2026) | LGBM Model-1 | 2.947 | 0.949 | −0.330 |
 
@@ -156,7 +156,12 @@ perceived_time = travel_time × (1 + 0.5 × max(0, 기대혼잡도 − 80) / 100
 Skill Score = 1 − MAE_model / MAE_reference     (양수면 개선)
 ```
 
-Regime B 의 −0.012 는 사실상 동률이다. "모델이 졌다"가 아니라 **"노선 평균과 구별이 안 된다"**가 정확한 서술이다.
+Regime B 의 −0.025 는 사실상 동률이다. "모델이 졌다"가 아니라 **"노선 평균과 구별이 안 된다"**가 정확한 서술이다.
+
+> **수치 정정 (2026-11-18, D-080)**: 이 표의 Skill Score 는 표에 적힌 MAE 로 계산한 값이다 (판정 스크립트 `08` 의 모델,
+> `reports/model/congestion_model_report.md`). 이전 판본은 A·B 에 −0.464 / −0.012 를 적었는데, 이는 평가 재구성 스크립트 `08b` 가
+> 같은 피처 구성으로 **다시 학습한** 모델(ablation D: MAE 3.46 / 11.152, `reports/model/congestion_model_eval.md`) 기준 값이었다.
+> 두 학습 실행 모두 baseline 보다 나쁘므로 **판정(baseline 채택)은 바뀌지 않는다.** 범위로 말할 때는 Regime A −0.34 ~ −0.46.
 
 ### 7-3. Ablation study
 

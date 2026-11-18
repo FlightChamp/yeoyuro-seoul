@@ -129,11 +129,14 @@ MASE 는 시계열 naive forecast 를 분모로 쓰는 지표라 격자 회귀�
 ```
 Skill Score = 1 − MAE_model / MAE_reference     (양수면 개선)
 
-Regime A  LGBM(전체) vs L2 baseline        : −0.464
-Regime B  LGBM(식별자 제외) vs L1 baseline : −0.012
+                                             판정 모델(08)   재학습(08b ablation)
+Regime A  LGBM(전체) vs L2 baseline        : −0.343          −0.464
+Regime B  LGBM(식별자 제외) vs L1 baseline : −0.025          −0.012
 ```
 
-Regime B 의 −0.012 는 사실상 동률이다. "모델이 졌다"가 아니라 **"노선 평균과 구별이 안 된다"**가 정확한 서술이다.
+두 열은 같은 피처 구성의 서로 다른 학습 실행이다 (08: MAE 3.174 / 11.291, 08b: 3.46 / 11.152). 판정은 08 기준이며 두 실행 모두 음수다 (D-080).
+
+Regime B 는 어느 실행으로 보든 사실상 동률이다. "모델이 졌다"가 아니라 **"노선 평균과 구별이 안 된다"**가 정확한 서술이다.
 
 ### C-3. 불균형 분류 지표
 

@@ -17,17 +17,24 @@
 | [decision_log.md](decision_log.md) | 전 단계 | 작성 중 |
 | [time_dependent_routing.md](time_dependent_routing.md) | v2.0 | 초판 |
 | [temporal_shift.md](temporal_shift.md) | v2.2 | 초판 |
-| v2_roadmap.md | v2.0 | 예정 |
-| [line9.md](line9.md) | v2.6 | Phase A 완료 |
+| v2_roadmap.md | v2.0 | 예정 (Phase 2-3 에서 작성) |
+| [line9.md](line9.md) | v2.6 | Phase A·B·C(정원 보정) 완료 |
 | [counterfactual.md](counterfactual.md) | Release | 초판 |
 | [app_ia.md](app_ia.md) | Release | 초판 (앱 IA 리팩토링) |
 | [preregistration_v26.md](preregistration_v26.md) | v2.6 | 고정 (Phase B 전) |
+| [preregistration_v26c_capacity.md](preregistration_v26c_capacity.md) | v2.6c | 고정 |
 | [exposure_metrics.md](exposure_metrics.md) | v2.1 | 초판 |
 | [preregistration_v23.md](preregistration_v23.md) | v2.3 | 고정 |
 | [od_shiftability.md](od_shiftability.md) | v2.3 | 초판 |
 | [preregistration_v23b_robustness.md](preregistration_v23b_robustness.md) | v2.3b | 고정 |
 | [robustness.md](robustness.md) | v2.3b | 초판 |
-| v2_evaluation_strategy.md | v2.3 | 예정 |
+| v2_evaluation_strategy.md | v2.3 | 예정 (Phase 2-3 에서 작성) |
 | [mobility_atlas.md](mobility_atlas.md) | v2.4 | 초판 |
 | [preregistration_v25.md](preregistration_v25.md) | v2.5 | 고정 |
 | [event_stress_test.md](event_stress_test.md) | v2.5 | 초판 |
+
+## 공모전 버전 문서 (contest 브랜치 동결, 참고용)
+
+| 문서 | 상태 |
+|---|---|
+| [preregistration_transfer_car.md](preregistration_transfer_car.md) | 고정 (공모전 P0, 4호선 칸별 샘플 — 샘플 원본은 저장소에 없음) |
