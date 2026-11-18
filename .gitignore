@@ -105,6 +105,8 @@ scratch/
 !data/marts/v2/line9/
 !data/marts/v2/line9/**
 !data/marts/v2/demand_station_hour_oa.parquet
+# v2.6 B5 결과 — tests/test_headline_numbers.py 가 읽음 (D-082)
+!data/marts/v2/line9_shiftability_mart.parquet
 
 # 노선도 미리보기 (감시 모드가 매번 새로 만듦)
 reports/figures/map_live/
