@@ -1,0 +1,83 @@
+{
+ "clean": {
+  "rows_raw": 423107,
+  "pass_rows_express": 7071,
+  "missing_arrival_normal": 1,
+  "missing_arrival_examples": [
+   {
+    "line": "3",
+    "day": "SAT",
+    "train": "3305",
+    "code": 330,
+    "arr": "00:00:00",
+    "dep": "21:08:30"
+   }
+  ],
+  "line1_express_rows_dropped": 12675,
+  "negative_dwell_rows": [
+   {
+    "day_type": "weekday",
+    "line": "9",
+    "train": "C9247",
+    "code": 4122,
+    "arr": "24:12:35",
+    "dep": "24:12:00"
+   }
+  ],
+  "rows_kept": 403361,
+  "trains": 11890
+ },
+ "line1_vs_3a1": {
+  "rows_both": 37586,
+  "only_new": 0,
+  "only_3a1": 0,
+  "time_diff": 0
+ },
+ "line9_vs_info": {
+  "file": "서울시메트로9호선_도시철도_운행정보_20260228.xlsx",
+  "rows": 22635,
+  "trains": 492,
+  "matched_rate": 1.0,
+  "diff_median": 0.75,
+  "diff_p90_abs": 3.83,
+  "within_1min": 0.6332,
+  "diff_max_abs": 11.25
+ },
+ "engine": [
+  {
+   "day": "weekday",
+   "time": "08:00",
+   "od": 400,
+   "paths": 2300,
+   "counts": {
+    "연결 확인": 2300
+   },
+   "impossible_examples": [],
+   "impossible": 0
+  },
+  {
+   "day": "saturday",
+   "time": "14:00",
+   "od": 400,
+   "paths": 2062,
+   "counts": {
+    "연결 확인": 2062
+   },
+   "impossible_examples": [],
+   "impossible": 0
+  },
+  {
+   "day": "sunday",
+   "time": "22:30",
+   "od": 400,
+   "paths": 2018,
+   "counts": {
+    "연결 확인": 1770,
+    "연결 불가": 248,
+    "사유:운행 종료": 248
+   },
+   "impossible_examples": [],
+   "impossible": 0
+  }
+ ]
+}

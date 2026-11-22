@@ -110,6 +110,9 @@ scratch/
 # Phase 3A-1 코레일 1호선 서울 구간 (별도 검증 환경, D-085) — 원본 없이 tests/test_korail_line1.py 가 읽음
 !data/marts/v2/korail_line1/
 !data/marts/v2/korail_line1/**
+# Phase 3A-2a 1~9호선 열차 단위 시각표 (D-094) — 원본 없이 tests/test_train_timetable.py 가 읽음
+!data/marts/v2/train_timetable/
+!data/marts/v2/train_timetable/**
 
 # 노선도 미리보기 (감시 모드가 매번 새로 만듦)
 reports/figures/map_live/
