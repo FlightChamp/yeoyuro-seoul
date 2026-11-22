@@ -120,11 +120,13 @@ def test_base_map_workbook_has_lines_1_to_9():
               "Line_Sequences", "Transfer_Links"):
         assert s in xl.sheet_names
     v = pd.read_excel(xl, "Station_Visual_Nodes")
-    assert sorted(v.line_id.unique().tolist()) == list(range(1, 10))
+    if "phase" in v.columns:                                          # 예정 노선 행은 제외 (D-090)
+        v = v[v.phase.isna()]
+    assert sorted(v.line_id.astype(int).unique().tolist()) == list(range(1, 10))
     assert len(v) == 315 and v.x_px.notna().all() and v.y_px.notna().all()
     assert (v.line_id == 9).sum() == 38
     seq = pd.read_excel(xl, "Line_Sequences")
-    assert seq[seq.line_id == 9].path_order.tolist() == list(range(1, 39))
+    assert seq[seq.line_id.astype(str) == "9"].path_order.tolist() == list(range(1, 39))
 
 
 def test_live_workbook_follows_nodes_and_keeps_label_offsets(tmp_path):

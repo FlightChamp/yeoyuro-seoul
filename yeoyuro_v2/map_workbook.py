@@ -10,6 +10,8 @@ yeoyuro_v2/map_workbook.py
 - 계산 값: 역 클릭 위치 = 그 역 노선별 점 평균 + click 이동량, 역명 위치 = 점 평균 + label 이동량.
   엑셀 안에서는 같은 계산을 수식으로 보여 주지만, 이 모듈은 수식 캐시를 믿지 않고 직접 계산한다
   (엑셀을 연 채로 / 저장 직후 / 스크립트로 좌표를 바꾼 직후 모두 같은 결과).
+- 예정 노선(Phase 3, `phase` 열이 채워진 행, D-090): 기본값은 **빼고** 계산한다 → 앱 노선도·경로 그래프 검증 불변.
+  include_planned=True 일 때만 포함 (좌표 편집 미리보기용).
 """
 
 from __future__ import annotations
@@ -35,11 +37,63 @@ def read_all(path: Path) -> dict[str, pd.DataFrame]:
     return out
 
 
-def materialize(path: Path) -> dict:
+def materialize(path: Path, include_planned: bool = False) -> dict:
     """파일에서 읽어 계산한다. (열린 엑셀에서 읽은 표는 materialize_frames 에 바로 넘긴다)"""
     s = read_all(path)
     s["_literal"] = literal_cells(path)          # 수식 대신 숫자를 직접 입력한 역명·클릭 칸
-    return materialize_frames(s)
+    return materialize_frames(s, include_planned=include_planned)
+
+
+def split_planned(s: dict, include_planned: bool = False) -> dict:
+    """예정 노선 행 처리. 기본: 예정 행과 예정 노선에만 있는 역을 빼고 `phase` 열도 지운다 (예전 파일과 같은 표).
+    include_planned=True: 그대로 두되 `phase` 를 문자열로 정리한다."""
+    from yeoyuro_v2.map_planned import PHASE_COL, is_planned
+    s = dict(s)
+    vn = s.get("Station_Visual_Nodes")
+    if vn is None or PHASE_COL not in vn.columns:
+        return s
+    if include_planned:
+        for name in ("Station_Visual_Nodes", "Line_Sequences", "Transfer_Links"):
+            if name in s and PHASE_COL in s[name].columns:
+                df = s[name].copy()
+                df[PHASE_COL] = df[PHASE_COL].map(lambda v: str(v).strip() if is_planned(v) else "")
+                s[name] = df
+        return s
+    for name in ("Station_Visual_Nodes", "Line_Sequences", "Transfer_Links"):
+        if name in s:
+            df = s[name]
+            if PHASE_COL in df.columns:
+                df = df[~df[PHASE_COL].map(is_planned)].drop(columns=[PHASE_COL])
+            s[name] = _restore_dtypes(df).reset_index(drop=True)
+    keys = set(s["Station_Visual_Nodes"].station_key)
+    for name in ("Station_Display_Master", "Station_Click_Areas", "Station_Labels"):
+        if name in s:
+            s[name] = _restore_dtypes(s[name][s[name].station_key.isin(keys)]).reset_index(drop=True)
+    return s
+
+
+def _restore_dtypes(df: pd.DataFrame) -> pd.DataFrame:
+    """예정 행(문자 노선 id·빈 좌표)이 빠진 뒤, 예전 파일을 읽었을 때와 같은 열 형식으로 되돌린다.
+    - 숫자만 남은 문자 열(line_id 등) → 정수 / 빈칸 없이 정수 값만 남은 실수 열(x_px 등) → 정수"""
+    df = df.copy()
+    for c in df.columns:
+        col = df[c]
+        if col.dtype == object or str(col.dtype) in ("str", "string"):
+            nn = col.dropna()
+            if not len(nn):                                   # 전부 빈칸 → 예전처럼 실수(NaN) 열
+                df[c] = pd.Series(float("nan"), index=col.index, dtype="float64")
+                continue
+            if len(nn) and nn.map(lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)).all():
+                num = pd.to_numeric(col, errors="coerce")
+                if num.notna().all() and (num == num.round()).all():
+                    df[c] = num.astype("int64")
+                elif num.notna().all():
+                    df[c] = num.astype("float64")
+            elif len(nn) and nn.map(lambda v: isinstance(v, bool)).all() and len(nn) == len(col):
+                df[c] = col.astype(bool)
+        elif str(col.dtype).startswith("float") and len(col) and col.notna().all() and (col == col.round()).all():
+            df[c] = col.astype("int64")
+    return df
 
 
 def signature(s: dict) -> int:
@@ -54,9 +108,9 @@ def signature(s: dict) -> int:
     return hash("".join(parts))
 
 
-def materialize_frames(s: dict) -> dict:
+def materialize_frames(s: dict, include_planned: bool = False) -> dict:
     """사용자 입력(점 좌표 + 이동량)으로 클릭·역명 실제 좌표를 계산한 시트들과 점 겹침 목록을 돌려준다."""
-    s = dict(s)
+    s = split_planned(s, include_planned)
     vn = s["Station_Visual_Nodes"].copy()
     vn["x_px"] = pd.to_numeric(vn.x_px, errors="coerce")
     vn["y_px"] = pd.to_numeric(vn.y_px, errors="coerce")
@@ -145,9 +199,10 @@ def snapshot(m: dict) -> dict:
 
 def _num(v):
     try:
-        return float(v)
+        f = float(v)
     except (TypeError, ValueError):
         return None
+    return None if f != f else f                      # NaN(빈칸) → None
 
 
 def diff(old: dict | None, new: dict) -> list[str]:
@@ -160,12 +215,17 @@ def diff(old: dict | None, new: dict) -> list[str]:
         a, b = of.get(key), nf.get(key)
         if a is None or b is None:
             return a != b
-        return abs((_num(a[0]) or 0) - (_num(b[0]) or 0)) > 0.4 or abs((_num(a[1]) or 0) - (_num(b[1]) or 0)) > 0.4
+        pa, pb = (_num(a[0]), _num(a[1])), (_num(b[0]), _num(b[1]))
+        if None in pa or None in pb:                   # 빈칸 ↔ 숫자 (예정 노선 점을 처음 찍거나 지움)
+            return pa != pb
+        return abs(pa[0] - pb[0]) > 0.4 or abs(pa[1] - pb[1]) > 0.4
 
     out, explained = [], set()
     for key in sorted(set(oi) | set(ni), key=str):
         a, b = oi.get(key), ni.get(key)
         if a == b or (_num(a) is not None and _num(b) is not None and abs(_num(a) - _num(b)) < 1e-9):
+            continue
+        if _num(a) is None and _num(b) is None and pd.isna(a) and pd.isna(b):     # 빈칸 → 빈칸
             continue
         kind, k, col = key
         target = f"{k} 점" if kind == "점" else f"{k} {kind}"
@@ -189,7 +249,8 @@ def diff(old: dict | None, new: dict) -> list[str]:
     for key in nf:
         if key not in explained and moved(key) and not key.endswith(" 점"):
             a, b = of.get(key), nf.get(key)
-            out.append(f"  ↳ {key} 따라 이동: ({_num(a[0]):.0f}, {_num(a[1]):.0f}) → ({_num(b[0]):.0f}, {_num(b[1]):.0f})")
+            f = lambda p: "빈칸" if p is None or None in (_num(p[0]), _num(p[1])) else f"({_num(p[0]):.0f}, {_num(p[1]):.0f})"   # noqa: E731
+            out.append(f"  ↳ {key} 따라 이동: {f(a)} → {f(b)}")
     return out
 
 

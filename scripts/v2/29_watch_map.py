@@ -43,19 +43,31 @@ body{font-family:'Malgun Gothic',sans-serif;margin:0;background:#f3f4f6}
 #bar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:8px 12px;font-size:15px;z-index:2}
 #msg{font-size:13px;color:#555;margin-top:4px}
 #wrap{padding:8px;overflow:auto}
-img{display:block;background:#fff;border:1px solid #ddd;cursor:zoom-in}
+img{display:block;background:#fff;border:1px solid #ddd;cursor:crosshair}
 img.fit{width:100%;height:auto}
-img.full{width:auto;max-width:none;cursor:zoom-out}
+img.full{width:auto;max-width:none}
+#pos{font-family:Consolas,monospace;background:#111827;color:#fff;padding:2px 8px;border-radius:4px}
+#copied{color:#047857;font-weight:bold}
+button{font-size:13px;margin-left:6px}
 .flash{animation:f 1.2s}@keyframes f{from{background:#fff3c4}to{background:#fff}}
 </style></head><body>
-<div id="bar"><b id="st">검사 대기 중…</b> · <span id="when"></span> · 엑셀에서 저장(Ctrl+S)하면 자동으로 바뀝니다 · 그림 왼쪽 위 #번호·saved 시각으로 새 그림인지 확인 · 그림 클릭 = 확대/맞춤
+<div id="bar"><b id="st">검사 대기 중…</b> · <span id="when"></span> · 좌표 <span id="pos">x -, y -</span> <span id="copied"></span>
+<button id="zb">원본 크기로 (1:1)</button>
+<div style="font-size:13px;margin-top:4px">엑셀에서 저장(Ctrl+S)하면 자동으로 바뀝니다 · 그림 왼쪽 위 #번호·saved 시각으로 새 그림인지 확인 ·
+<b>그림을 클릭하면 'x 탭 y' 가 복사됩니다 → 엑셀 x_px 칸을 선택하고 Ctrl+V</b> (x·y 두 칸이 한 번에 채워짐)</div>
 <div id="msg"></div></div>
 <div id="zwrap" style="display:none;padding:8px"><img id="zoom" style="max-width:100%;border:2px solid #DC2626;background:#fff"></div>
 <div id="wrap"><img id="img" class="fit" alt="미리보기"></div>
 <script>
 let ver=-1;
-const img=document.getElementById('img');
-img.onclick=()=>{img.className=img.className==='fit'?'full':'fit'};
+const img=document.getElementById('img'), zb=document.getElementById('zb');
+zb.onclick=()=>{img.className=img.className==='fit'?'full':'fit';zb.textContent=img.className==='fit'?'원본 크기로 (1:1)':'화면에 맞추기';};
+function xy(e){const r=img.getBoundingClientRect();
+  return [Math.round((e.clientX-r.left)*img.naturalWidth/r.width),Math.round((e.clientY-r.top)*img.naturalHeight/r.height)];}
+img.onmousemove=e=>{const [x,y]=xy(e);document.getElementById('pos').textContent='x '+x+', y '+y;};
+img.onclick=async e=>{const [x,y]=xy(e);const t=x+'\t'+y;
+  try{await navigator.clipboard.writeText(t);document.getElementById('copied').textContent='복사됨: '+x+', '+y;}
+  catch(err){window.prompt('복사가 막혔습니다. 직접 복사하세요 (x 탭 y)',t);}};
 async function poll(){
   try{
     const r=await fetch('status.json?'+Date.now(),{cache:'no-store'});
@@ -128,6 +140,12 @@ def publish(res: dict | None, version: int, saved: str, err: str = "", changes: 
             parts.append("다른 역끼리 같은 좌표: " + " / ".join(f"({x}, {y}) {', '.join(ks)}" for x, y, ks in res["clash"]))
         if res["missing"]:
             parts.append("좌표 빈칸: " + ", ".join(res["missing"][:15]))
+        p = res.get("planned") or {}
+        if p.get("n"):
+            parts.append(f"예정 노선 점 {p['filled']}/{p['n']} 입력 (앱에는 아직 반영 안 됨)"
+                         + (f" · 빈칸 {len(p['blank'])}개: " + ", ".join(p["blank"][:40]) if p["blank"] else ""))
+            if p["mismatch"]:
+                parts.append("같은 역인데 좌표가 다른 곳 (의도한 게 아니면 맞추기): " + " / ".join(p["mismatch"][:10]))
         if res["fails"] > 0:
             t = res["table"]
             parts.append("검증 실패: " + " / ".join(f"{r.check} ({r.detail})" for r in t[t.status == 'FAIL'].itertuples()))
@@ -181,7 +199,9 @@ def main() -> int:
                 publish(res, version, saved, changes=changes, prev_snap=prev)
                 prev = res["snap"]
                 print(f"[{datetime.now():%H:%M:%S}] 저장 감지 ({saved}) → {'통과' if res['ok'] else '확인 필요'} · "
-                      f"겹침 {len(res['clash'])}곳 · 빈칸 {len(res['missing'])}개 · 미리보기 #{version} ({time.time() - t0:.1f}초)")
+                      f"겹침 {len(res['clash'])}곳 · 빈칸 {len(res['missing'])}개"
+                      + (f" · 예정 {res['planned']['filled']}/{res['planned']['n']}" if res.get("planned", {}).get("n") else "")
+                      + f" · 미리보기 #{version} ({time.time() - t0:.1f}초)")
                 if changes is None:
                     print("    (처음 검사 — 지금 상태를 기준으로 기억합니다)")
                 elif changes:

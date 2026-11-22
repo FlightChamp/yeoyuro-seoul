@@ -46,6 +46,8 @@ LINE_COLORS = {
     "1": "#0052A4", "2": "#009D3E", "3": "#EF7C1C", "4": "#00A5DE",
     "5": "#996CAC", "6": "#CD7C2F", "7": "#747F00", "8": "#E6186C",
     "9": "#BDB092",   # v2.6 9호선 (노선 색 추가만, 1~8호선 결과 영향 없음)
+    # Phase 3 예정 노선 (D-090). 앱 가져오기에는 예정 행이 빠지므로 지금은 색만 등록
+    "GJ": "#77C4A3", "SB": "#F5A200", "AR": "#0090D2",
 }
 
 SHEETS = ["Station_Display_Master", "Station_Visual_Nodes", "Station_Click_Areas",

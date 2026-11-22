@@ -7,6 +7,8 @@ scripts/v2/29_check_map_workbook.py
 - 역명·클릭 위치 = 그 역 노선별 점 평균 + 이동량(label_dx/dy, click_dx/dy) 을 직접 계산 (수식 캐시를 믿지 않음)
 - 별도 폴더(data/interim/v26_mapcheck)에서 1~9호선 경로 그래프 + v1 가져오기 스크립트(14)로 검증
 - 다른 역끼리 좌표가 같은 점 목록, 미리보기 PNG
+- 예정 노선(phase 3-A·3-B, D-090): 검증(14)·앱에는 넣지 않고, 미리보기에는 함께 그린다.
+  미리보기는 5120×2880 캔버스 1:1 (그림 1픽셀 = 좌표 1, 100px 격자)
 
 실행
 ----
@@ -45,8 +47,13 @@ def prepare_root() -> Path:
 
 def check(path: Path, quiet: bool = False, frames: dict | None = None) -> dict:
     """검사 1회. frames 를 주면 (열린 엑셀에서 읽은 표) 파일 대신 그것으로 계산한다."""
-    from yeoyuro_v2.map_workbook import materialize_frames
-    m = materialize_frames(frames) if frames is not None else materialize(path)
+    from yeoyuro_v2.map_canvas import drawable, planned_status, render_canvas
+    from yeoyuro_v2.map_workbook import literal_cells, materialize_frames, read_all
+    if frames is None:
+        frames = read_all(path)
+        frames["_literal"] = literal_cells(path)
+    m = materialize_frames(frames)                                    # 운영 노선만 → 검증·앱과 같은 기준
+    m_all = materialize_frames(frames, include_planned=True)          # 예정 노선 포함 → 미리보기·변경 비교
     root = prepare_root()
     png = root / "reports" / "figures" / "vector_map_preview.png"
     val = root / "reports" / "data_quality" / "map_workbook_validation.csv"
@@ -57,13 +64,20 @@ def check(path: Path, quiet: bool = False, frames: dict | None = None) -> dict:
                         "--xlsx", str(vals), "--preview"])
     t = pd.read_csv(val) if val.exists() else pd.DataFrame(columns=["check", "status", "detail"])
     preview_ok = png.exists()
-    if png.exists():
-        PREVIEW.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(png, PREVIEW)
+    if preview_ok:
+        try:
+            render_canvas(m_all, PREVIEW)                           # 1:1 캔버스 (예정 노선 포함)
+        except Exception as e:                                       # noqa: BLE001  그려지지 않으면 가져오기 그림으로
+            PREVIEW.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(png, PREVIEW)
+            r = type(r)(r.args, r.returncode, r.stdout, (r.stderr or "") + f"\n[캔버스 미리보기 실패] {e}")
+    draw = drawable(m_all)
+    planned = planned_status(m_all)
     fails = int((t.status == "FAIL").sum()) if len(t) else -1
     from yeoyuro_v2.map_workbook import snapshot
-    return {"preview_ok": preview_ok, "frames": m, "snap": snapshot(m), "ok": fails == 0 and not m["_missing"], "clash": m["_clash"], "missing": m["_missing"],
-            "fails": fails, "table": t, "stderr": r.stderr[-1500:], "preview": PREVIEW,
+    return {"preview_ok": preview_ok, "frames": draw, "snap": snapshot(m_all), "ok": fails == 0 and not m["_missing"],
+            "clash": m_all["_clash"], "missing": m["_missing"], "planned": planned,
+            "fails": fails, "table": t, "stderr": (r.stderr or "")[-1500:], "preview": PREVIEW,
             "nodes": len(m["Station_Visual_Nodes"])}
 
 
@@ -71,6 +85,11 @@ def report(res: dict, path: Path) -> None:
     print(f"읽은 파일: {path}  (저장 시각 {datetime.fromtimestamp(path.stat().st_mtime):%H:%M:%S})")
     print(f"[1] 노드 {res['nodes']}개 · 좌표 빈칸 {len(res['missing'])}개" +
           (f" ({', '.join(res['missing'][:10])})" if res["missing"] else ""))
+    p = res.get("planned") or {}
+    if p.get("n"):
+        print(f"    예정 노선 점 {p['filled']}/{p['n']} 입력 (앱에는 아직 반영 안 됨)" +
+              (f" · 빈칸 {len(p['blank'])}개" if p["blank"] else "") +
+              (f" · 같은 역인데 좌표가 다른 곳 {len(p['mismatch'])}" if p["mismatch"] else ""))
     if res["clash"]:
         print(f"    다른 역끼리 같은 좌표 {len(res['clash'])}곳 (엑셀에서도 주황색으로 보임):")
         for x, y, ks in res["clash"]:

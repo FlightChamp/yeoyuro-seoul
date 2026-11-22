@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-LINE_COLORS = {"1": "#0052A4", "2": "#009D3E", "3": "#EF7C1C", "4": "#00A5DE", "5": "#996CAC",
-               "6": "#CD7C2F", "7": "#747F00", "8": "#E6186C", "9": "#BDB092"}
+from yeoyuro_v2.map_planned import LINE_COLORS   # 1~9호선 + 예정 노선 (D-090)
 
 
 def stamp(png: Path, text: str) -> None:
@@ -48,10 +47,15 @@ def zoom_changes(frames: dict, old_final: dict, new_final: dict, out: Path, pad:
         if a is None or b is None:
             continue
         try:
-            if abs(float(a[0]) - float(b[0])) > 0.4 or abs(float(a[1]) - float(b[1])) > 0.4:
-                moved.append((k, (float(a[0]), float(a[1])), (float(b[0]), float(b[1]))))
+            fa, fb = (float(a[0]), float(a[1])), (float(b[0]), float(b[1]))
         except (TypeError, ValueError):
             continue
+        if fb[0] != fb[0] or fb[1] != fb[1]:          # 새 위치가 빈칸이면 그릴 것 없음
+            continue
+        if fa[0] != fa[0] or fa[1] != fa[1]:          # 빈칸 → 처음 찍은 점 (예정 노선)
+            moved.append((k, fb, fb))
+        elif abs(fa[0] - fb[0]) > 0.4 or abs(fa[1] - fb[1]) > 0.4:
+            moved.append((k, fa, fb))
     if not moved:
         return False
     _font()
