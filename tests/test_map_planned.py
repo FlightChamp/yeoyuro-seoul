@@ -83,28 +83,57 @@ def test_planned_rows_match_definition(m_all):
         assert (g[PHASE_COL] == phase).all()
     # 경의중앙선 서울역 지선·수인분당선 청량리 제외 (D-089)
     assert "신촌(경의선)" not in set(vn.station_key) and "청량리_LSB" not in set(vn.visual_node_id)
-    # 기존 역에 붙는 예정 점 = 그 역 기존 좌표, 새 역 = 빈칸
-    first = ops.groupby("station_key")[["x_px", "y_px"]].first()
-    for r in p.itertuples():
-        if r.station_key in first.index:
-            assert (r.x_px, r.y_px) == tuple(first.loc[r.station_key]), r.visual_node_id
-    assert m_all["_clash"] == []
+    # 기존 역에 붙는 예정 점은 좌표가 채워져 있어야 함 (값은 사용자가 바꿀 수 있으므로 비교하지 않음)
+    ops_keys = set(ops.station_key)
+    assert p[p.station_key.isin(ops_keys)][["x_px", "y_px"]].notna().all().all()
+    # 수인분당선 야탑 연장 (D-091): 복정 → 가천대 → 태평 → 모란(8호선 환승) → 야탑
+    sb = seq[(seq.line_id.astype(str) == "SB")].sort_values("path_order").station_key.tolist()
+    assert sb[-5:] == ["복정", "가천대", "태평", "모란", "야탑"]
+    tl = m_all["Transfer_Links"]
+    assert ((tl.from_visual_node_id == "모란_L8") & (tl.to_visual_node_id == "모란_LSB")).any()
 
 
-def test_migration_reproducible_and_idempotent(tmp_path):
+def _structure(m: dict) -> dict:
+    """좌표 값(사용자가 계속 고침)을 뺀 뼈대: 점·순서·연결선·역 목록."""
+    vn, ls, tl = m["Station_Visual_Nodes"], m["Line_Sequences"], m["Transfer_Links"]
+    return {"nodes": sorted(zip(vn.visual_node_id, vn.station_key, vn.line_id.astype(str), vn[PHASE_COL])),
+            "seq": sorted(zip(ls.line_id.astype(str), ls.branch_code, ls.path_order.astype(int), ls.visual_node_id,
+                              ls[PHASE_COL])),
+            "links": sorted(zip(tl.from_visual_node_id, tl.to_visual_node_id, tl[PHASE_COL])),
+            "stations": sorted(m["Station_Display_Master"].station_key)}
+
+
+@pytest.mark.parametrize("kind", ["before_planned_2", "before_planned_update"])
+def test_migration_reproducible_and_idempotent(tmp_path, kind):
+    """추가 전(처음)·갱신 전(야탑 연장 전) 백업에 스크립트를 다시 돌리면 커밋된 파일과 뼈대가 같고, 한 번 더 돌리면 변경 없음."""
     mig = _load("mig43", "scripts/v2/43_add_planned_lines.py")
-    baks = sorted((ROOT / "data" / "master" / "archive").glob("*_before_planned_*.xlsx"))
+    baks = sorted((ROOT / "data" / "master" / "archive").glob(f"*_{kind}*.xlsx"))
     if not baks:
-        pytest.skip("추가 전 백업 없음")
+        pytest.skip(f"{kind} 백업 없음")
     p = tmp_path / "wb.xlsx"
     shutil.copy(baks[-1], p)
     assert mig.migrate(p) == 0
-    a, b = materialize(p, include_planned=True), materialize(BASE, include_planned=True)
-    for s in SIX:
-        pd.testing.assert_frame_equal(a[s].drop(columns=[c for c in a[s] if c.startswith("_")]),
-                                      b[s].drop(columns=[c for c in b[s] if c.startswith("_")]), check_dtype=False)
+    assert _structure(materialize(p, include_planned=True)) == _structure(materialize(BASE, include_planned=True))
     before = p.read_bytes()
     assert mig.migrate(p) == 0 and p.read_bytes() == before                     # 두 번째: 변경 없음
+
+
+def test_fill_blanks_only_touches_blank_planned_points(tmp_path):
+    """자동 배치: 빈 예정 점만 채우고(앞뒤 사이 등간격·끝은 연장), 좌표가 있던 점은 그대로."""
+    mig = _load("mig43f", "scripts/v2/43_add_planned_lines.py")
+    p = tmp_path / "wb.xlsx"
+    shutil.copy(BASE, p)
+    before = materialize(p, include_planned=True)["Station_Visual_Nodes"].set_index("visual_node_id")
+    mig.fill_blanks(p)
+    after = materialize(p, include_planned=True)["Station_Visual_Nodes"].set_index("visual_node_id")
+    had = before.x_px.notna()
+    assert (after.loc[had[had].index, ["x_px", "y_px"]] == before.loc[had[had].index, ["x_px", "y_px"]]).all().all()
+    sb = [n for n in ("복정_LSB", "가천대_LSB", "태평_LSB", "모란_LSB", "야탑_LSB")]
+    if after.loc[["복정_LSB", "모란_LSB"], "x_px"].notna().all():
+        pts = after.loc[sb, ["x_px", "y_px"]]
+        assert pts.notna().all().all()
+        step = pts.diff().dropna()
+        assert (step.sub(step.iloc[0]).abs() <= 1).all().all()                # 복정~야탑 같은 간격(반올림 1px)
 
 
 def test_canvas_preview(tmp_path, m_all):
