@@ -9,11 +9,11 @@ Phase 3A-2c — 코레일 확장 평가 (사전 등록 preregistration_3a2.md 4�
 | T4 | 혼잡 가정 탐색(민감도) vs 기본(E8): 1순위 코레일 비율·1순위 변경률 | V2 표본 + K 표본 |
 | V3 | 시간 역전: 출퇴근 1분 간격, 발생률·규모·원인 5분류, 오류 | K 표본 (켬) + 1~9호선 기준선 (끔, v2.3 OD 412쌍) |
 | V4 | E vs H: 1순위 변경률·소요 차이·환승 횟수·후보 순위 상관 | K 표본 × 평일 6개 출발 |
-| V5 | 구로 보행 0·1·3·5분 + 연결 검증의 구로 종착→시발 이어 타기 건수 | 경인↔경부 24개 방향쌍 + 지정 12쌍 × 6개 출발 |
+| V5 | 구로 보행 0·1·3·5분 + 연결 검증의 구로 종착→시발 이어 타기 건수 | 경인↔경부 24개 방향쌍 + 지정 12쌍(겹치는 2쌍 제외, 34쌍) × 6개 출발 |
 | V6 | E 12분 상한 시나리오 | K 표본 × 6개 출발 |
 | V7 | 운행 없음 사유별 후보 제외 | K 표본 × 평일 05:30~00:30 30분마다 |
 | V8 | FIFO: 탐색 구조, 비FIFO 간선, 기다림 이득 | 그래프 전체 + V3 결과 |
-| V9 | 후보 충분성: k=5/10 (K×6), k=5/10/20 (대표 36쌍×6), 단순 경로 열거 기준값 | |
+| V9 | 후보 충분성: k=5/10 (K×6), k=5/10/20 (대표 34쌍×6), 단순 경로 열거 기준값 | |
 
 K 표본 = 한쪽 끝이 코레일 서울 26역인 무작위 400쌍(시드 42) + 지정 12쌍 (사전 등록 4절).
 
@@ -102,7 +102,10 @@ def k_sample(display_keys) -> list[tuple]:
 
 def branch_pairs() -> list[tuple]:
     pairs = [(K.SCOPE[a], K.SCOPE[b]) for a in K.GYEONGIN_SOUTH for b in K.GYEONGBU_SOUTH]
-    return [(a, b, "branch") for a, b in pairs + [(b, a) for a, b in pairs]] + [(a, b, "designated") for a, b in DESIGNATED]
+    out = [(a, b, "branch") for a, b in pairs + [(b, a) for a, b in pairs]]
+    seen = {(a, b) for a, b, _ in out}
+    # 지정 OD 중 구일→가산디지털단지·독산→개봉은 이미 24개 방향쌍에 있음 → 합집합 34쌍
+    return out + [(a, b, "designated") for a, b in DESIGNATED if (a, b) not in seen]
 
 
 def v23_pairs(n=412) -> list[tuple]:
@@ -621,7 +624,7 @@ def write_report(S: dict) -> None:
                   f"- 소요 차이 중앙 {v.get('diff_median')}분 · 90% {v.get('diff_p90')}분 · 최소 {v.get('diff_min')} · 최대 {v.get('diff_max')}",
                   f"- 환승 횟수 변화 분포: {v.get('transfer_change')} · 후보 5개 순위 상관(스피어만) 중앙 {v.get('rank_spearman_median')} ({v.get('rank_pairs')}건)", ""]
     if "V5" in S:
-        L += ["## V5 구로 보행 민감도 (경인↔경부 24개 방향쌍 + 지정 12쌍 × 평일 6개 출발)", "",
+        L += ["## V5 구로 보행 민감도 (경인↔경부 24개 방향쌍 + 지정 12쌍(겹치는 2쌍 제외, 34쌍) × 평일 6개 출발)", "",
               "| 구로 보행 | 비교 | 1순위가 구로 갈아타기 | 1분 대비 1순위 변경 | 소요 중앙(분) | 1분 대비 소요 차이 중앙 |", "|---|---|---|---|---|---|"]
         for gw in ("g0", "g1", "g3", "g5"):
             v = S["V5"][gw]
@@ -644,8 +647,8 @@ def write_report(S: dict) -> None:
     if "V9" in S:
         v = S["V9"]
         L += ["## V9 후보 충분성", "", "| 비교 | 건수 | 1순위 변경 | 더 빠른 경로 새로 찾음 | 줄어든 시간 중앙·최대(분) |", "|---|---|---|---|---|"]
-        for k, lab in (("K_k5_vs_k10", "K 표본 k=5 → 10"), ("branch_k5_vs_k10", "대표 36쌍 k=5 → 10"),
-                       ("branch_k5_vs_k20", "대표 36쌍 k=5 → 20"), ("branch_k10_vs_k20", "대표 36쌍 k=10 → 20")):
+        for k, lab in (("K_k5_vs_k10", "K 표본 k=5 → 10"), ("branch_k5_vs_k10", "대표 34쌍 k=5 → 10"),
+                       ("branch_k5_vs_k20", "대표 34쌍 k=5 → 20"), ("branch_k10_vs_k20", "대표 34쌍 k=10 → 20")):
             x = v[k]
             L.append(f"| {lab} | {x['cases']} | {x['top1_changed']} | {x['better_found']} | {x['better_gain_median']}·{x['better_gain_max']} |")
         en = v.get("enum")
@@ -692,6 +695,8 @@ def main():
             df = compute(name, a, ods_k, ods_b, ods_23, a.workers)
             df.to_parquet(f, index=False)
             print(f"{name}: 계산 {len(df):,}행 ({time.time() - t0:.0f}초)", flush=True)
+        # 같은 (설정·OD·시각) 이 두 번 계산된 경우 하나만 (V5 첫 실행본의 지정 OD 2쌍 중복 대비)
+        df = df.drop_duplicates(subset=["tag", "o", "d", "t"]).reset_index(drop=True)
         if name == "V2":
             S["V2"], ch = analyze_v2(df)
             ch.to_csv((ROOT / "reports" / "v2" if not a.dry else out_dir) / "korail_3a2c_V2_changed_routes.csv",
