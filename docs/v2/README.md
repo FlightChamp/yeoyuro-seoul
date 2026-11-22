@@ -33,6 +33,7 @@
 | [mobility_atlas.md](mobility_atlas.md) | v2.4 | 초판 |
 | [preregistration_v25.md](preregistration_v25.md) | v2.5 | 고정 |
 | [event_stress_test.md](event_stress_test.md) | v2.5 | 초판 |
+| [preregistration_3a2.md](preregistration_3a2.md) | Phase 3A-2 | 고정 (3A-2 계산 전, D-093) |
 
 ## 공모전 버전 문서 (contest 브랜치 동결, 참고용)
 

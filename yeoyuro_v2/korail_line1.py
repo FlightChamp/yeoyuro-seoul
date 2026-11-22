@@ -249,6 +249,89 @@ def headway_half(deps_all, start: float, end: float) -> float:
     return (end - start) / n / 2 if n else np.nan
 
 
+# ---------------------------------------------------------------------- 3b. D-093 대기 분해·구로 갈아타기
+# 운행 없음 사유 (D-093 R3): 화면·보고서에서 서로 다르게 표시한다
+NO_SERVICE_BEFORE_FIRST = "운행 시작 전"      # 그날 첫 목적지행 열차까지 max_wait 초과
+NO_SERVICE_AFTER_LAST = "운행 종료"           # 그날 더 이상 목적지행 열차가 없음 (막차 뒤)
+NO_SERVICE_LONG_GAP = "장시간 대기 제외"      # 다음 열차는 있지만 max_wait 초과
+
+
+@dataclass(frozen=True)
+class WaitProfile:
+    """[start, end) 에 균등하게 도착한 승객 기준 대기 분해 (D-093 R1·R3·검증 3).
+
+    E: 다음 목적지행 열차까지 max_wait 이하로 탈 수 있는 승객만의 평균 대기 (없으면 NaN)
+    frac_served + frac_before_first + frac_after_last + frac_long_gap = 1
+    n_in_bin: 구간 안에서 출발하는 목적지행 열차 수 (0·1대인 구간 검증용)
+    """
+    E: float
+    frac_served: float
+    frac_before_first: float
+    frac_after_last: float
+    frac_long_gap: float
+    n_in_bin: int
+
+    @property
+    def reason(self) -> str | None:
+        """대기 사유 하나로 요약: 모두 탈 수 있으면 None, 아니면 가장 큰 비중의 '운행 없음' 사유."""
+        parts = {NO_SERVICE_BEFORE_FIRST: self.frac_before_first, NO_SERVICE_AFTER_LAST: self.frac_after_last,
+                 NO_SERVICE_LONG_GAP: self.frac_long_gap}
+        k, v = max(parts.items(), key=lambda kv: kv[1])
+        return k if v > 1e-12 else None
+
+
+def wait_profile(deps, start: float, end: float, max_wait: float = 60.0) -> WaitProfile:
+    """그날 목적지행 전체 출발 시각 deps(운행일 기준 분)로 [start, end) 대기를 정확히 적분한다.
+
+    - 구간 끝 뒤 첫 열차까지 포함: 구간 끝 직전 도착 승객은 구간 밖(다음 30분) 열차를 탄다 (검증 3)
+    - 구간 앞 열차는 쓰지 않음: 도착 시점 이전에 떠난 열차는 탈 수 없다
+    - 0·1대 구간, 막차 뒤, 첫차 전을 각각 구분해 E 가 잘못 계산되지 않게 한다
+    expected_wait() 와 E·운행 없음 합계가 같다 (테스트로 고정).
+    """
+    if end <= start:
+        raise ValueError("end > start 여야 함")
+    d = sorted(float(x) for x in deps)
+    first = d[0] if d else None
+    span = end - start
+    served = before = after = gap = total = 0.0
+    prev = start
+    for x in d:
+        if x < start:
+            continue
+        if prev >= end:
+            break
+        a, b = prev, min(x, end)
+        if b > a:
+            lo = max(a, x - max_wait)               # τ ≥ x − max_wait 이면 탈 수 있음
+            if b > lo:
+                total += ((x - lo) ** 2 - (x - b) ** 2) / 2
+                served += b - lo
+            miss = max(0.0, min(b, lo) - a)          # 대기 max_wait 초과 승객
+            if x == first:
+                before += miss
+            else:
+                gap += miss
+        prev = max(prev, x)
+    if prev < end:                                    # 그 뒤로 목적지행 열차가 없음 = 막차 뒤 (그날 운행이 아예 없어도 여기)
+        after += end - prev
+    n_in = sum(1 for x in d if start <= x < end)
+    E = total / served if served > 0 else float("nan")
+    return WaitProfile(E, served / span, before / span, after / span, gap / span, n_in)
+
+
+# 같은 1호선 안 갈아타기 (D-093 1): 구로에서만, 열차번호가 바뀔 때만
+GURO = 1701
+SAME_LINE_TRANSFER_WALK = {GURO: 1.0}             # 분. 사용자 교차확인(네이버지도·카카오지하철·공식 안내) 2026-11-22
+GURO_WALK_SENSITIVITY = (0.0, 1.0, 3.0, 5.0)      # 민감도 (D-093)
+GYEONGIN_SOUTH = (1813, 1801, 1802, 1821)        # 구일·개봉·오류동·온수
+GYEONGBU_SOUTH = (1702, 1714, 1703)               # 가산디지털단지·독산·금천구청
+
+
+def direct_exists(idx: "NextTrainIndex", day_type: str, origin: int, dest: int) -> bool:
+    """같은 열차번호로 origin → dest 를 가는 열차가 그날 한 대라도 있는가 (직통이면 구로 갈아타기 불필요)."""
+    return len(idx.departures(day_type, origin, dest)) > 0
+
+
 # ---------------------------------------------------------------------- 4. 표준데이터 교차검증
 def read_standard(path) -> pd.DataFrame:
     x = pd.read_excel(path, sheet_name="표준데이터 역사", dtype=str)

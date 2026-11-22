@@ -171,6 +171,71 @@ def test_expected_wait():
     assert K.headway_half([0, 10, 20], 0, 30) == pytest.approx(5.0)
 
 
+# ------------------------------------------------------------------ D-093 대기 분해 (검증 3)
+def test_wait_profile_uses_trains_after_bin_end():
+    """구간 끝 직전 도착 승객은 다음 30분의 열차를 탄다 — 구간 안 열차만 쓰면 대기가 과소추정된다."""
+    w = K.wait_profile([25, 40], 0, 30)
+    # 0~25분 도착: 25분 열차(대기 25→0), 25~30분 도착: 40분 열차(대기 15→10)
+    assert w.E == pytest.approx((25 ** 2 / 2 + (15 ** 2 - 10 ** 2) / 2) / 30)
+    assert w.frac_served == pytest.approx(1.0) and w.n_in_bin == 1
+
+
+def test_wait_profile_ignores_trains_before_bin():
+    assert K.wait_profile([-5, 0, 10, 20, 30], 0, 30).E == pytest.approx(5.0)
+
+
+def test_wait_profile_single_train_and_last_train():
+    w = K.wait_profile([10], 0, 30)                      # 막차가 구간 가운데: 10분 뒤 도착 승객은 '운행 종료'
+    assert w.E == pytest.approx(5.0) and w.frac_served == pytest.approx(1 / 3)
+    assert w.frac_after_last == pytest.approx(2 / 3) and w.reason == K.NO_SERVICE_AFTER_LAST
+    w = K.wait_profile([], 0, 30)                        # 그날 운행 없음
+    assert np.isnan(w.E) and w.frac_after_last == pytest.approx(1.0)
+
+
+def test_wait_profile_distinguishes_no_service_reasons():
+    w = K.wait_profile([100, 110], 0, 30)                # 첫차까지 60분 초과 → '운행 시작 전'
+    assert np.isnan(w.E) and w.reason == K.NO_SERVICE_BEFORE_FIRST and w.frac_before_first == pytest.approx(1.0)
+    w = K.wait_profile([5, 100], 30, 60)                 # 앞 열차는 이미 떠남, 다음은 60분 넘게 뒤 → '장시간 대기 제외'
+    assert w.frac_long_gap == pytest.approx(1 / 3) and w.reason == K.NO_SERVICE_LONG_GAP
+    assert w.E == pytest.approx(50.0)
+    w = K.wait_profile([0, 6, 12, 18, 24, 30], 0, 30)
+    assert w.reason is None
+
+
+def test_wait_profile_matches_expected_wait_on_real_data(st, idx):
+    """3A-1 의 expected_wait 와 같은 E·같은 '운행 없음' 합계 (기존 3A-1 보고 수치 불변)."""
+    rng = random.Random(42)
+    codes = sorted(K.SEOUL_KORAIL)
+    checked = 0
+    while checked < 300:
+        o, d = rng.sample(codes, 2)
+        deps = idx.departures("weekday", o, d)
+        if not deps:
+            continue
+        b = rng.randrange(270, 1500, 30)
+        w = K.wait_profile(deps, b, b + 30)
+        e, u = K.expected_wait(deps, b, b + 30)
+        assert (np.isnan(e) and np.isnan(w.E)) or w.E == pytest.approx(e)
+        assert 1 - w.frac_served == pytest.approx(u, abs=1e-9)
+        assert w.frac_served + w.frac_before_first + w.frac_after_last + w.frac_long_gap == pytest.approx(1.0)
+        assert np.isnan(w.E) or 0 <= w.E <= 60
+        checked += 1
+
+
+# ------------------------------------------------------------------ D-093 구로 갈아타기 전제
+def test_guro_transfer_needed_only_between_branches(idx):
+    """경인(구일~온수) ↔ 경부(가산디지털단지~금천구청) 직통 열차는 0 → 구로에서 갈아타야 한다.
+    서울 방향 ↔ 각 지선은 같은 열차번호로 직통 → 갈아타기 없음."""
+    for day in ("weekday", "saturday", "sunday"):
+        for a in K.GYEONGIN_SOUTH:
+            for b in K.GYEONGBU_SOUTH:
+                assert not K.direct_exists(idx, day, a, b) and not K.direct_exists(idx, day, b, a)
+        for far in K.GYEONGIN_SOUTH + K.GYEONGBU_SOUTH:
+            assert K.direct_exists(idx, day, 1007, far) and K.direct_exists(idx, day, far, 1007)   # 신도림 ↔ 지선
+    assert K.SAME_LINE_TRANSFER_WALK == {K.GURO: 1.0}
+    assert K.GURO_WALK_SENSITIVITY == (0.0, 1.0, 3.0, 5.0)
+
+
 # ------------------------------------------------------------------ T12 원천 방어
 def _write(tmp_path, rows):
     p = tmp_path / "tt.csv"
