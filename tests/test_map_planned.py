@@ -118,18 +118,48 @@ def test_migration_reproducible_and_idempotent(tmp_path, kind):
     assert mig.migrate(p) == 0 and p.read_bytes() == before                     # 두 번째: 변경 없음
 
 
+def _blank_points(path, node_ids):
+    """사본에서 지정한 점의 x_px·y_px 를 비운다 (사용자가 옮긴 좌표와 무관하게 자동 배치를 검사하려고)."""
+    import openpyxl
+    wb = openpyxl.load_workbook(path)
+    ws = wb["Station_Visual_Nodes"]
+    hdr = [c.value for c in ws[1]]
+    ii, xi, yi = hdr.index("visual_node_id"), hdr.index("x_px"), hdr.index("y_px")
+    hit = 0
+    for row in ws.iter_rows(min_row=2):
+        if row[ii].value in node_ids:
+            row[xi].value = None
+            row[yi].value = None
+            hit += 1
+    wb.save(path)
+    return hit
+
+
 def test_fill_blanks_only_touches_blank_planned_points(tmp_path):
-    """자동 배치: 빈 예정 점만 채우고(앞뒤 사이 등간격·끝은 연장), 좌표가 있던 점은 그대로."""
+    """자동 배치: 빈 예정 점만 채우고(앞뒤 사이 등간격·끝은 연장), 좌표가 있던 점은 그대로.
+
+    기본 파일의 가천대·태평·야탑은 사용자가 옮길 수 있으므로, 사본에서 세 점을 비운 뒤 자동 배치를 검사한다."""
     mig = _load("mig43f", "scripts/v2/43_add_planned_lines.py")
+    # (1) 기본 파일 그대로: 빈 점이 없으면 아무 좌표도 바꾸지 않음
+    p0 = tmp_path / "wb0.xlsx"
+    shutil.copy(BASE, p0)
+    b0 = materialize(p0, include_planned=True)["Station_Visual_Nodes"].set_index("visual_node_id")
+    mig.fill_blanks(p0)
+    a0 = materialize(p0, include_planned=True)["Station_Visual_Nodes"].set_index("visual_node_id")
+    had0 = b0.x_px.notna()
+    assert (a0.loc[had0[had0].index, ["x_px", "y_px"]] == b0.loc[had0[had0].index, ["x_px", "y_px"]]).all().all()
+    # (2) 세 점을 비운 사본: 비운 점만 채워지고 복정~야탑이 같은 간격
     p = tmp_path / "wb.xlsx"
     shutil.copy(BASE, p)
+    new_pts = ("가천대_LSB", "태평_LSB", "야탑_LSB")
+    assert _blank_points(p, new_pts) == 3
     before = materialize(p, include_planned=True)["Station_Visual_Nodes"].set_index("visual_node_id")
     mig.fill_blanks(p)
     after = materialize(p, include_planned=True)["Station_Visual_Nodes"].set_index("visual_node_id")
     had = before.x_px.notna()
     assert (after.loc[had[had].index, ["x_px", "y_px"]] == before.loc[had[had].index, ["x_px", "y_px"]]).all().all()
-    sb = [n for n in ("복정_LSB", "가천대_LSB", "태평_LSB", "모란_LSB", "야탑_LSB")]
     if after.loc[["복정_LSB", "모란_LSB"], "x_px"].notna().all():
+        sb = ["복정_LSB", "가천대_LSB", "태평_LSB", "모란_LSB", "야탑_LSB"]
         pts = after.loc[sb, ["x_px", "y_px"]]
         assert pts.notna().all().all()
         step = pts.diff().dropna()
