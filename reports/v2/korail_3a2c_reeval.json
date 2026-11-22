@@ -1,0 +1,324 @@
+{
+ "R-V2": {
+  "cases": 3720,
+  "changed": 157,
+  "by_cause": {
+   "코레일 환승역 새로 생김": 157
+  },
+  "changed_with_korail_judgement_excluded": 157,
+  "v23_type_of_changed": {
+   "calm": 85,
+   "time_shiftable": 48,
+   "dual": 22,
+   "structural": 2
+  },
+  "diff_median": -3.73,
+  "diff_min": -15.02,
+  "examples": [
+   {
+    "o": "온수",
+    "d": "청량리",
+    "t": 1050,
+    "off_min": 64.02,
+    "on_min": 49.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "calm"
+   },
+   {
+    "o": "온수",
+    "d": "청량리",
+    "t": 510,
+    "off_min": 63.82,
+    "on_min": 49.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "time_shiftable"
+   },
+   {
+    "o": "온수",
+    "d": "청량리",
+    "t": 1080,
+    "off_min": 63.62,
+    "on_min": 49.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "calm"
+   },
+   {
+    "o": "온수",
+    "d": "청량리",
+    "t": 1110,
+    "off_min": 63.42,
+    "on_min": 49.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "calm"
+   },
+   {
+    "o": "온수",
+    "d": "청량리",
+    "t": 450,
+    "off_min": 63.12,
+    "on_min": 49.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "time_shiftable"
+   },
+   {
+    "o": "온수",
+    "d": "청량리",
+    "t": 480,
+    "off_min": 62.72,
+    "on_min": 49.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "time_shiftable"
+   },
+   {
+    "o": "동대문",
+    "d": "가산디지털단지",
+    "t": 450,
+    "off_min": 45.35,
+    "on_min": 36.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "dual"
+   },
+   {
+    "o": "동대문",
+    "d": "가산디지털단지",
+    "t": 1050,
+    "off_min": 44.55,
+    "on_min": 36.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "calm"
+   },
+   {
+    "o": "동대문",
+    "d": "가산디지털단지",
+    "t": 1110,
+    "off_min": 44.55,
+    "on_min": 36.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "dual"
+   },
+   {
+    "o": "동대문",
+    "d": "가산디지털단지",
+    "t": 1080,
+    "off_min": 44.55,
+    "on_min": 36.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "dual"
+   },
+   {
+    "o": "동대문",
+    "d": "가산디지털단지",
+    "t": 480,
+    "off_min": 44.15,
+    "on_min": 36.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "dual"
+   },
+   {
+    "o": "동대문",
+    "d": "가산디지털단지",
+    "t": 510,
+    "off_min": 43.85,
+    "on_min": 36.0,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "dual"
+   },
+   {
+    "o": "양천구청",
+    "d": "회현",
+    "t": 510,
+    "off_min": 43.17,
+    "on_min": 36.06,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "calm"
+   },
+   {
+    "o": "양천구청",
+    "d": "회현",
+    "t": 450,
+    "off_min": 42.58,
+    "on_min": 35.82,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "time_shiftable"
+   },
+   {
+    "o": "양천구청",
+    "d": "회현",
+    "t": 1050,
+    "off_min": 43.28,
+    "on_min": 36.58,
+    "cause": "코레일 환승역 새로 생김",
+    "v23_type": "dual"
+   }
+  ],
+  "other_slower": 0
+ },
+ "R-V9": {
+  "k5_vs_k10": {
+   "cases": 2472,
+   "top1_changed": 64,
+   "better_found": 51,
+   "better_gain_median": 2.5,
+   "better_gain_max": 9.694
+  },
+  "k5_vs_k20": {
+   "cases": 2472,
+   "top1_changed": 75,
+   "better_found": 58,
+   "better_gain_median": 2.5,
+   "better_gain_max": 9.694
+  },
+  "k10_vs_k20": {
+   "cases": 2472,
+   "top1_changed": 19,
+   "better_found": 11,
+   "better_gain_median": 0.75,
+   "better_gain_max": 2.773
+  }
+ },
+ "R-P2": {
+  "none": {
+   "od_times": 117,
+   "route_found": 110,
+   "impossible_excluded": 117,
+   "top1_uses_line1_split": 0,
+   "split_station_counts": {},
+   "actual_median": 69.8
+  },
+  "B1": {
+   "od_times": 117,
+   "route_found": 110,
+   "impossible_excluded": 9,
+   "top1_uses_line1_split": 65,
+   "split_station_counts": {
+    "광운대": 65
+   },
+   "actual_median": 68.4,
+   "vs_none_faster": 63,
+   "vs_none_gain_median": 5.24,
+   "vs_none_slower": 0
+  },
+  "B2": {
+   "od_times": 117,
+   "route_found": 110,
+   "impossible_excluded": 9,
+   "top1_uses_line1_split": 69,
+   "split_station_counts": {
+    "석계": 69
+   },
+   "actual_median": 67.64,
+   "vs_none_faster": 69,
+   "vs_none_gain_median": 4.9,
+   "vs_none_slower": 0
+  },
+  "B12": {
+   "od_times": 117,
+   "route_found": 110,
+   "impossible_excluded": 9,
+   "top1_uses_line1_split": 69,
+   "split_station_counts": {
+    "석계": 62,
+    "광운대": 7
+   },
+   "actual_median": 67.55,
+   "vs_none_faster": 68,
+   "vs_none_gain_median": 5.23,
+   "vs_none_slower": 0
+  },
+  "B12S": {
+   "od_times": 117,
+   "route_found": 110,
+   "impossible_excluded": 9,
+   "top1_uses_line1_split": 69,
+   "split_station_counts": {
+    "석계": 62,
+    "광운대": 7
+   },
+   "actual_median": 67.55,
+   "vs_none_faster": 68,
+   "vs_none_gain_median": 5.23,
+   "vs_none_slower": 0
+  }
+ },
+ "R-B1": {
+  "w1": {
+   "cases": 18,
+   "top1_uses_gwangun": 2,
+   "top1_uses_seokgye": 9,
+   "top1_changed_vs_2min": 0,
+   "diff_vs_2min_median": 0.0
+  },
+  "w2": {
+   "cases": 18,
+   "top1_uses_gwangun": 2,
+   "top1_uses_seokgye": 9,
+   "top1_changed_vs_2min": 0,
+   "diff_vs_2min_median": 0.0
+  },
+  "w3": {
+   "cases": 18,
+   "top1_uses_gwangun": 2,
+   "top1_uses_seokgye": 9,
+   "top1_changed_vs_2min": 0,
+   "diff_vs_2min_median": 0.0
+  },
+  "w5": {
+   "cases": 18,
+   "top1_uses_gwangun": 0,
+   "top1_uses_seokgye": 11,
+   "top1_changed_vs_2min": 0,
+   "diff_vs_2min_median": 0.0
+  }
+ },
+ "R-T": {
+  "audit": {
+   "od": 300,
+   "candidates": 1705,
+   "impossible": 0,
+   "revisit": 0,
+   "connected": 1705,
+   "not_connected": 0,
+   "korail_top1": 232,
+   "excluded_r3": 0,
+   "examples": []
+  },
+  "top1_with_line1_split": 11,
+  "slack_by_station": {},
+  "slack_shorter_than_walk": 0
+ },
+ "R-V3": {
+  "on": {
+   "od": 412,
+   "pairs": 98056,
+   "inversions": 117,
+   "inversion_rate": 0.00119,
+   "od_with_inversion": 80,
+   "od_rate": 0.1942,
+   "size_median": 0.83,
+   "size_p90": 1.54,
+   "size_max": 3.58,
+   "causes": {
+    "① 경로 변경": 26,
+    "③ 코레일 시간대 값(E·주행)": 63,
+    "② 1~9호선 시간대 값": 36
+   },
+   "errors": [],
+   "n_errors": 0,
+   "wait_gain": 94,
+   "wait_gain_den": 74160,
+   "wait_gain_rate": 0.0013
+  }
+ },
+ "R-V7": {
+  "od_times": 16068,
+  "excluded_candidates_by_reason": {
+   "운행 종료": 3385,
+   "불가능한 연결": 9
+  },
+  "no_route_left": 500,
+  "no_route_by_hour": {
+   "00시": 436,
+   "23시": 64
+  }
+ }
+}
