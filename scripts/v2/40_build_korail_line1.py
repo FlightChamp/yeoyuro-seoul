@@ -317,7 +317,7 @@ def write_report(audit, route, exp, w, draft, tc, src_name, std_name):
           f"- 기존 역 좌표 재사용 {int((draft.placement == 'anchor').sum())} · 사이 등간격 {int((draft.placement == 'interp').sum())} · 위·경도 방향 연장 {int((draft.placement == 'extrap').sum())}",
           f"- 다른 역과 40px 안 (배치 조정 필요): {', '.join(f'{r.station}({r.conflict})' for r in draft.itertuples() if r.conflict) or '없음'}",
           "- 그림: `reports/v2/fig_line1k_map_draft.png` · 좌표: `data/marts/v2/korail_line1/map_draft.csv`", ""]
-    REPORT.write_text("\n".join(L) + "\n", encoding="utf-8")
+    REPORT.write_text("\n".join(L) + "\n", encoding="utf-8", newline="\n")
 
 
 def main():
@@ -345,11 +345,11 @@ def main():
         audit[["code", "station", "corridor", "lat", "lon"]].assign(operator="코레일"),
         pd.DataFrame({"code": list(K.METRO_L1), "station": list(K.METRO_L1.values()),
                       "corridor": "서울교통공사 1호선", "lat": np.nan, "lon": np.nan, "operator": "서울교통공사"})])
-    stations.to_csv(OUT / "stations.csv", index=False, encoding="utf-8")
+    stations.to_csv(OUT / "stations.csv", index=False, encoding="utf-8", lineterminator="\n")
     tc = K.transfer_candidates()
-    tc.to_csv(OUT / "transfer_candidates.csv", index=False, encoding="utf-8")
+    tc.to_csv(OUT / "transfer_candidates.csv", index=False, encoding="utf-8", lineterminator="\n")
     draft = K.map_draft(pd.read_csv(MAP_NODES), audit)
-    draft.to_csv(OUT / "map_draft.csv", index=False, encoding="utf-8")
+    draft.to_csv(OUT / "map_draft.csv", index=False, encoding="utf-8", lineterminator="\n")
     route = check_routes(st, rows)
     exp = check_express(rows)
     idx = K.NextTrainIndex(st)

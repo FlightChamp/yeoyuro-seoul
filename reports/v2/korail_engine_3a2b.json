@@ -1,0 +1,258 @@
+{
+ "V1": {
+  "cases": 3720,
+  "evaluated": 3720,
+  "mismatch": 0,
+  "examples": []
+ },
+ "T5": {
+  "same_results_off_before_after": true,
+  "same_as_plain_tdrouter": true,
+  "base_adj_unchanged": true,
+  "through_junctions_unchanged": true,
+  "display_unchanged": true,
+  "augmented_has_korail": true,
+  "base_has_no_korail": true
+ },
+ "T": {
+  "T1": {
+   "pairs": 24,
+   "candidates": 360,
+   "direct_guro": 144,
+   "direct_guro_ok": 144,
+   "impossible": 0,
+   "revisit": 0,
+   "top1_guro": 108,
+   "problems": [],
+   "dropped_invalid_guro": 288
+  },
+  "T1a": {
+   "path": [
+    "1_구일",
+    "1_구로@경인",
+    "1_신도림",
+    "1_구로@경부",
+    "1_가산디지털단지"
+   ],
+   "revisit_rule_excludes": true,
+   "forced_transfer_count": 0,
+   "forced_actual_min": 12.5,
+   "train_check": "불가능한 연결",
+   "in_any_candidate": false
+  },
+  "T1b": {
+   "guro_candidates": [
+    "1_구로@경부",
+    "1_구로@경인"
+   ],
+   "both_nodes": true,
+   "cases": [
+    {
+     "od": "구로→구일",
+     "ok": true,
+     "path": [
+      "1_구로@경인",
+      "1_구일"
+     ],
+     "min": 2.0
+    },
+    {
+     "od": "구로→가산디지털단지",
+     "ok": true,
+     "path": [
+      "1_구로@경부",
+      "1_가산디지털단지"
+     ],
+     "min": 4.0
+    },
+    {
+     "od": "구로→신도림",
+     "ok": true,
+     "path": [
+      "1_구로@경부",
+      "1_신도림"
+     ],
+     "min": 2.0
+    },
+    {
+     "od": "구일→구로",
+     "ok": true,
+     "path": [
+      "1_구일",
+      "1_구로@경인"
+     ],
+     "min": 2.0
+    },
+    {
+     "od": "가산디지털단지→구로",
+     "ok": true,
+     "path": [
+      "1_가산디지털단지",
+      "1_구로@경부"
+     ],
+     "min": 4.0
+    }
+   ]
+  },
+  "T2": [
+   {
+    "od": "신도림→구일",
+    "transfers": 0,
+    "walk": 0.0,
+    "path": [
+     "1_신도림",
+     "1_구로@경인",
+     "1_구일"
+    ],
+    "revisit": false
+   },
+   {
+    "od": "신도림→가산디지털단지",
+    "transfers": 0,
+    "walk": 0.0,
+    "path": [
+     "1_신도림",
+     "1_구로@경부",
+     "1_가산디지털단지"
+    ],
+    "revisit": false
+   },
+   {
+    "od": "시청→남영",
+    "transfers": 0,
+    "walk": 0.0,
+    "path": [
+     "1_시청",
+     "1_서울역",
+     "1_남영"
+    ],
+    "revisit": false
+   },
+   {
+    "od": "종로3가→회기",
+    "transfers": 0,
+    "walk": 0.0,
+    "path": [
+     "1_종로3가",
+     "1_종로5가",
+     "1_동대문",
+     "1_동묘앞",
+     "1_신설동",
+     "1_제기동",
+     "1_청량리",
+     "1_회기"
+    ],
+    "revisit": false
+   },
+   {
+    "od": "온수→서울역",
+    "transfers": 0,
+    "walk": 0.0,
+    "path": [
+     "1_온수",
+     "1_오류동",
+     "1_개봉",
+     "1_구일",
+     "1_구로@경인",
+     "1_신도림",
+     "1_영등포",
+     "1_신길",
+     "1_대방",
+     "1_노량진",
+     "1_용산",
+     "1_남영",
+     "1_서울역"
+    ],
+    "revisit": false
+   },
+   {
+    "od": "용산→서울역",
+    "transfers": 0,
+    "walk": 0.0,
+    "path": [
+     "1_용산",
+     "1_남영",
+     "1_서울역"
+    ],
+    "revisit": false
+   },
+   {
+    "od": "청량리→노량진",
+    "transfers": 0,
+    "walk": 0.0,
+    "path": [
+     "1_청량리",
+     "1_제기동",
+     "1_신설동",
+     "1_동묘앞",
+     "1_동대문",
+     "1_종로5가",
+     "1_종로3가",
+     "1_종각",
+     "1_시청",
+     "1_서울역",
+     "1_남영",
+     "1_용산",
+     "1_노량진"
+    ],
+    "revisit": false
+   },
+   {
+    "od": "도봉산→광운대",
+    "transfers": 0,
+    "walk": 0.0,
+    "path": [
+     "1_도봉산",
+     "1_도봉",
+     "1_방학",
+     "1_창동",
+     "1_녹천",
+     "1_월계",
+     "1_광운대"
+    ],
+    "revisit": false
+   }
+  ]
+ },
+ "T3": {
+  "rows": [
+   {
+    "board": "석계",
+    "by_alight": {
+     "광운대": {
+      "E": 3.092,
+      "trains_0800_0830": 5
+     },
+     "월계": {
+      "E": 4.1,
+      "trains_0800_0830": 3
+     }
+    }
+   },
+   {
+    "board": "구로",
+    "by_alight": {
+     "구일": {
+      "E": 4.842,
+      "trains_0800_0830": 3
+     },
+     "온수": {
+      "E": 4.842,
+      "trains_0800_0830": 3
+     }
+    }
+   }
+  ]
+ },
+ "audit_on": {
+  "od": 300,
+  "candidates": 1468,
+  "impossible": 0,
+  "revisit": 0,
+  "connected": 1468,
+  "not_connected": 0,
+  "korail_top1": 232,
+  "excluded_r3": 2,
+  "examples": []
+ }
+}

@@ -48,7 +48,10 @@ CODE_ALIAS = {("2", 260): 200}       # 2호선 신정지선 까치산: 그래프
 # 원천에서 열차 기록이 끊기는 순환선 경계: 같은 방향 다음 기록으로 이어 탄다 (보행 0, 기다림은 시각표 그대로).
 # 2호선 순환 열차는 성수(211)에서 한 바퀴 기록이 끝나고 다른 열차번호로 다시 시작한다 (3A-2a 감사).
 # 6호선은 응암(2611)으로 들어오는 기록과 응암순환부터 시작하는 기록이 나뉜다
-LOOP_SPLIT = {"2": {211}, "6": {2611}}   # 6호선 응암순환: 응암(2611)에서 기록이 끝나고 다음 기록이 순환부터 시작
+LOOP_SPLIT = {"2": {211}, "6": {2611}}
+# 구로 종착 → 구로 시발 이어 타기 (D-095 E3a): 같은 방면 안에서만, 보행 1분. 기대 소요시간에는 쓰지 않고 연결 검증에서만
+GURO_CODE = K.GURO
+GURO_SPLIT_WALK = K.SAME_LINE_TRANSFER_WALK[K.GURO]   # 6호선 응암순환: 응암(2611)에서 기록이 끝나고 다음 기록이 순환부터 시작
 
 # 연결 상태 (사전 등록 2-1절)
 CONNECTED = "연결 확인"
@@ -279,6 +282,7 @@ class Connection:
     rides: list = field(default_factory=list)
     reason: str | None = None            # 연결 불가 사유 (R3) 또는 불가능한 구간 설명
     unverified_legs: list = field(default_factory=list)   # 열차 단위 자료가 없어 기대 시간으로 넘긴 구간
+    guro_splits: int = 0                 # 구로 종착→시발 이어 타기를 쓴 횟수 (E3a)
 
     @property
     def first_wait_min(self) -> float | None:
@@ -292,6 +296,18 @@ def _ride_leg(index: TrainIndex, day_type: str, leg: Leg, t: float, max_wait: fl
     """
     via = leg.codes or None
     r, why = index.next_ride(day_type, leg.group, leg.board_code, leg.alight_code, t, max_wait, via=via)
+    # E3a: 같은 방면 안에서 구로를 지나는 1호선 구간은 '구로 종착 → 1분 → 구로 시발' 이 더 일찍 도착하면 그쪽
+    if leg.group == "1" and via and GURO_CODE in via[1:-1]:
+        k = list(via).index(GURO_CODE)
+        side = {via[k - 1], via[k + 1]}
+        cross = bool(side & set(K.GYEONGIN_SOUTH)) and bool(side & set(K.GYEONGBU_SOUTH))
+        if not cross:
+            a, b = via[:k + 1], via[k:]
+            r1, _ = index.next_ride(day_type, "1", a[0], a[-1], t, max_wait, via=a)
+            if r1 is not None:
+                r2, _ = index.next_ride(day_type, "1", b[0], b[-1], r1.arr_min + GURO_SPLIT_WALK, max_wait, via=b)
+                if r2 is not None and r1.train != r2.train and (r is None or r2.arr_min < r.arr_min - 1e-9):
+                    return [r1, r2], "guro_split"
     if r is not None:
         return [r], None
     if why != IMPOSSIBLE or not via:
@@ -323,6 +339,7 @@ def verify_connection(index: TrainIndex, legs: list[Leg], depart_min: float, day
     """
     t = float(depart_min)
     rides, unverified = [], []
+    splits = 0
     for n, leg in enumerate(legs):
         t += leg.walk_before
         if not index.has_station(day_type, leg.group, leg.board_code):
@@ -338,9 +355,11 @@ def verify_connection(index: TrainIndex, legs: list[Leg], depart_min: float, day
             msg = (f"{leg.group} {leg.board_node}→{leg.alight_node} 를 열차로 이어 갈 수 없음"
                    if st == IMPOSSIBLE else why)
             return Connection(st, depart_min, None, rides, msg, unverified)
+        if why == "guro_split":
+            splits += 1
         rides.extend(rs)
         t = rs[-1].arr_min
-    return Connection(PARTIAL if unverified else CONNECTED, depart_min, t, rides, None, unverified)
+    return Connection(PARTIAL if unverified else CONNECTED, depart_min, t, rides, None, unverified, splits)
 
 
 def impossible_legs(index: TrainIndex, legs: list[Leg], day_type: str) -> list[Leg]:

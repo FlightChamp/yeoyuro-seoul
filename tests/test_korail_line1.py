@@ -275,13 +275,13 @@ def test_express_pass_rows_never_become_stops(tmp_path):
 
 
 # ------------------------------------------------------------------ 격리 (기존 결과 불변)
-# 검증 전용 모듈 (엔진·앱이 import 하지 않음): 3A-2a 시각표 연결 검증은 korail_line1 을 쓴다
-ISOLATED = {"korail_line1.py", "train_timetable.py"}
+# 검증·확장 전용 모듈 (기존 엔진·앱이 import 하지 않음): 3A-2a 연결 검증·3A-2b 코레일 확장
+ISOLATED = {"korail_line1.py", "train_timetable.py", "korail_engine.py"}   # 3A-2b 확장도 기능 켤 때만 (D-095 E2)
 
 
 def test_engine_and_app_do_not_import_korail_line1():
     """P1(D-093): 기능을 켜기 전까지 엔진·앱은 코레일·열차 단위 검증 모듈을 쓰지 않는다."""
-    pat = re.compile(r"korail_line1|train_timetable")
+    pat = re.compile(r"korail_line1|train_timetable|korail_engine")
     files = [*ROOT.glob("app/**/*.py"), *ROOT.glob("yeoyuro_v2/*.py"), ROOT / "station_routing.py"]
     users = [str(p.relative_to(ROOT)) for p in files
              if p.name not in ISOLATED and p.exists() and pat.search(p.read_text(encoding="utf-8"))]

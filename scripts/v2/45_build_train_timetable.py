@@ -184,7 +184,7 @@ def write_report(audit: dict) -> None:
           "- 순환선 기록 경계(같은 방향 다음 기록으로 이어 탐, 보행 0): " +
           ", ".join(f"{k}호선 {sorted(v)}" for k, v in T.LOOP_SPLIT.items()),
           "- 분기 가상 노드(예: 2_성수@seongsu_branch)는 같은 역 본선 코드로 바꿔 따라감", ""]
-    REPORT.write_text("\n".join(L), encoding="utf-8")
+    REPORT.write_text("\n".join(L), encoding="utf-8", newline="\n")
 
 
 def main():
@@ -213,7 +213,7 @@ def main():
         print("  9호선 운행정보 없음 — 대조 건너뜀")
     if not a.skip_engine_audit:
         audit["engine"] = engine_audit(st)
-    (MART / "audit.json").write_text(json.dumps(audit, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    (MART / "audit.json").write_text(json.dumps(audit, ensure_ascii=False, indent=1, default=str), encoding="utf-8", newline="\n")
     write_report(audit)
     print(f"저장: {MART.relative_to(ROOT)}/, {REPORT.relative_to(ROOT)}")
     bad = sum(e["impossible"] for e in audit.get("engine", []))

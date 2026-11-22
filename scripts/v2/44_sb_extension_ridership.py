@@ -145,7 +145,7 @@ def write_report(t: pd.DataFrame, ms: list[str], src_name: str) -> None:
           "- 신분당선은 이 자료에 없다. 정자·미금은 분당선 개찰구분만이다.",
           "- 7~9시 승차는 주말·공휴일을 포함한 전체 일수 평균이다.",
           "- 이 표는 **이용 규모**다. 혼잡도가 아니며, 3-B 에서도 코레일 구간 혼잡도는 결측으로 둔다.", ""]
-    OUT_MD.write_text("\n".join(L), encoding="utf-8")
+    OUT_MD.write_text("\n".join(L), encoding="utf-8", newline="\n")
 
 
 def main():
@@ -162,7 +162,7 @@ def main():
     g, ms = summarize(read_raw(p), a.months)
     t = build_table(g)
     OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
-    t.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
+    t.to_csv(OUT_CSV, index=False, encoding="utf-8-sig", lineterminator="\n")
     write_report(t, ms, p.name)
     print(t.to_string(index=False))
     print(f"\n완전 중복 제거 {summarize.dups[0]:,}행 · 같은 키 합산 {summarize.dups[1]:,}행")
