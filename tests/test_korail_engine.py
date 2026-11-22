@@ -169,3 +169,36 @@ def test_meaningless_guro_transfer_is_not_a_candidate(on9):
     for o, d in [("구일", "독산"), ("개봉", "금천구청"), ("오류동", "신도림")]:
         for p in r.candidates(o, d, 480):
             assert KE.valid_guro_transfer(p), p
+
+
+def test_yen_matches_brute_force_on_toy_graph(v1):
+    """V9(c) 작은 시험 그래프: Yen k-최단경로의 비용 목록 = 단순 경로 전부 열거해 정렬한 앞 k개."""
+    import itertools
+    import random
+    mod = v1[0]
+    rng = random.Random(3)
+    nodes = [f"n{i}" for i in range(8)]
+    for trial in range(5):
+        adj = {u: [] for u in nodes}
+        for u, v in itertools.permutations(nodes, 2):
+            if rng.random() < 0.35:
+                w = float(rng.randint(1, 9))
+                adj[u].append({"to": v, "time": w, "cost": w, "kind": "ride", "cong": float("nan"), "event": 0.0})
+        s = object.__new__(mod.RouteScorer)
+        s.adj, s.nodes = adj, set(nodes)
+        src, dst = "n0", "n7"
+        allp = []
+        stack = [(src, [src], 0.0)]
+        while stack:
+            u, p, c = stack.pop()
+            if u == dst:
+                allp.append(c)
+                continue
+            for e in adj[u]:
+                if e["to"] not in p:
+                    stack.append((e["to"], p + [e["to"]], c + e["time"]))
+        allp.sort()
+        for k in (1, 3, 5):
+            got = [sum(next(e["time"] for e in adj[a] if e["to"] == b) for a, b in zip(p, p[1:]))
+                   for p in s._yen(src, dst, K=k, weight="time")]
+            assert got == allp[:k], (trial, k, got, allp[:k])

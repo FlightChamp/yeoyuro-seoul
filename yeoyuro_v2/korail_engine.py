@@ -143,8 +143,12 @@ def build_pieces(day_type: str, base_nodes: set, stop_times: pd.DataFrame | None
 
 
 # ---------------------------------------------------------------------- 2. 복사본 스코어러·표시 역
-def augment_scorer(base, pieces: KorailPieces):
-    """v1 RouteScorer 의 **복사본**에 코레일 간선을 붙인다. 원본(base)은 바꾸지 않는다 (T5)."""
+def augment_scorer(base, pieces: KorailPieces, assume_congestion: bool = False):
+    """v1 RouteScorer 의 **복사본**에 코레일 간선을 붙인다. 원본(base)은 바꾸지 않는다 (T5).
+
+    assume_congestion=True 는 **민감도 전용(T4)**: 코레일 간선의 'cost' 에 그 시간대 1~9호선 간선 혼잡 중앙값을
+    가정해 넣는다 (평가·판정에는 쓰지 않음, 혼잡도는 여전히 결측).
+    """
     s = copy.copy(base)
     s.adj = {u: [dict(e) for e in lst] for u, lst in base.adj.items()}
     s.ride = pd.concat([base.ride, pieces.ride], ignore_index=True)
@@ -153,8 +157,14 @@ def augment_scorer(base, pieces: KorailPieces):
     def add(u, v, **kw):
         s.adj.setdefault(u, []).append({"to": v, **kw})
 
+    mult = 1.0
+    if assume_congestion:
+        cm = float(np.nanmedian(base.ride["congestion"].to_numpy(float)))
+        g = type(base).evaluate.__globals__
+        mult = 1.0 + float(g["KAPPA"]) * max(cm - float(g["C0"]), 0.0) / 100.0
+        s.assumed_congestion = cm
     for r in pieces.ride.itertuples():
-        add(r.from_node, r.to_node, cost=float(r.travel_time_min), time=float(r.travel_time_min),
+        add(r.from_node, r.to_node, cost=float(r.travel_time_min) * mult, time=float(r.travel_time_min),
             cong=np.nan, event=0.0, kind="ride")
     for u, v, w, _ in pieces.transfer:
         add(u, v, cost=w, time=w, cong=np.nan, event=0.0, kind="transfer")
@@ -459,9 +469,10 @@ class KorailTDRouter(td.TDRouter):
     """include_korail=False 면 TDRouter 와 같다(상속만). True 면 복사본 그래프에서 후보를 찾고 평가한다."""
 
     def __init__(self, *args, include_korail: bool = False, cap_wait: float | None = None,
-                 wait_mode: str = "E", guro_walk: float | None = None, **kw):
+                 wait_mode: str = "E", guro_walk: float | None = None, assume_congestion: bool = False, **kw):
         super().__init__(*args, **kw)
         self.include_korail = include_korail
+        self.assume_congestion = assume_congestion          # T4 민감도 전용
         self.excluded: list = []          # 마지막 evaluate_od 에서 R3 로 뺀 후보
         if not include_korail:
             return
@@ -484,7 +495,7 @@ class KorailTDRouter(td.TDRouter):
         if b not in self._aug:
             base = super().scorer(b)
             self._base_scorers[b] = base
-            self._aug[b] = augment_scorer(base, self.pieces)
+            self._aug[b] = augment_scorer(base, self.pieces, self.assume_congestion)
         return self._aug[b]
 
     def evaluator(self, depart_bin: int, policy: str | None = None):
@@ -502,6 +513,8 @@ class KorailTDRouter(td.TDRouter):
     def _yen_split(self, scorer, v_o, v_d, k):
         """E8: 소요시간 탐색은 코레일 포함 그래프, 혼잡 기반 탐색은 코레일 뺀 원래 그래프."""
         t_paths = scorer._yen(v_o, v_d, K=k, weight="time")
+        if self.assume_congestion:                         # T4 민감도: 혼잡 가정 'cost' 탐색도 코레일 포함 그래프
+            return t_paths + scorer._yen(v_o, v_d, K=k, weight="cost")
         base = scorer._korail_base
         c_paths = base._yen(v_o, v_d, K=k, weight="cost") if (v_o in base.nodes and v_d in base.nodes) else []
         return t_paths + c_paths
