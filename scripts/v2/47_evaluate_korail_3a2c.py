@@ -300,6 +300,15 @@ def analyze_v2(df) -> dict:
     return out, ch
 
 
+def _spearman(a, b) -> float:
+    """스피어만 순위 상관 = 순위끼리의 피어슨 상관. scipy 없이 계산 (Windows 앱 제어 정책이 scipy DLL 을 막는 환경 대비)."""
+    ra = pd.Series(a, dtype=float).rank().to_numpy()
+    rb = pd.Series(b, dtype=float).rank().to_numpy()
+    if ra.std() == 0 or rb.std() == 0:
+        return float("nan")
+    return float(np.corrcoef(ra, rb)[0, 1])
+
+
 def analyze_pairwise(df, a_tag, b_tag) -> dict:
     A = df[df.tag == a_tag].set_index(["o", "d", "t"])
     B = df[df.tag == b_tag].set_index(["o", "d", "t"])
@@ -317,7 +326,7 @@ def analyze_pairwise(df, a_tag, b_tag) -> dict:
         if len(common) >= 3:
             ra = [ca.index(p) for p in common]
             rb = [cb.index(p) for p in common]
-            corr.append(pd.Series(ra).corr(pd.Series(rb), method="spearman"))
+            corr.append(_spearman(ra, rb))
     return {"cases": len(ks), "top1_changed": int(chg.sum()), "top1_changed_rate": round(float(chg.mean()), 4),
             "diff_median": round(float(np.median(d)), 3), "diff_p90": round(float(np.quantile(d, 0.9)), 3),
             "diff_abs_p90": round(float(np.quantile(np.abs(d), 0.9)), 3), "diff_max": round(float(d.max()), 3),
