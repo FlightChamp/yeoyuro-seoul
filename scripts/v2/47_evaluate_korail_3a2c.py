@@ -130,20 +130,35 @@ def _mods():
 
 
 def router(spec: tuple):
-    """spec = (net, on, wait_mode, cap, guro_walk, assume, k)"""
+    """spec = (net, on, wait_mode, cap, guro_walk, assume, k, splits) — splits: None(기본) 또는 ((역코드, 보행, 방향들), …)"""
     if spec not in _R:
-        net, on, wait_mode, cap, gw, assume, k = spec
+        net, on, wait_mode, cap, gw, assume, k, splits = spec
+        l1 = None if splits is None else {c: (w, tuple(dirs)) for c, w, dirs in splits}
         mod, sr = _mods()
         root = DATA9 if net == "app9" else ROOT
         disp = sr.load_display_master(root)
         _R[spec] = KE.KorailTDRouter(root, mod, sr, disp, "weekday", policy="step", k=k, multi_bin=True,
                                      include_korail=on, cap_wait=cap, wait_mode=wait_mode, guro_walk=gw,
-                                     assume_congestion=assume)
+                                     assume_congestion=assume, line1_splits=l1)
     return _R[spec]
 
 
-def spec(net="app9", on=True, wait_mode="E", cap=None, gw=None, assume=False, k=5):
-    return (net, on, wait_mode, cap, gw, assume, k)
+def spec(net="app9", on=True, wait_mode="E", cap=None, gw=None, assume=False, k=5, splits=None):
+    return (net, on, wait_mode, cap, gw, assume, k, splits)
+
+
+# D-097 재평가 설정 (R-P2·R-B1)
+SPLITS = {
+    "none": (),                                                   # 같은 노선 갈아타기 없음 (원 결과와 같은 규칙)
+    "B1": ((1019, 2.0, ("N", "S")),),                             # 광운대만
+    "B2": ((1018, 0.0, ("N",)),),                                 # 석계 북행만
+    "B12": None,                                                  # 기본 = 광운대 2분 + 석계 북행 0분
+    "B12S": ((1019, 2.0, ("N", "S")), (1018, 0.0, ("N", "S"))),   # + 석계 남행 (민감도)
+}
+
+
+def splits_gw(walk):
+    return ((1019, float(walk), ("N", "S")), (1018, 0.0, ("N",)))
 
 
 def _row(r, res, o, d, t, tag):
@@ -160,7 +175,8 @@ def _row(r, res, o, d, t, tag):
             "ivt": q.in_vehicle_min, "n_cand": len(res),
             "cands": ("#".join("|".join(x.path) + "@" + f"{x.actual_time_min:.4f}" for x in res[:5])
                       if tag in ("E", "H") else ""),
-            "excluded": ";".join(x.no_service_reason or "" for x in getattr(r, "excluded", []))}
+            "excluded": ";".join(x.no_service_reason or "" for x in getattr(r, "excluded", [])),
+            "l1split": ";".join(getattr(q, "line1_splits", []) or [])}
 
 
 def task(args):
@@ -661,6 +677,267 @@ def write_report(S: dict) -> None:
     REPORT.write_text("\n".join(L), encoding="utf-8", newline="\n")
 
 
+# ---------------------------------------------------------------------- D-097 재평가
+OUT_R = ROOT / "data" / "marts" / "v2" / "korail_3a2c_r1"
+REPORT_R = ROOT / "reports" / "v2" / "korail_3a2c_reeval.md"
+SUMMARY_R = ROOT / "reports" / "v2" / "korail_3a2c_reeval.json"
+
+
+def p2_items(dry=False) -> list[tuple]:
+    """원 결과 V7 에서 '불가능한 연결' 로 후보가 빠진 (OD, 시각)."""
+    f = OUT / "V7.parquet"
+    if not f.exists():
+        raise FileNotFoundError("원 결과 data/marts/v2/korail_3a2c/V7.parquet 이 필요합니다 (원 평가를 먼저 실행)")
+    v7 = pd.read_parquet(f)
+    x = v7[v7.excluded.fillna("").str.contains("불가능한 연결")]
+    items = sorted({(r.o, r.d, float(r.t)) for r in x.itertuples()})
+    return items[:12] if dry else items
+
+
+def compute_r(name, a, ods_k, workers):
+    bt = [td.parse_hhmm(x) for x in BASE_TIMES]
+    minutes = [t for lo, hi in MIN_WINDOWS for t in range(lo, hi)]
+    if a.dry:
+        minutes = minutes[::40]
+    J = []
+    if name == "R-V2":
+        m = pd.read_parquet(ROOT / "data" / "marts" / "v2" / "od_shiftability_mart.parquet")
+        if a.dry:
+            m = m.head(60)
+        items = [(r.origin, r.destination, td.parse_hhmm(r.base_time), None) for r in m.itertuples()]
+        for tag, sp in [("off", spec("root", False)), ("on", spec("root", True))]:
+            for i in range(0, len(items), 60):
+                J.append((sp, tag, items[i:i + 60]))
+    elif name == "R-V9":
+        J = (jobs_for(spec(), "k5", ods_k, bt) + jobs_for(spec(k=10), "k10", ods_k, bt)
+             + jobs_for(spec(k=20), "k20", ods_k, bt))
+    elif name == "R-P2":
+        items = p2_items(a.dry)
+        for tag, sp in SPLITS.items():
+            for i in range(0, len(items), 10):
+                J.append((spec(splits=sp), tag, [(o, d, t, None) for o, d, t in items[i:i + 10]]))
+    elif name == "R-B1":
+        ods = sorted({(o, d) for o, d, _ in p2_items(a.dry)})
+        for w in (1.0, 2.0, 3.0, 5.0):
+            J += jobs_for(spec(splits=splits_gw(w)), f"w{w:g}", [(o, d, "") for o, d in ods], bt)
+    elif name == "R-V3":
+        J = jobs_for(spec(), "on", ods_k, minutes, chunk=4)
+    elif name == "R-V7":
+        J = jobs_for(spec(), "day", ods_k, DAY_BINS if not a.dry else DAY_BINS[::8])
+    print(f"  {name}: 작업 {len(J)}개", flush=True)
+    return run_tasks(J, workers)
+
+
+def analyze_p2(df) -> dict:
+    out = {}
+    for tag in SPLITS:
+        g = df[df.tag == tag]
+        imp = int(g.excluded.fillna("").str.count("불가능한 연결").sum())
+        okg = g[g.ok]
+        out[tag] = {"od_times": int(len(g)), "route_found": int(len(okg)),
+                    "impossible_excluded": imp,
+                    "top1_uses_line1_split": int((okg.l1split.fillna("") != "").sum()),
+                    "split_station_counts": okg.l1split.fillna("").replace("", np.nan).dropna().value_counts().to_dict(),
+                    "actual_median": round(float(okg.actual.median()), 2) if len(okg) else None}
+    none = df[(df.tag == "none") & df.ok].set_index(["o", "d", "t"])
+    for tag in SPLITS:
+        if tag == "none":
+            continue
+        g = df[(df.tag == tag) & df.ok].set_index(["o", "d", "t"])
+        ks = [k for k in g.index if k in none.index]
+        d = np.array([g.loc[k].actual - none.loc[k].actual for k in ks]) if ks else np.array([])
+        out[tag]["vs_none_faster"] = int((d < -INV_TOL).sum()) if len(d) else 0
+        out[tag]["vs_none_gain_median"] = round(float(-np.median(d[d < -INV_TOL])), 2) if (d < -INV_TOL).any() else None
+        out[tag]["vs_none_slower"] = int((d > INV_TOL).sum()) if len(d) else 0
+    return out
+
+
+def analyze_b1(df) -> dict:
+    base = df[(df.tag == "w2") & df.ok].set_index(["o", "d", "t"])
+    out = {}
+    for w in ("w1", "w2", "w3", "w5"):
+        g = df[(df.tag == w) & df.ok].set_index(["o", "d", "t"])
+        ks = [k for k in g.index if k in base.index]
+        out[w] = {"cases": len(ks),
+                  "top1_uses_gwangun": int(sum("광운대" in str(g.loc[k].l1split) for k in ks)),
+                  "top1_uses_seokgye": int(sum("석계" in str(g.loc[k].l1split) for k in ks)),
+                  "top1_changed_vs_2min": int(sum(g.loc[k].path != base.loc[k].path for k in ks)),
+                  "diff_vs_2min_median": round(float(np.median([g.loc[k].actual - base.loc[k].actual for k in ks])), 3) if ks else None}
+    return out
+
+
+def r_t_audit() -> dict:
+    """R-T: 켠 그래프 감사(3A-2b 방식, 300쌍) + 같은 노선 갈아타기의 열차 연결 여유."""
+    sys.path.insert(0, str(ROOT / "scripts" / "v2"))
+    import importlib.util
+    sp_ = importlib.util.spec_from_file_location("c46", ROOT / "scripts" / "v2" / "46_check_korail_engine.py")
+    c46 = importlib.util.module_from_spec(sp_)
+    sp_.loader.exec_module(c46)
+    r = router(spec())
+    sr = _mods()[1]
+    au = c46.audit_on(r, sr)
+    slack, short, n = [], 0, 0
+    idx = c46.full_index()
+    for o, d, _ in k_sample(r.display.station_key.unique()):
+        for bt in BASE_TIMES:
+            t = td.parse_hhmm(bt)
+            res = r.evaluate_od(o, d, t)
+            if not res or not res[0].line1_splits:
+                continue
+            n += 1
+            ev = r.evaluator(td.bin_index_of(t))
+            c = T.verify_connection(idx, T.legs_from_path(ev, res[0].path), t, "weekday")
+            for code, sl in c.line1_splits:
+                slack.append((code, sl))
+                if sl < T.LINE1_SPLITS_DEFAULT[code][0] - 1e-9:
+                    short += 1
+    by = {}
+    for code, sl in slack:
+        by.setdefault(K.SCOPE[code], []).append(sl)
+    return {"audit": au, "top1_with_line1_split": n,
+            "slack_by_station": {k: {"n": len(v), "min": round(min(v), 2), "median": round(float(np.median(v)), 2)}
+                                 for k, v in by.items()},
+            "slack_shorter_than_walk": short}
+
+
+def write_report_r(S: dict, O: dict) -> None:
+    L = ["# Phase 3A-2c 재평가 — D-097 사후 개선 적용 (원 결과와 나란히)", "",
+         "- 규칙: [사전 등록 문서 7절](../../docs/v2/preregistration_3a2.md) D-097 (**사후 개선**, 원 결과 7ff642b 를 본 뒤 고정). "
+         "원 결과: [korail_3a2c_evaluation.md](korail_3a2c_evaluation.md)",
+         "- 재현: `python scripts/v2/47_evaluate_korail_3a2c.py --reeval`", ""]
+    if "R-V2" in S:
+        v, o = S["R-V2"], O.get("V2", {})
+        L += ["## R-V2 기존 v2.3 3,720건 (A1 후보 포함)", "",
+              "| | 경로 변경 | 원인 | 코레일 없음인데 느려짐 |", "|---|---|---|---|",
+              f"| 원 결과 | {o.get('changed')} | {o.get('by_cause')} | 4 (도림천→장암 2, 신도림→방이 2) |",
+              f"| 재평가 | {v['changed']} | {v['by_cause']} | **{v.get('other_slower', 0)}** |", "",
+              f"- 바뀐 건 소요 변화 중앙 {v['diff_median']}분 · 가장 크게 준 건 {v['diff_min']}분", ""]
+    if "R-V9" in S:
+        v = S["R-V9"]
+        o = O.get("V9", {}).get("K_k5_vs_k10", {})
+        L += ["## R-V9 후보 충분성 (K 표본 × 평일 6개 출발, A2 유효 후보 k 개까지 확대)", "",
+              "| 비교 | 건수 | 1순위 변경 | 더 빠른 경로 새로 찾음 | 줄어든 시간 중앙·최대(분) |", "|---|---|---|---|---|",
+              f"| 원 결과 k=5 → 10 | {o.get('cases')} | {o.get('top1_changed')} | {o.get('better_found')} | {o.get('better_gain_median')}·{o.get('better_gain_max')} |"]
+        for k, lab in (("k5_vs_k10", "재평가 k=5 → 10"), ("k5_vs_k20", "재평가 k=5 → 20"), ("k10_vs_k20", "재평가 k=10 → 20")):
+            x = v[k]
+            L.append(f"| {lab} | {x['cases']} | {x['top1_changed']} | {x['better_found']} | {x['better_gain_median']}·{x['better_gain_max']} |")
+        L.append("")
+    if "R-P2" in S:
+        L += ["## R-P2 원 결과 '불가능한 연결' 복구 (원 V7 에서 그 사유로 후보가 빠진 OD·시각 전부)", "",
+              "| 설정 | OD·시각 | 경로 있음 | 남은 '불가능한 연결' 제외 | 1순위가 같은 노선 갈아타기 | 갈아타기 역 | 1순위 소요 중앙 | 갈아타기 없음 대비 빨라짐(중앙) | 느려짐 |",
+              "|---|---|---|---|---|---|---|---|---|"]
+        lab = {"none": "갈아타기 없음 (원 규칙)", "B1": "광운대만 (2분)", "B2": "석계 북행만 (0분)",
+               "B12": "**광운대 + 석계 북행 (기본)**", "B12S": "+ 석계 남행 (민감도)"}
+        for tag, x in S["R-P2"].items():
+            L.append(f"| {lab[tag]} | {x['od_times']} | {x['route_found']} | {x['impossible_excluded']} | {x['top1_uses_line1_split']} | "
+                     f"{x['split_station_counts']} | {x['actual_median']} | {x.get('vs_none_faster', '-')} ({x.get('vs_none_gain_median', '-')}분) | {x.get('vs_none_slower', '-')} |")
+        L.append("")
+    if "R-B1" in S:
+        L += ["## R-B1 광운대 보행 민감도 (R-P2 OD × 평일 6개 출발, 석계 북행 0분 유지)", "",
+              "| 광운대 보행 | 비교 | 1순위 광운대 | 1순위 석계 | 2분 대비 1순위 변경 | 2분 대비 소요 차이 중앙 |", "|---|---|---|---|---|---|"]
+        for w, x in S["R-B1"].items():
+            L.append(f"| {w[1:]}분 | {x['cases']} | {x['top1_uses_gwangun']} | {x['top1_uses_seokgye']} | {x['top1_changed_vs_2min']} | {x['diff_vs_2min_median']} |")
+        L.append("")
+    if "R-T" in S:
+        t = S["R-T"]
+        au = t["audit"]
+        L += ["## R-T 열차 단위 감사 (한쪽 끝이 코레일 역인 무작위 300쌍, 평일 08:00, 후보 전부)", "",
+              f"- 후보 {au['candidates']:,} · 불가능한 연결 **{au['impossible']}** · 재방문 **{au['revisit']}** · 중복 환승 **{au.get('duplicate_transfer', 0)}** · 연결 확인 {au['connected']:,}",
+              f"- K 표본 × 6개 출발에서 1순위가 광운대·석계 갈아타기를 쓴 {t['top1_with_line1_split']}건의 열차 연결 여유(앞 열차 도착 → 뒤 열차 출발): {t['slack_by_station']}",
+              f"- 여유가 보행시간보다 짧은 연결 **{t['slack_shorter_than_walk']}** (열차 연결 검증은 보행 뒤 출발 열차만 타므로 0 이어야 함)", ""]
+    for name, oname, title in (("R-V3", "V3", "R-V3 시간 역전 (켬, K 표본)"),):
+        if name in S:
+            v, o = S[name].get("on", {}), O.get(oname, {}).get("on", {})
+            L += [f"## {title}", "", "| | 역전 | 역전 있는 OD | 규모 중앙·90%·최대 | 기다림 이득 | 원인 | 오류 |", "|---|---|---|---|---|---|---|"]
+            for lab, x in (("원 결과", o), ("재평가", v)):
+                if x:
+                    L.append(f"| {lab} | {x['inversions']} | {x['od_with_inversion']} ({_pct(x['od_rate'])}) | {x['size_median']}·{x['size_p90']}·{x['size_max']} | "
+                             f"{_pct(x['wait_gain_rate'])} | {x['causes']} | {x['n_errors']} |")
+            L.append("")
+    if "R-V7" in S:
+        v, o = S["R-V7"], O.get("V7", {})
+        def split_reasons(d):
+            r3 = {k: n for k, n in d.items() if k != "불가능한 연결"}
+            return r3, d.get("불가능한 연결", 0)
+        r3o, imo = split_reasons(o.get("excluded_candidates_by_reason", {}))
+        r3n, imn = split_reasons(v["excluded_candidates_by_reason"])
+        L += ["## R-V7 운행 없음 (C1: '불가능한 연결' 을 R3 사유와 분리)", "",
+              "| | R3 사유별 제외 | 불가능한 연결 (R3 아님) | 경로 없음 |", "|---|---|---|---|",
+              f"| 원 결과 | {r3o} | {imo} | {o.get('no_route_left')} |",
+              f"| 재평가 | {r3n} | {imn} | {v['no_route_left']} |", ""]
+    REPORT_R.write_text("\n".join(L), encoding="utf-8", newline="\n")
+
+
+def main_reeval(a):
+    names = a.only or ["R-V2", "R-V9", "R-P2", "R-B1", "R-T", "R-V3", "R-V7"]
+    out_dir = OUT_R if not a.dry else Path(os.environ.get("TEMP", "/tmp")) / "korail_3a2c_r1_dry"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    r9 = router(spec())
+    ods_k = k_sample(r9.display.station_key.unique())
+    if a.dry:
+        ods_k = ods_k[:8] + ods_k[-4:]
+    O = json.loads(SUMMARY.read_text(encoding="utf-8")) if SUMMARY.exists() else {}
+    S = json.loads(SUMMARY_R.read_text(encoding="utf-8")) if SUMMARY_R.exists() and not a.dry else {}
+    for name in names:
+        t0 = time.time()
+        if name == "R-T":
+            S["R-T"] = r_t_audit()
+            print(f"R-T 완료 ({time.time() - t0:.0f}초)", flush=True)
+            continue
+        f = out_dir / f"{name}.parquet"
+        if f.exists() and not a.force and not a.dry:
+            df = pd.read_parquet(f)
+            print(f"{name}: 저장된 결과 사용 ({len(df):,}행)")
+        else:
+            df = compute_r(name, a, ods_k, a.workers)
+            df.to_parquet(f, index=False)
+            print(f"{name}: 계산 {len(df):,}행 ({time.time() - t0:.0f}초)", flush=True)
+        df = df.drop_duplicates(subset=["tag", "o", "d", "t"]).reset_index(drop=True)
+        if name == "R-V2":
+            # analyze_v2 는 T4 용 'assume' 태그도 읽으므로 켬 결과를 복사해 넣고, T4 결과는 버림
+            S["R-V2"], ch = analyze_v2(pd.concat([df, df[df.tag == "on"].assign(tag="assume")], ignore_index=True))
+            ch.to_csv((ROOT / "reports" / "v2" if not a.dry else out_dir) / "korail_3a2c_reeval_V2_changed_routes.csv",
+                      index=False, encoding="utf-8-sig", lineterminator="\n")
+            S["R-V2"].pop("T4_v23", None)
+            S["R-V2"]["other_slower"] = int(((ch.cause == "기타(코레일 없음)") & (ch["diff"] > 1e-6)).sum()) if len(ch) else 0
+        elif name == "R-V9":
+            v = {}
+            for x, y in (("k5", "k10"), ("k5", "k20"), ("k10", "k20")):
+                v[f"{x}_vs_{y}"] = _comp(df, x, y)
+            S["R-V9"] = v
+        elif name == "R-P2":
+            S["R-P2"] = analyze_p2(df)
+        elif name == "R-B1":
+            S["R-B1"] = analyze_b1(df)
+        elif name == "R-V3":
+            S["R-V3"] = {"on": analyze_v3(df)["on"]}
+        elif name == "R-V7":
+            S["R-V7"] = analyze_v7(df)
+        print(f"  → {name} 분석 끝 ({time.time() - t0:.0f}초)", flush=True)
+    global REPORT_R
+    if a.dry:
+        REPORT_R = out_dir / "dry_reeval.md"
+        write_report_r(S, O)
+        print(f"연습 보고서: {REPORT_R}\n[연습 실행] 결과는 저장하지 않았습니다 (보고 금지).")
+        return 0
+    SUMMARY_R.write_text(json.dumps(S, ensure_ascii=False, indent=1, default=str), encoding="utf-8", newline="\n")
+    write_report_r(S, O)
+    print(f"저장: {REPORT_R.relative_to(ROOT)}, {SUMMARY_R.relative_to(ROOT)}")
+    return 0
+
+
+def _comp(df, a_tag, b_tag) -> dict:
+    A = df[(df.tag == a_tag) & df.ok].set_index(["o", "d", "t"])
+    B = df[(df.tag == b_tag) & df.ok].set_index(["o", "d", "t"])
+    ks = [k for k in A.index if k in B.index]
+    diff = np.array([B.loc[k].actual - A.loc[k].actual for k in ks]) if ks else np.array([])
+    better = diff < -INV_TOL
+    return {"cases": len(ks), "top1_changed": int(sum(A.loc[k].path != B.loc[k].path for k in ks)),
+            "better_found": int(better.sum()),
+            "better_gain_median": round(float(-np.median(diff[better])), 3) if better.any() else None,
+            "better_gain_max": round(float(-diff[better].min()), 3) if better.any() else None}
+
+
 # ---------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
@@ -669,7 +946,10 @@ def main():
                     help="작업자 수 (작업자 하나에 메모리 약 0.5GB)")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--reeval", action="store_true", help="D-097 재평가 (원 결과 data/marts/v2/korail_3a2c 필요)")
     a = ap.parse_args()
+    if a.reeval:
+        return main_reeval(a)
     names = a.only or ["V2", "T4", "V3", "V4", "V5", "V6", "V7", "V9", "V8"]
     out_dir = OUT if not a.dry else Path(os.environ.get("TEMP", "/tmp")) / "korail_3a2c_dry"
     out_dir.mkdir(parents=True, exist_ok=True)

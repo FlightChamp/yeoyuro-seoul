@@ -51,7 +51,28 @@ CODE_ALIAS = {("2", 260): 200}       # 2호선 신정지선 까치산: 그래프
 LOOP_SPLIT = {"2": {211}, "6": {2611}}
 # 구로 종착 → 구로 시발 이어 타기 (D-095 E3a): 같은 방면 안에서만, 보행 1분. 기대 소요시간에는 쓰지 않고 연결 검증에서만
 GURO_CODE = K.GURO
-GURO_SPLIT_WALK = K.SAME_LINE_TRANSFER_WALK[K.GURO]   # 6호선 응암순환: 응암(2611)에서 기록이 끝나고 다음 기록이 순환부터 시작
+GURO_SPLIT_WALK = K.SAME_LINE_TRANSFER_WALK[K.GURO]
+# D-097 B1·B2: 1호선 같은 노선 갈아타기 (구로 밖). {역코드: (보행 분, 허용 방향)}. 'N' = 경원 쪽(의정부 방면)으로 갈 때
+LINE1_SPLITS_DEFAULT = {1019: (2.0, ("N", "S")),     # 광운대: 양방향 2분 (사용자 조사, 실측 아님)
+                        1018: (0.0, ("N",))}          # 석계: 북행 같은 승강장 0분 (남행은 민감도만)
+NORTH_NEXT = {1018: 1019, 1019: 1020}                 # 그 역에서 북행이면 다음 정차 코드
+
+
+def split_direction(via, k) -> str:
+    """via[k] 역에서 갈아탈 때 진행 방향: 다음 정차가 북쪽 이웃이면 'N', 아니면 'S'."""
+    return "N" if k + 1 < len(via) and NORTH_NEXT.get(via[k]) == via[k + 1] else "S"
+
+
+def line1_split_points(via, splits) -> list[tuple]:
+    """구간 중간의 같은 노선 갈아타기 후보 [(k, 역코드, 보행)] (D-097 B3: 한 구간 최대 1번)."""
+    out = []
+    if not splits or not via:
+        return out
+    for k in range(1, len(via) - 1):
+        c = via[k]
+        if c in splits and split_direction(via, k) in splits[c][1]:
+            out.append((k, c, float(splits[c][0])))
+    return out   # 6호선 응암순환: 응암(2611)에서 기록이 끝나고 다음 기록이 순환부터 시작
 
 # 연결 상태 (사전 등록 2-1절)
 CONNECTED = "연결 확인"
@@ -283,33 +304,47 @@ class Connection:
     reason: str | None = None            # 연결 불가 사유 (R3) 또는 불가능한 구간 설명
     unverified_legs: list = field(default_factory=list)   # 열차 단위 자료가 없어 기대 시간으로 넘긴 구간
     guro_splits: int = 0                 # 구로 종착→시발 이어 타기를 쓴 횟수 (E3a)
+    line1_splits: list = field(default_factory=list)   # 광운대·석계 같은 노선 갈아타기 [(역코드, 연결 여유 분)] (D-097)
 
     @property
     def first_wait_min(self) -> float | None:
         return self.rides[0].wait_min if self.rides else None
 
 
-def _ride_leg(index: TrainIndex, day_type: str, leg: Leg, t: float, max_wait: float):
+def _ride_leg(index: TrainIndex, day_type: str, leg: Leg, t: float, max_wait: float, line1_splits=None):
     """구간 하나를 열차로 탄다. 한 열차로 안 되면 순환선 기록 경계(LOOP_SPLIT)에서 한 번 이어 탄다.
 
-    반환: (rides 목록, None) 또는 (None, 사유)
+    1호선: 구로 종착→시발(E3a), 광운대·석계 같은 노선 갈아타기(D-097 B)를 바로 가기와 비교해 더 일찍 도착하는 쪽.
+    갈아타기는 두 열차번호가 다를 때만 (같은 열차가 계속 가면 갈아타기 아님, B4).
+    반환: (rides 목록, None 또는 'guro_split' 또는 'split:<역코드>') 또는 (None, 사유)
     """
     via = leg.codes or None
     r, why = index.next_ride(day_type, leg.group, leg.board_code, leg.alight_code, t, max_wait, via=via)
-    # E3a: 같은 방면 안에서 구로를 지나는 1호선 구간은 '구로 종착 → 1분 → 구로 시발' 이 더 일찍 도착하면 그쪽
-    if leg.group == "1" and via and GURO_CODE in via[1:-1]:
-        k = list(via).index(GURO_CODE)
-        side = {via[k - 1], via[k + 1]}
-        cross = bool(side & set(K.GYEONGIN_SOUTH)) and bool(side & set(K.GYEONGBU_SOUTH))
-        if not cross:
+    best = ([r], None) if r is not None else None
+    if leg.group == "1" and via:
+        opts = []
+        # E3a: 같은 방면 안에서 구로를 지나면 '구로 종착 → 1분 → 구로 시발'
+        if GURO_CODE in via[1:-1]:
+            k = list(via).index(GURO_CODE)
+            side = {via[k - 1], via[k + 1]}
+            cross = bool(side & set(K.GYEONGIN_SOUTH)) and bool(side & set(K.GYEONGBU_SOUTH))
+            if not cross:
+                opts.append((k, GURO_CODE, GURO_SPLIT_WALK, "guro_split"))
+        splits = LINE1_SPLITS_DEFAULT if line1_splits is None else line1_splits
+        for k, c, w in line1_split_points(via, splits):
+            opts.append((k, c, w, f"split:{c}"))
+        for k, c, w, tag in opts:
             a, b = via[:k + 1], via[k:]
             r1, _ = index.next_ride(day_type, "1", a[0], a[-1], t, max_wait, via=a)
-            if r1 is not None:
-                r2, _ = index.next_ride(day_type, "1", b[0], b[-1], r1.arr_min + GURO_SPLIT_WALK, max_wait, via=b)
-                if r2 is not None and r1.train != r2.train and (r is None or r2.arr_min < r.arr_min - 1e-9):
-                    return [r1, r2], "guro_split"
-    if r is not None:
-        return [r], None
+            if r1 is None:
+                continue
+            r2, _ = index.next_ride(day_type, "1", b[0], b[-1], r1.arr_min + w, max_wait, via=b)
+            if r2 is None or r1.train == r2.train:
+                continue
+            if best is None or r2.arr_min < best[0][-1].arr_min - 1e-9:
+                best = ([r1, r2], tag)
+    if best is not None:
+        return best
     if why != IMPOSSIBLE or not via:
         return None, why
     for k, c in enumerate(via[1:-1], start=1):
@@ -332,7 +367,7 @@ def _ride_leg(index: TrainIndex, day_type: str, leg: Leg, t: float, max_wait: fl
 
 def verify_connection(index: TrainIndex, legs: list[Leg], depart_min: float, day_type: str,
                       fallback_leg_minutes: dict | None = None,
-                      max_wait: float = MAX_WAIT_MIN) -> Connection:
+                      max_wait: float = MAX_WAIT_MIN, line1_splits=None) -> Connection:
     """출발 시각부터 경로를 열차 단위로 따라간다 (사전 등록 2-1절).
 
     fallback_leg_minutes: {leg 번호: 기대 소요(분)} — 열차 단위 자료가 없는 구간을 기대 시간으로 넘길 때 (부분 확인)
@@ -340,6 +375,7 @@ def verify_connection(index: TrainIndex, legs: list[Leg], depart_min: float, day
     t = float(depart_min)
     rides, unverified = [], []
     splits = 0
+    l1 = []
     for n, leg in enumerate(legs):
         t += leg.walk_before
         if not index.has_station(day_type, leg.group, leg.board_code):
@@ -349,7 +385,7 @@ def verify_connection(index: TrainIndex, legs: list[Leg], depart_min: float, day
                 continue
             return Connection(PARTIAL, depart_min, None, rides,
                               f"{leg.group} {leg.board_code} 열차 단위 자료 없음", unverified + [n])
-        rs, why = _ride_leg(index, day_type, leg, t, max_wait)
+        rs, why = _ride_leg(index, day_type, leg, t, max_wait, line1_splits)
         if rs is None:
             st = IMPOSSIBLE if why == IMPOSSIBLE else NOT_CONNECTED
             msg = (f"{leg.group} {leg.board_node}→{leg.alight_node} 를 열차로 이어 갈 수 없음"
@@ -357,18 +393,20 @@ def verify_connection(index: TrainIndex, legs: list[Leg], depart_min: float, day
             return Connection(st, depart_min, None, rides, msg, unverified)
         if why == "guro_split":
             splits += 1
+        elif why and why.startswith("split:"):
+            l1.append((int(why.split(":")[1]), rs[1].dep_min - rs[0].arr_min))
         rides.extend(rs)
         t = rs[-1].arr_min
-    return Connection(PARTIAL if unverified else CONNECTED, depart_min, t, rides, None, unverified, splits)
+    return Connection(PARTIAL if unverified else CONNECTED, depart_min, t, rides, None, unverified, splits, l1)
 
 
-def impossible_legs(index: TrainIndex, legs: list[Leg], day_type: str) -> list[Leg]:
+def impossible_legs(index: TrainIndex, legs: list[Leg], day_type: str, line1_splits=None) -> list[Leg]:
     """그날 어떤 시각에도 열차로 이어 갈 수 없는 구간 (R6 오류 기준: 실제로 불가능한 연결)."""
     out = []
     for lg in legs:
         if not index.has_station(day_type, lg.group, lg.board_code):
             continue
-        rs, why = _ride_leg(index, day_type, lg, 0.0, max_wait=10_000.0)
+        rs, why = _ride_leg(index, day_type, lg, 0.0, max_wait=10_000.0, line1_splits=line1_splits)
         if rs is None and why == IMPOSSIBLE:
             out.append(lg)
     return out

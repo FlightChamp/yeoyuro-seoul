@@ -202,3 +202,44 @@ def test_yen_matches_brute_force_on_toy_graph(v1):
             got = [sum(next(e["time"] for e in adj[a] if e["to"] == b) for a, b in zip(p, p[1:]))
                    for p in s._yen(src, dst, K=k, weight="time")]
             assert got == allp[:k], (trial, k, got, allp[:k])
+
+
+# ------------------------------------------------------------------ D-097 사후 개선
+def test_d097_non_korail_od_never_slower(v1):
+    """A1: 켜도 코레일을 지나지 않는 OD 의 1순위가 끈 상태보다 느려지지 않음 (원 결과 V2 '기타' 4건)."""
+    mod, sr, disp = v1
+    off = KE.KorailTDRouter(ROOT, mod, sr, disp, "weekday", include_korail=False)
+    on = KE.KorailTDRouter(ROOT, mod, sr, disp, "weekday", include_korail=True)
+    for o, d, t in [("도림천", "장암", 1050), ("도림천", "장암", 1080), ("신도림", "방이", 1080), ("신도림", "방이", 1110)]:
+        a, b = off.evaluate_od(o, d, t)[0], on.evaluate_od(o, d, t)[0]
+        assert b.actual_time_min <= a.actual_time_min + 1e-6, (o, d, t, a.actual_time_min, b.actual_time_min)
+
+
+def test_d097_same_line_transfer_recovers_missing_route(on9):
+    """B1·B2: 가산디지털단지→월계(직행 0대)는 광운대·석계 1번 갈아타기로 경로가 생기고, 열차 연결도 이어짐."""
+    r, _ = on9
+    for t in (480.0, 1080.0):
+        q = r.evaluate_od("가산디지털단지", "월계", t)[0]
+        if q.line1_splits:
+            assert set(q.line1_splits) <= {"광운대", "석계"} and q.transfer_count >= 1
+            ev = r.evaluator(td.bin_index_of(t))
+            c = T.verify_connection(r.kidx, T.legs_from_path(ev, q.path), t, "weekday")
+            # 열차 단위로는 광운대·석계 대신 구로 종착→시발(E3a)로 더 일찍 이어질 수도 있음 — 어느 쪽이든 실제 열차 변경
+            assert c.status == T.CONNECTED and (c.line1_splits or c.guro_splits)
+            assert all(slack >= T.LINE1_SPLITS_DEFAULT[code][0] - 1e-9 for code, slack in c.line1_splits)
+            assert len({x.train for x in c.rides}) == len(c.rides)
+
+
+def test_d097_direct_train_is_not_a_transfer(on9):
+    """B4: 직행 열차가 있으면(회기→월계) 같은 노선 갈아타기를 넣지 않음."""
+    r, _ = on9
+    q = r.evaluate_od("회기", "월계", 480.0)[0]
+    assert q.transfer_count == 0 and not q.line1_splits
+
+
+def test_d097_seokgye_southbound_not_default():
+    """B2: 석계 남행 갈아타기는 기본 규칙에 없음 (민감도 전용)."""
+    south = (1020, 1019, 1018, 1017)
+    assert all(c != 1018 for _, c, _ in T.line1_split_points(south, T.LINE1_SPLITS_DEFAULT))
+    north = (1017, 1018, 1019, 1020)
+    assert {c for _, c, _ in T.line1_split_points(north, T.LINE1_SPLITS_DEFAULT)} == {1018, 1019}

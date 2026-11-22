@@ -210,6 +210,7 @@ class KorailTDResult(td.TDResult):
     congestion_judgement: str = ""            # '혼잡 판정 제외(코레일 구간 혼잡도 미확인)' 또는 ''
     no_service_reason: str | None = None      # R3: 운행 시작 전 / 운행 종료 / 장시간 대기 제외
     korail_waits: list = field(default_factory=list)
+    line1_splits: list = field(default_factory=list)  # D-097: 이 경로에서 쓴 같은 노선 갈아타기 역 (광운대·석계)
 
 
 JUDGE_EXCLUDED = "혼잡 판정 제외(코레일 구간 혼잡도 미확인)"
@@ -220,8 +221,10 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
 
     def __init__(self, scorer, headway, policy="step", include_initial_wait=False, event_scale=1.0,
                  event_exclude_lines=(), pieces: KorailPieces | None = None, index: T.TrainIndex | None = None,
-                 cap_wait: float | None = None, wait_mode: str = "E"):
+                 cap_wait: float | None = None, wait_mode: str = "E", line1_splits: dict | None = None):
         super().__init__(scorer, headway, policy, include_initial_wait, event_scale, event_exclude_lines)
+        # D-097 B: 광운대·석계 같은 노선 갈아타기 설정 (None = 기본 LINE1_SPLITS_DEFAULT, {} = 끔)
+        self.line1_splits = T.LINE1_SPLITS_DEFAULT if line1_splits is None else line1_splits
         self.pieces = pieces
         self.kidx = index
         self.cap_wait = cap_wait            # V6: E 를 12분에서 자르는 시나리오
@@ -295,6 +298,48 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
         return KorailLegWait(lg["nodes"][0], lg["nodes"][-1], t, E,
                              None if r is None else r.wait_min, None if r is not None else why)
 
+    def _ride_med(self, via, b0) -> float:
+        """그 30분 구간에 via 를 한 열차로 가는 열차들의 탑승 시간 중앙값 (없으면 그날 중앙값)."""
+        deps, arrs, _ = self.kidx.pair(self.day_type, "1", via[0], via[-1], tuple(via))
+        if not deps:
+            return float("nan")
+        r = [a - d for d, a in zip(deps, arrs) if b0 <= d < b0 + 30]
+        return float(np.median(r if r else [a - d for d, a in zip(deps, arrs)]))
+
+    def plan_leg(self, lg: dict, t: float) -> dict:
+        """D-097 B3: 코레일 포함 1호선 구간을 '바로 가기' vs '광운대·석계에서 1번 갈아타기' 기대 도착으로 비교.
+
+        비교에는 첫 승차 대기도 넣는다(공정 비교). 반환: {'mode': 'direct'|'split', 'wait': KorailLegWait,
+        'k': 갈아탈 위치(codes 기준), 'code', 'walk', 'b': 뒷 부분 구간 dict}
+        """
+        via = list(lg["codes"])
+        w_d = self.korail_wait(lg, t)
+        b0 = td.BIN_START_MIN + td.bin_index_of(t) * td.BIN_WIDTH_MIN
+        best = None
+        if w_d.reason is None and not np.isnan(w_d.E):
+            best = (t + w_d.E + self._ride_med(via, b0), {"mode": "direct", "wait": w_d})
+        for k, c, walk in T.line1_split_points(via, self.line1_splits):
+            a = {"codes": via[:k + 1], "nodes": lg["nodes"][:k + 1]}
+            b = {"codes": via[k:], "nodes": lg["nodes"][k:]}
+            w_a = self.korail_wait(a, t)
+            if w_a.reason is not None or np.isnan(w_a.E):
+                continue
+            t_s = t + w_a.E + self._ride_med(a["codes"], b0) + walk
+            if np.isnan(t_s):
+                continue
+            b1 = td.BIN_START_MIN + td.bin_index_of(t_s) * td.BIN_WIDTH_MIN
+            w_b = self.korail_wait(b, t_s)
+            if np.isnan(w_b.E):
+                continue
+            arr = t_s + w_b.E + self._ride_med(b["codes"], b1)
+            if np.isnan(arr):
+                continue
+            if best is None or arr < best[0] - 1e-9:
+                best = (arr, {"mode": "split", "wait": w_a, "k": k, "code": c, "walk": walk, "b": b})
+        if best is None:
+            return {"mode": "direct", "wait": w_d}
+        return best[1]
+
     # --- 평가 (기존 evaluate 와 같은 순서, 코레일 간선만 다르게)
     def evaluate(self, path, depart_min=None, keep_trace=False):
         if depart_min is None:
@@ -360,10 +405,20 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
 
         # 첫 탑승 구간: 대기는 넣지 않음(R4) — 코레일이면 운행 여부(R3)와 시각표상 다음 열차만 기록
         first = legs[0] if legs else None
+        pending = {}                       # path 노드 번호 -> 그 역에서 하는 같은 노선 갈아타기 계획 (D-097)
+        splits_used = []
+
+        def schedule(lg, plan):
+            if plan["mode"] == "split":
+                node_idx = lg["i0"] + plan["k"]          # codes 와 nodes 는 코레일 구간에서 1:1
+                pending[node_idx] = plan
+
         if first is not None and first["korail"]:
-            w = self.korail_wait(first, t)
+            plan = self.plan_leg(first, t)
+            w = plan["wait"]
             waits.append(w)
             no_service = no_service or w.reason
+            schedule(first, plan)
             if self.include_initial_wait and not np.isnan(w.E):
                 init_wait = w.E
                 t += init_wait
@@ -376,6 +431,26 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
         prev_was_ride = False
         for i, (u, v) in enumerate(zip(path, path[1:])):
             e = next(x for x in adj[u] if x["to"] == v)
+            if e["kind"] == "ride" and i in pending:
+                # 같은 노선 갈아타기 (광운대·석계): 내려서 보행 + 뒷 부분 목적지행 E (R3 는 실제 도착 분 기준)
+                plan = pending.pop(i)
+                n_tr += 1
+                walk += plan["walk"]
+                perceived += plan["walk"]
+                if keep_trace:
+                    trace.append(td.EdgeTrace("transfer_walk", u, u, t, t + plan["walk"], None, None))
+                t += plan["walk"]
+                wb = self.korail_wait(plan["b"], t)
+                waits.append(wb)
+                no_service = no_service or wb.reason
+                h = 0.0 if np.isnan(wb.E) else wb.E
+                if keep_trace and h:
+                    trace.append(td.EdgeTrace("transfer_wait", u, u, t, t + h, None, None))
+                wait += h
+                perceived += h
+                t += h
+                splits_used.append(K.SCOPE.get(plan["code"], str(plan["code"])))
+                prev_was_ride = False
             if e["kind"] == "ride":
                 dw = self._dwell(u, t) if prev_was_ride else 0.0
                 if prev_was_ride and dw > 0:
@@ -409,9 +484,11 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
                 if self.policy != "fixed" and not (td.BIN_START_MIN <= t < td.BIN_END_MIN):
                     oow = True
                 if nxt_leg["korail"]:
-                    w = self.korail_wait(nxt_leg, t)
+                    plan = self.plan_leg(nxt_leg, t)
+                    w = plan["wait"]
                     waits.append(w)
                     no_service = no_service or w.reason
+                    schedule(nxt_leg, plan)
                     h = 0.0 if np.isnan(w.E) else w.E
                 else:
                     nxt = path[i + 2]
@@ -440,7 +517,8 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
             exposure=exp, exposure_p90=exp90, bins_used=tuple(sorted(bins_used)),
             out_of_window=oow, trace=trace,
             korail=any_kor or kor_min > 0, korail_ride_min=kor_min,
-            congestion_judgement=JUDGE_EXCLUDED, no_service_reason=no_service, korail_waits=waits)
+            congestion_judgement=JUDGE_EXCLUDED, no_service_reason=no_service, korail_waits=waits,
+            line1_splits=splits_used)
 
 
 # ---------------------------------------------------------------------- 4. 라우터
@@ -469,10 +547,13 @@ class KorailTDRouter(td.TDRouter):
     """include_korail=False 면 TDRouter 와 같다(상속만). True 면 복사본 그래프에서 후보를 찾고 평가한다."""
 
     def __init__(self, *args, include_korail: bool = False, cap_wait: float | None = None,
-                 wait_mode: str = "E", guro_walk: float | None = None, assume_congestion: bool = False, **kw):
+                 wait_mode: str = "E", guro_walk: float | None = None, assume_congestion: bool = False,
+                 line1_splits: dict | None = None, max_k: int = 20, **kw):
         super().__init__(*args, **kw)
         self.include_korail = include_korail
         self.assume_congestion = assume_congestion          # T4 민감도 전용
+        self.line1_splits = line1_splits                    # D-097 B (None = 기본, {} = 끔)
+        self.max_k = max_k                                  # D-097 A2
         self.excluded: list = []          # 마지막 evaluate_od 에서 R3 로 뺀 후보
         if not include_korail:
             return
@@ -507,17 +588,57 @@ class KorailTDRouter(td.TDRouter):
             self._evals[key] = KorailTDEvaluator(
                 self.scorer(depart_bin), self.headway, policy, self.include_initial_wait,
                 self.event_scale, self.event_exclude_lines, pieces=self.pieces, index=self.kidx,
-                cap_wait=self.cap_wait, wait_mode=self.wait_mode)
+                cap_wait=self.cap_wait, wait_mode=self.wait_mode, line1_splits=self.line1_splits)
         return self._evals[key]
 
+    def _clean(self, p):
+        """Yen 결과 → 실제 노드 경로. 기존 규칙(출발·도착 같은 역 노드 자르기, 재방문 제외) + 구로 갈아타기 규칙."""
+        sr = self.sr
+        real = [n for n in p if not sr.is_virtual(n)]
+        while len(real) >= 2 and sr.station_of(real[0]) == sr.station_of(real[1]):
+            real = real[1:]
+        while len(real) >= 2 and sr.station_of(real[-1]) == sr.station_of(real[-2]):
+            real = real[:-1]
+        if len(real) < 2 or sr.has_station_revisit(real):
+            return None
+        if not valid_guro_transfer(real):
+            self.dropped_guro = getattr(self, "dropped_guro", 0) + 1
+            return None
+        return tuple(real)
+
+    def _structurally_possible(self, path, ev) -> bool:
+        """그날 어떤 시각에도 열차로 이어 갈 수 없는 코레일 구간이 있으면 False (바로 가기·같은 노선 갈아타기 모두 불가)."""
+        for lg in ev.legs(list(path)):
+            if not lg["korail"]:
+                continue
+            leg = T.Leg("1", lg["codes"][0], lg["codes"][-1], lg["nodes"][0], lg["nodes"][-1], 0.0, tuple(lg["codes"]))
+            rs, why = T._ride_leg(self.kidx, self.day_type, leg, 0.0, 10_000.0, ev.line1_splits)
+            if rs is None and why == T.IMPOSSIBLE:
+                return False
+        return True
+
     def _yen_split(self, scorer, v_o, v_d, k):
-        """E8: 소요시간 탐색은 코레일 포함 그래프, 혼잡 기반 탐색은 코레일 뺀 원래 그래프."""
-        t_paths = scorer._yen(v_o, v_d, K=k, weight="time")
-        if self.assume_congestion:                         # T4 민감도: 혼잡 가정 'cost' 탐색도 코레일 포함 그래프
-            return t_paths + scorer._yen(v_o, v_d, K=k, weight="cost")
+        """D-097 A1·A2: 소요시간 Yen(코레일 포함, 유효 후보 k 개까지 확대) ∪ 소요시간 Yen(원래 그래프) ∪ 혼잡 기반 Yen.
+
+        혼잡 기반 탐색은 기본은 원래 그래프(E8), T4 민감도에서만 코레일 포함 그래프."""
         base = scorer._korail_base
-        c_paths = base._yen(v_o, v_d, K=k, weight="cost") if (v_o in base.nodes and v_d in base.nodes) else []
-        return t_paths + c_paths
+        b = next((bb for bb, sc in self._aug.items() if sc is scorer), 0)
+        ev = self.evaluator(b)
+        K = k
+        while True:
+            t_paths = scorer._yen(v_o, v_d, K=K, weight="time")
+            valid = [p for p in t_paths if (q := self._clean(p)) is not None and self._structurally_possible(q, ev)]
+            if len(valid) >= k or K >= self.max_k or len(t_paths) < K:
+                break
+            K = min(self.max_k, K * 2)
+        self.last_K = K
+        in_base = v_o in base.nodes and v_d in base.nodes
+        tb = base._yen(v_o, v_d, K=k, weight="time") if in_base else []
+        if self.assume_congestion:                         # T4 민감도: 혼잡 가정 'cost' 탐색도 코레일 포함 그래프
+            c_paths = scorer._yen(v_o, v_d, K=k, weight="cost")
+        else:
+            c_paths = base._yen(v_o, v_d, K=k, weight="cost") if in_base else []
+        return valid + tb + c_paths
 
     def raw_paths(self, scorer, origin, dest, k):
         if not self.include_korail:
@@ -547,16 +668,8 @@ class KorailTDRouter(td.TDRouter):
                 sc.adj, sc.nodes = a, n
         seen, out = set(), []
         for p in paths:
-            real = [n for n in p if not sr.is_virtual(n)]
-            while len(real) >= 2 and sr.station_of(real[0]) == sr.station_of(real[1]):
-                real = real[1:]
-            while len(real) >= 2 and sr.station_of(real[-1]) == sr.station_of(real[-2]):
-                real = real[:-1]
-            real = tuple(real)
-            if len(real) < 2 or real in seen or sr.has_station_revisit(list(real)):
-                continue
-            if not valid_guro_transfer(real):
-                self.dropped_guro = getattr(self, "dropped_guro", 0) + 1
+            real = self._clean(p)
+            if real is None or real in seen:
                 continue
             seen.add(real)
             out.append(list(real))
