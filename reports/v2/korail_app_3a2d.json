@@ -1,0 +1,181 @@
+{
+ "n_od": 412,
+ "n_times": 41,
+ "W2": {
+  "plans": 16892,
+  "errors": 0,
+  "error_examples": [],
+  "status": {
+   "ok": 11904,
+   "no_benefit": 3393,
+   "none": 1595
+  },
+  "best_not_connected": 0,
+  "top_not_connected": 570,
+  "best_not_top": 47,
+  "excluded_train_reasons": {
+   "막차 종료": 6459
+  },
+  "midnight_connected": 533,
+  "korail_best": 11904,
+  "sec_mean": 0.4564386213533021,
+  "sec_p95": 1.2998068349997536,
+  "sec_max": 5.540387699999883,
+  "build_sec": 4.354080000000067
+ },
+ "W5": {
+  "sat_0030": {
+   "service_date": "2026-11-27",
+   "day_type": "weekday",
+   "minute": 1470.0,
+   "label": "운행일 기준: 11월 27일(금) 심야",
+   "status": "none",
+   "reason": "운행 종료"
+  },
+  "gumcheon_2300": {
+   "status": "ok",
+   "best_trains": [
+    "K7038",
+    "K224"
+   ],
+   "best_arrive": "00:18",
+   "top_status": "연결 확인",
+   "excluded_train": {
+    "막차 종료": 10
+   }
+  }
+ },
+ "W1": {
+  "cases": 14,
+  "same": 14,
+  "diffs": []
+ },
+ "APP": {
+  "W3": {
+   "off": 270,
+   "on": 288,
+   "added_n": 18,
+   "label_changed": [
+    "① 개봉",
+    "① 광운대",
+    "① 구로",
+    "① 구일",
+    "① 금천구청",
+    "① 남영",
+    "① 녹천",
+    "① 대방",
+    "① 도봉",
+    "① 독산",
+    "① 방학",
+    "① 신이문",
+    "① 영등포",
+    "① 오류동",
+    "① 외대앞",
+    "① 용산",
+    "① 월계",
+    "① 회기",
+    "①② 신도림",
+    "①④ 창동",
+    "①⑤ 신길",
+    "①⑥ 석계",
+    "①⑦ 가산디지털단지",
+    "①⑦ 도봉산",
+    "①⑦ 온수",
+    "①⑨ 노량진"
+   ],
+   "dup_on": 0,
+   "cleared_on_off": true,
+   "dest_kept": true,
+   "flash": true,
+   "exceptions": [],
+   "common_badge": {
+    "노량진": "1,9",
+    "신길": "1,5",
+    "신도림": "1,2",
+    "가산디지털단지": "1,7",
+    "온수": "1,7",
+    "석계": "1,6",
+    "창동": "1,4",
+    "도봉산": "1,7"
+   }
+  },
+  "W4": {
+   "traces": 16,
+   "planned_b_dotted": 1,
+   "planned_b_nodes_trace": 1,
+   "planned_b_clickable": false,
+   "click_keys": 288,
+   "new_stations_clickable": [
+    "개봉",
+    "광운대",
+    "구로",
+    "구일",
+    "금천구청",
+    "남영",
+    "녹천",
+    "대방",
+    "도봉",
+    "독산",
+    "방학",
+    "신이문",
+    "영등포",
+    "오류동",
+    "외대앞",
+    "용산",
+    "월계",
+    "회기"
+   ],
+   "off_dotted": 0
+  },
+  "W6_W7": [
+   {
+    "case": "신도림→석계 2026-11-25 08:00",
+    "search_sec": 2.55,
+    "texts": {
+     "기대 소요 기준": true,
+     "시각표 기준": true,
+     "시각표 고정": true,
+     "운행일": true,
+     "혼잡도 미확인": true,
+     "쾌적 판정 안 함": true,
+     "확인 못함": false,
+     "1~9호선 대상 아님": false
+    },
+    "base_card_same_as_off": true,
+    "exceptions": []
+   },
+   {
+    "case": "가산디지털단지→월계 2026-11-25 08:00",
+    "search_sec": 0.82,
+    "texts": {
+     "기대 소요 기준": true,
+     "시각표 기준": true,
+     "시각표 고정": true,
+     "운행일": true,
+     "혼잡도 미확인": true,
+     "쾌적 판정 안 함": true,
+     "확인 못함": false,
+     "1~9호선 대상 아님": true
+    },
+    "base_card_same_as_off": true,
+    "exceptions": []
+   },
+   {
+    "case": "금천구청→월계 2026-11-28 00:30",
+    "search_sec": 2.09,
+    "texts": {
+     "기대 소요 기준": true,
+     "시각표 기준": true,
+     "시각표 고정": true,
+     "운행일": true,
+     "혼잡도 미확인": false,
+     "쾌적 판정 안 함": false,
+     "확인 못함": true,
+     "1~9호선 대상 아님": true
+    },
+    "base_card_same_as_off": true,
+    "exceptions": []
+   }
+  ]
+ }
+}
