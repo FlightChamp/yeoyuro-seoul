@@ -1,0 +1,2573 @@
+{
+ "S1": {
+  "time_per_od_sec": {
+   "k10": 0.175,
+   "k20": 0.282,
+   "k10rep": 0.174
+  },
+  "time_total_sec": {
+   "k10": 433.3,
+   "k20": 698.2,
+   "k10rep": 429.5
+  },
+  "k10_vs_k20": {
+   "cases": 2472,
+   "top1_changed": 19,
+   "better_found": 11,
+   "better_gain_median": 0.75,
+   "better_gain_max": 2.773
+  },
+  "k10_vs_k10rep": {
+   "cases": 2472,
+   "top1_changed": 27,
+   "better_found": 4,
+   "better_gain_median": 0.784,
+   "better_gain_max": 1.509
+  },
+  "k10rep_vs_k20": {
+   "cases": 2472,
+   "top1_changed": 39,
+   "better_found": 20,
+   "better_gain_median": 0.919,
+   "better_gain_max": 2.773
+  },
+  "rep_vs_k10": {
+   "cases": 2472,
+   "candidate_jaccard_median": 1.0,
+   "rep_missed_k10_top1_and_slower": 11,
+   "rep_faster": 4
+  }
+ },
+ "S2": [
+  {
+   "stage": "원 평가 (k=5)",
+   "cmp": "k=5 → 10",
+   "cases": 2472,
+   "top1_changed": 71,
+   "better_found": 47,
+   "better_gain_median": 3.062,
+   "better_gain_max": 9.694
+  },
+  {
+   "stage": "D-097 (k=5, A1·A2)",
+   "cmp": "k=5 → 10",
+   "cases": 2472,
+   "top1_changed": 64,
+   "better_found": 51,
+   "better_gain_median": 2.5,
+   "better_gain_max": 9.694
+  },
+  {
+   "stage": "D-097 (k=5, A1·A2)",
+   "cmp": "k=5 → 20",
+   "cases": 2472,
+   "top1_changed": 75,
+   "better_found": 58,
+   "better_gain_median": 2.5,
+   "better_gain_max": 9.694
+  },
+  {
+   "stage": "D-099 (k=10)",
+   "cmp": "k=10 → 20",
+   "cases": 2472,
+   "top1_changed": 19,
+   "better_found": 11,
+   "better_gain_median": 0.75,
+   "better_gain_max": 2.773
+  }
+ ],
+ "S3": {
+  "summary": {
+   "cases": 69,
+   "tracked": 69,
+   "by_station": {
+    "석계": {
+     "n": 62,
+     "m0": {
+      "connected": 61,
+      "same_train": 0,
+      "slack_min": 3.5,
+      "slack_median": 5.0
+     },
+     "m1": {
+      "connected": 61,
+      "same_train": 0,
+      "slack_min": 3.5,
+      "slack_median": 5.0
+     },
+     "m2": {
+      "connected": 61,
+      "same_train": 0,
+      "slack_min": 3.5,
+      "slack_median": 5.0
+     },
+     "arrive_delay_m1_vs_m0_median": 0.0,
+     "arrive_delay_m2_vs_m0_median": 0.0
+    },
+    "광운대": {
+     "n": 7,
+     "m0": {
+      "connected": 7,
+      "same_train": 0,
+      "slack_min": 3.0,
+      "slack_median": 5.5
+     },
+     "m1": {
+      "connected": 7,
+      "same_train": 0,
+      "slack_min": 3.0,
+      "slack_median": 5.5
+     },
+     "m2": {
+      "connected": 7,
+      "same_train": 0,
+      "slack_min": 3.0,
+      "slack_median": 5.5
+     },
+     "arrive_delay_m1_vs_m0_median": 0.0,
+     "arrive_delay_m2_vs_m0_median": 0.0
+    }
+   },
+   "untracked": []
+  },
+  "rows": [
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 330.0,
+    "station": "광운대",
+    "expected_min": 64.43,
+    "train1": "K402",
+    "arr_at_station": 404.0,
+    "m0": {
+     "connected": true,
+     "train2": "K4",
+     "dep": 409.0,
+     "slack": 5.0,
+     "arrive": 413.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K4",
+     "dep": 409.0,
+     "slack": 5.0,
+     "arrive": 413.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K4",
+     "dep": 409.0,
+     "slack": 5.0,
+     "arrive": 413.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 360.0,
+    "station": "석계",
+    "expected_min": 66.2,
+    "train1": "K406",
+    "arr_at_station": 419.5,
+    "m0": {
+     "connected": true,
+     "train2": "K8",
+     "dep": 429.0,
+     "slack": 9.5,
+     "arrive": 436.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K8",
+     "dep": 429.0,
+     "slack": 9.5,
+     "arrive": 436.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K8",
+     "dep": 429.0,
+     "slack": 9.5,
+     "arrive": 436.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 390.0,
+    "station": "석계",
+    "expected_min": 63.87,
+    "train1": "K410",
+    "arr_at_station": 458.5,
+    "m0": {
+     "connected": true,
+     "train2": "K16",
+     "dep": 463.0,
+     "slack": 4.5,
+     "arrive": 470.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K16",
+     "dep": 463.0,
+     "slack": 4.5,
+     "arrive": 470.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K16",
+     "dep": 463.0,
+     "slack": 4.5,
+     "arrive": 470.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 420.0,
+    "station": "석계",
+    "expected_min": 64.87,
+    "train1": "K606",
+    "arr_at_station": 488.5,
+    "m0": {
+     "connected": true,
+     "train2": "K22",
+     "dep": 495.0,
+     "slack": 6.5,
+     "arrive": 502.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K22",
+     "dep": 495.0,
+     "slack": 6.5,
+     "arrive": 502.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K22",
+     "dep": 495.0,
+     "slack": 6.5,
+     "arrive": 502.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 450.0,
+    "station": "석계",
+    "expected_min": 63.6,
+    "train1": "S418",
+    "arr_at_station": 507.0,
+    "m0": {
+     "connected": true,
+     "train2": "K26",
+     "dep": 511.0,
+     "slack": 4.0,
+     "arrive": 518.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K26",
+     "dep": 511.0,
+     "slack": 4.0,
+     "arrive": 518.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K26",
+     "dep": 511.0,
+     "slack": 4.0,
+     "arrive": 518.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 480.0,
+    "station": "석계",
+    "expected_min": 64.93,
+    "train1": "K422",
+    "arr_at_station": 535.5,
+    "m0": {
+     "connected": true,
+     "train2": "K32",
+     "dep": 540.0,
+     "slack": 4.5,
+     "arrive": 547.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K32",
+     "dep": 540.0,
+     "slack": 4.5,
+     "arrive": 547.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K32",
+     "dep": 540.0,
+     "slack": 4.5,
+     "arrive": 547.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 510.0,
+    "station": "석계",
+    "expected_min": 64.26,
+    "train1": "K428",
+    "arr_at_station": 567.5,
+    "m0": {
+     "connected": true,
+     "train2": "K40",
+     "dep": 575.0,
+     "slack": 7.5,
+     "arrive": 582.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K40",
+     "dep": 575.0,
+     "slack": 7.5,
+     "arrive": 582.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K40",
+     "dep": 575.0,
+     "slack": 7.5,
+     "arrive": 582.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 540.0,
+    "station": "석계",
+    "expected_min": 68.33,
+    "train1": "K432",
+    "arr_at_station": 597.0,
+    "m0": {
+     "connected": true,
+     "train2": "K48",
+     "dep": 609.0,
+     "slack": 12.0,
+     "arrive": 616.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K48",
+     "dep": 609.0,
+     "slack": 12.0,
+     "arrive": 616.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K48",
+     "dep": 609.0,
+     "slack": 12.0,
+     "arrive": 616.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 570.0,
+    "station": "석계",
+    "expected_min": 65.4,
+    "train1": "K622",
+    "arr_at_station": 636.0,
+    "m0": {
+     "connected": true,
+     "train2": "S54",
+     "dep": 641.0,
+     "slack": 5.0,
+     "arrive": 648.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S54",
+     "dep": 641.0,
+     "slack": 5.0,
+     "arrive": 648.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S54",
+     "dep": 641.0,
+     "slack": 5.0,
+     "arrive": 648.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 600.0,
+    "station": "석계",
+    "expected_min": 66.6,
+    "train1": "K626",
+    "arr_at_station": 662.5,
+    "m0": {
+     "connected": true,
+     "train2": "K58",
+     "dep": 668.0,
+     "slack": 5.5,
+     "arrive": 675.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K58",
+     "dep": 668.0,
+     "slack": 5.5,
+     "arrive": 675.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K58",
+     "dep": 668.0,
+     "slack": 5.5,
+     "arrive": 675.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 660.0,
+    "station": "석계",
+    "expected_min": 69.51,
+    "train1": "K444",
+    "arr_at_station": 726.5,
+    "m0": {
+     "connected": true,
+     "train2": "K70",
+     "dep": 731.0,
+     "slack": 4.5,
+     "arrive": 735.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K70",
+     "dep": 731.0,
+     "slack": 4.5,
+     "arrive": 735.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K70",
+     "dep": 731.0,
+     "slack": 4.5,
+     "arrive": 735.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 690.0,
+    "station": "석계",
+    "expected_min": 66.97,
+    "train1": "S446",
+    "arr_at_station": 752.5,
+    "m0": {
+     "connected": true,
+     "train2": "K76",
+     "dep": 757.0,
+     "slack": 4.5,
+     "arrive": 761.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K76",
+     "dep": 757.0,
+     "slack": 4.5,
+     "arrive": 761.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K76",
+     "dep": 757.0,
+     "slack": 4.5,
+     "arrive": 761.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 720.0,
+    "station": "석계",
+    "expected_min": 71.13,
+    "train1": "K636",
+    "arr_at_station": 778.5,
+    "m0": {
+     "connected": true,
+     "train2": "S80",
+     "dep": 787.0,
+     "slack": 8.5,
+     "arrive": 791.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S80",
+     "dep": 787.0,
+     "slack": 8.5,
+     "arrive": 791.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S80",
+     "dep": 787.0,
+     "slack": 8.5,
+     "arrive": 791.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 750.0,
+    "station": "석계",
+    "expected_min": 67.33,
+    "train1": "K638",
+    "arr_at_station": 812.5,
+    "m0": {
+     "connected": true,
+     "train2": "K86",
+     "dep": 817.0,
+     "slack": 4.5,
+     "arrive": 821.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K86",
+     "dep": 817.0,
+     "slack": 4.5,
+     "arrive": 821.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K86",
+     "dep": 817.0,
+     "slack": 4.5,
+     "arrive": 821.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 780.0,
+    "station": "석계",
+    "expected_min": 71.05,
+    "train1": "K642",
+    "arr_at_station": 861.5,
+    "m0": {
+     "connected": true,
+     "train2": "K94",
+     "dep": 872.0,
+     "slack": 10.5,
+     "arrive": 876.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K94",
+     "dep": 872.0,
+     "slack": 10.5,
+     "arrive": 876.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K94",
+     "dep": 872.0,
+     "slack": 10.5,
+     "arrive": 876.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 810.0,
+    "station": "석계",
+    "expected_min": 68.58,
+    "train1": "S456",
+    "arr_at_station": 876.5,
+    "m0": {
+     "connected": true,
+     "train2": "S96",
+     "dep": 882.0,
+     "slack": 5.5,
+     "arrive": 886.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S96",
+     "dep": 882.0,
+     "slack": 5.5,
+     "arrive": 886.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S96",
+     "dep": 882.0,
+     "slack": 5.5,
+     "arrive": 886.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 840.0,
+    "station": "석계",
+    "expected_min": 68.2,
+    "train1": "K646",
+    "arr_at_station": 902.0,
+    "m0": {
+     "connected": true,
+     "train2": "K100",
+     "dep": 907.0,
+     "slack": 5.0,
+     "arrive": 911.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K100",
+     "dep": 907.0,
+     "slack": 5.0,
+     "arrive": 911.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K100",
+     "dep": 907.0,
+     "slack": 5.0,
+     "arrive": 911.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 870.0,
+    "station": "광운대",
+    "expected_min": 67.49,
+    "train1": "K650",
+    "arr_at_station": 947.0,
+    "m0": {
+     "connected": true,
+     "train2": "K976",
+     "dep": 950.0,
+     "slack": 3.0,
+     "arrive": 951.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K976",
+     "dep": 950.0,
+     "slack": 3.0,
+     "arrive": 951.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K976",
+     "dep": 950.0,
+     "slack": 3.0,
+     "arrive": 951.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 900.0,
+    "station": "석계",
+    "expected_min": 67.69,
+    "train1": "K652",
+    "arr_at_station": 958.5,
+    "m0": {
+     "connected": true,
+     "train2": "K112",
+     "dep": 964.0,
+     "slack": 5.5,
+     "arrive": 968.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K112",
+     "dep": 964.0,
+     "slack": 5.5,
+     "arrive": 968.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K112",
+     "dep": 964.0,
+     "slack": 5.5,
+     "arrive": 968.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 930.0,
+    "station": "석계",
+    "expected_min": 68.13,
+    "train1": "S464",
+    "arr_at_station": 992.5,
+    "m0": {
+     "connected": true,
+     "train2": "S120",
+     "dep": 997.0,
+     "slack": 4.5,
+     "arrive": 1001.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S120",
+     "dep": 997.0,
+     "slack": 4.5,
+     "arrive": 1001.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S120",
+     "dep": 997.0,
+     "slack": 4.5,
+     "arrive": 1001.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 630.0,
+    "station": "석계",
+    "expected_min": 64.14,
+    "train1": "K628",
+    "arr_at_station": 697.5,
+    "m0": {
+     "connected": true,
+     "train2": "K812",
+     "dep": 702.5,
+     "slack": 5.0,
+     "arrive": 709.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K812",
+     "dep": 702.5,
+     "slack": 5.0,
+     "arrive": 709.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K812",
+     "dep": 702.5,
+     "slack": 5.0,
+     "arrive": 709.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 660.0,
+    "station": "석계",
+    "expected_min": 67.01,
+    "train1": "K442",
+    "arr_at_station": 714.0,
+    "m0": {
+     "connected": true,
+     "train2": "K70",
+     "dep": 731.0,
+     "slack": 17.0,
+     "arrive": 738.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K70",
+     "dep": 731.0,
+     "slack": 17.0,
+     "arrive": 738.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K70",
+     "dep": 731.0,
+     "slack": 17.0,
+     "arrive": 738.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 690.0,
+    "station": "석계",
+    "expected_min": 64.47,
+    "train1": "S446",
+    "arr_at_station": 752.5,
+    "m0": {
+     "connected": true,
+     "train2": "K76",
+     "dep": 757.0,
+     "slack": 4.5,
+     "arrive": 764.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K76",
+     "dep": 757.0,
+     "slack": 4.5,
+     "arrive": 764.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K76",
+     "dep": 757.0,
+     "slack": 4.5,
+     "arrive": 764.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 750.0,
+    "station": "석계",
+    "expected_min": 64.83,
+    "train1": "K638",
+    "arr_at_station": 812.5,
+    "m0": {
+     "connected": true,
+     "train2": "K86",
+     "dep": 817.0,
+     "slack": 4.5,
+     "arrive": 824.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K86",
+     "dep": 817.0,
+     "slack": 4.5,
+     "arrive": 824.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K86",
+     "dep": 817.0,
+     "slack": 4.5,
+     "arrive": 824.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 780.0,
+    "station": "석계",
+    "expected_min": 68.55,
+    "train1": "K640",
+    "arr_at_station": 837.5,
+    "m0": {
+     "connected": true,
+     "train2": "K816",
+     "dep": 853.5,
+     "slack": 16.0,
+     "arrive": 860.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K816",
+     "dep": 853.5,
+     "slack": 16.0,
+     "arrive": 860.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K816",
+     "dep": 853.5,
+     "slack": 16.0,
+     "arrive": 860.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 810.0,
+    "station": "석계",
+    "expected_min": 66.08,
+    "train1": "S456",
+    "arr_at_station": 876.5,
+    "m0": {
+     "connected": true,
+     "train2": "S96",
+     "dep": 882.0,
+     "slack": 5.5,
+     "arrive": 889.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S96",
+     "dep": 882.0,
+     "slack": 5.5,
+     "arrive": 889.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S96",
+     "dep": 882.0,
+     "slack": 5.5,
+     "arrive": 889.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 840.0,
+    "station": "석계",
+    "expected_min": 65.7,
+    "train1": "K646",
+    "arr_at_station": 902.0,
+    "m0": {
+     "connected": true,
+     "train2": "K100",
+     "dep": 907.0,
+     "slack": 5.0,
+     "arrive": 914.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K100",
+     "dep": 907.0,
+     "slack": 5.0,
+     "arrive": 914.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K100",
+     "dep": 907.0,
+     "slack": 5.0,
+     "arrive": 914.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 870.0,
+    "station": "광운대",
+    "expected_min": 66.03,
+    "train1": "K458",
+    "arr_at_station": 928.0,
+    "m0": {
+     "connected": true,
+     "train2": "K106",
+     "dep": 935.0,
+     "slack": 7.0,
+     "arrive": 939.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K106",
+     "dep": 935.0,
+     "slack": 7.0,
+     "arrive": 939.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K106",
+     "dep": 935.0,
+     "slack": 7.0,
+     "arrive": 939.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 900.0,
+    "station": "석계",
+    "expected_min": 65.19,
+    "train1": "K652",
+    "arr_at_station": 958.5,
+    "m0": {
+     "connected": true,
+     "train2": "K112",
+     "dep": 964.0,
+     "slack": 5.5,
+     "arrive": 971.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K112",
+     "dep": 964.0,
+     "slack": 5.5,
+     "arrive": 971.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K112",
+     "dep": 964.0,
+     "slack": 5.5,
+     "arrive": 971.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 930.0,
+    "station": "석계",
+    "expected_min": 65.63,
+    "train1": "K654",
+    "arr_at_station": 983.0,
+    "m0": {
+     "connected": true,
+     "train2": "K118",
+     "dep": 988.0,
+     "slack": 5.0,
+     "arrive": 995.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K118",
+     "dep": 988.0,
+     "slack": 5.0,
+     "arrive": 995.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K118",
+     "dep": 988.0,
+     "slack": 5.0,
+     "arrive": 995.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 960.0,
+    "station": "석계",
+    "expected_min": 64.47,
+    "train1": "K466",
+    "arr_at_station": 1021.5,
+    "m0": {
+     "connected": true,
+     "train2": "K126",
+     "dep": 1026.0,
+     "slack": 4.5,
+     "arrive": 1033.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K126",
+     "dep": 1026.0,
+     "slack": 4.5,
+     "arrive": 1033.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K126",
+     "dep": 1026.0,
+     "slack": 4.5,
+     "arrive": 1033.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 990.0,
+    "station": "석계",
+    "expected_min": 63.83,
+    "train1": "K468",
+    "arr_at_station": 1053.0,
+    "m0": {
+     "connected": true,
+     "train2": "K134",
+     "dep": 1057.0,
+     "slack": 4.0,
+     "arrive": 1064.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K134",
+     "dep": 1057.0,
+     "slack": 4.0,
+     "arrive": 1064.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K134",
+     "dep": 1057.0,
+     "slack": 4.0,
+     "arrive": 1064.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1020.0,
+    "station": "석계",
+    "expected_min": 64.97,
+    "train1": "K666",
+    "arr_at_station": 1082.0,
+    "m0": {
+     "connected": true,
+     "train2": "K142",
+     "dep": 1086.0,
+     "slack": 4.0,
+     "arrive": 1093.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K142",
+     "dep": 1086.0,
+     "slack": 4.0,
+     "arrive": 1093.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K142",
+     "dep": 1086.0,
+     "slack": 4.0,
+     "arrive": 1093.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1050.0,
+    "station": "석계",
+    "expected_min": 63.33,
+    "train1": "K668",
+    "arr_at_station": 1105.5,
+    "m0": {
+     "connected": true,
+     "train2": "S148",
+     "dep": 1110.0,
+     "slack": 4.5,
+     "arrive": 1117.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S148",
+     "dep": 1110.0,
+     "slack": 4.5,
+     "arrive": 1117.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S148",
+     "dep": 1110.0,
+     "slack": 4.5,
+     "arrive": 1117.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1080.0,
+    "station": "광운대",
+    "expected_min": 64.91,
+    "train1": "K670",
+    "arr_at_station": 1138.0,
+    "m0": {
+     "connected": true,
+     "train2": "K158",
+     "dep": 1144.0,
+     "slack": 6.0,
+     "arrive": 1148.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K158",
+     "dep": 1144.0,
+     "slack": 6.0,
+     "arrive": 1148.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K158",
+     "dep": 1144.0,
+     "slack": 6.0,
+     "arrive": 1148.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1140.0,
+    "station": "석계",
+    "expected_min": 65.33,
+    "train1": "K676",
+    "arr_at_station": 1203.0,
+    "m0": {
+     "connected": true,
+     "train2": "S174",
+     "dep": 1208.0,
+     "slack": 5.0,
+     "arrive": 1215.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S174",
+     "dep": 1208.0,
+     "slack": 5.0,
+     "arrive": 1215.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S174",
+     "dep": 1208.0,
+     "slack": 5.0,
+     "arrive": 1215.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1170.0,
+    "station": "석계",
+    "expected_min": 64.62,
+    "train1": "S486",
+    "arr_at_station": 1232.5,
+    "m0": {
+     "connected": true,
+     "train2": "K180",
+     "dep": 1240.0,
+     "slack": 7.5,
+     "arrive": 1247.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K180",
+     "dep": 1240.0,
+     "slack": 7.5,
+     "arrive": 1247.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K180",
+     "dep": 1240.0,
+     "slack": 7.5,
+     "arrive": 1247.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1200.0,
+    "station": "석계",
+    "expected_min": 64.38,
+    "train1": "K686",
+    "arr_at_station": 1262.0,
+    "m0": {
+     "connected": true,
+     "train2": "S186",
+     "dep": 1266.5,
+     "slack": 4.5,
+     "arrive": 1273.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S186",
+     "dep": 1266.5,
+     "slack": 4.5,
+     "arrive": 1273.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S186",
+     "dep": 1266.5,
+     "slack": 4.5,
+     "arrive": 1273.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1230.0,
+    "station": "석계",
+    "expected_min": 64.08,
+    "train1": "K690",
+    "arr_at_station": 1297.0,
+    "m0": {
+     "connected": true,
+     "train2": "K194",
+     "dep": 1302.0,
+     "slack": 5.0,
+     "arrive": 1309.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K194",
+     "dep": 1302.0,
+     "slack": 5.0,
+     "arrive": 1309.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K194",
+     "dep": 1302.0,
+     "slack": 5.0,
+     "arrive": 1309.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1260.0,
+    "station": "광운대",
+    "expected_min": 67.4,
+    "train1": "K692",
+    "arr_at_station": 1318.0,
+    "m0": {
+     "connected": true,
+     "train2": "K200",
+     "dep": 1331.0,
+     "slack": 13.0,
+     "arrive": 1335.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K200",
+     "dep": 1331.0,
+     "slack": 13.0,
+     "arrive": 1335.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K200",
+     "dep": 1331.0,
+     "slack": 13.0,
+     "arrive": 1335.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1290.0,
+    "station": "석계",
+    "expected_min": 64.3,
+    "train1": "K694",
+    "arr_at_station": 1349.0,
+    "m0": {
+     "connected": true,
+     "train2": "K206",
+     "dep": 1355.0,
+     "slack": 6.0,
+     "arrive": 1362.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K206",
+     "dep": 1355.0,
+     "slack": 6.0,
+     "arrive": 1362.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K206",
+     "dep": 1355.0,
+     "slack": 6.0,
+     "arrive": 1362.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1320.0,
+    "station": "석계",
+    "expected_min": 64.33,
+    "train1": "K502",
+    "arr_at_station": 1397.0,
+    "m0": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 24.0,
+     "arrive": 1428.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 24.0,
+     "arrive": 1428.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 24.0,
+     "arrive": 1428.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "가산디지털단지→녹천",
+    "t": 1380.0,
+    "station": "석계",
+    "expected_min": 65.13,
+    "train1": "K506",
+    "arr_at_station": 1434.0,
+    "m0": {
+     "connected": true,
+     "train2": "K222",
+     "dep": 1441.0,
+     "slack": 7.0,
+     "arrive": 1448.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K222",
+     "dep": 1441.0,
+     "slack": 7.0,
+     "arrive": 1448.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K222",
+     "dep": 1441.0,
+     "slack": 7.0,
+     "arrive": 1448.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 330.0,
+    "station": "광운대",
+    "expected_min": 68.13,
+    "train1": "K402",
+    "arr_at_station": 404.0,
+    "m0": {
+     "connected": true,
+     "train2": "K4",
+     "dep": 409.0,
+     "slack": 5.0,
+     "arrive": 410.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K4",
+     "dep": 409.0,
+     "slack": 5.0,
+     "arrive": 410.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K4",
+     "dep": 409.0,
+     "slack": 5.0,
+     "arrive": 410.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 960.0,
+    "station": "석계",
+    "expected_min": 66.97,
+    "train1": "K466",
+    "arr_at_station": 1021.5,
+    "m0": {
+     "connected": true,
+     "train2": "K126",
+     "dep": 1026.0,
+     "slack": 4.5,
+     "arrive": 1030.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K126",
+     "dep": 1026.0,
+     "slack": 4.5,
+     "arrive": 1030.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K126",
+     "dep": 1026.0,
+     "slack": 4.5,
+     "arrive": 1030.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 990.0,
+    "station": "석계",
+    "expected_min": 66.33,
+    "train1": "K468",
+    "arr_at_station": 1053.0,
+    "m0": {
+     "connected": true,
+     "train2": "K134",
+     "dep": 1057.0,
+     "slack": 4.0,
+     "arrive": 1061.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K134",
+     "dep": 1057.0,
+     "slack": 4.0,
+     "arrive": 1061.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K134",
+     "dep": 1057.0,
+     "slack": 4.0,
+     "arrive": 1061.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1020.0,
+    "station": "석계",
+    "expected_min": 67.47,
+    "train1": "K666",
+    "arr_at_station": 1082.0,
+    "m0": {
+     "connected": true,
+     "train2": "K142",
+     "dep": 1086.0,
+     "slack": 4.0,
+     "arrive": 1090.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K142",
+     "dep": 1086.0,
+     "slack": 4.0,
+     "arrive": 1090.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K142",
+     "dep": 1086.0,
+     "slack": 4.0,
+     "arrive": 1090.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1050.0,
+    "station": "석계",
+    "expected_min": 65.83,
+    "train1": "S474",
+    "arr_at_station": 1121.0,
+    "m0": {
+     "connected": true,
+     "train2": "K154",
+     "dep": 1125.0,
+     "slack": 4.0,
+     "arrive": 1129.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K154",
+     "dep": 1125.0,
+     "slack": 4.0,
+     "arrive": 1129.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K154",
+     "dep": 1125.0,
+     "slack": 4.0,
+     "arrive": 1129.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1080.0,
+    "station": "광운대",
+    "expected_min": 67.6,
+    "train1": "K672",
+    "arr_at_station": 1153.5,
+    "m0": {
+     "connected": true,
+     "train2": "K162",
+     "dep": 1159.0,
+     "slack": 5.5,
+     "arrive": 1160.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K162",
+     "dep": 1159.0,
+     "slack": 5.5,
+     "arrive": 1160.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K162",
+     "dep": 1159.0,
+     "slack": 5.5,
+     "arrive": 1160.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1110.0,
+    "station": "석계",
+    "expected_min": 69.5,
+    "train1": "K480",
+    "arr_at_station": 1178.5,
+    "m0": {
+     "connected": true,
+     "train2": "K168",
+     "dep": 1183.0,
+     "slack": 4.5,
+     "arrive": 1187.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K168",
+     "dep": 1183.0,
+     "slack": 4.5,
+     "arrive": 1187.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K168",
+     "dep": 1183.0,
+     "slack": 4.5,
+     "arrive": 1187.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1140.0,
+    "station": "석계",
+    "expected_min": 67.83,
+    "train1": "K676",
+    "arr_at_station": 1203.0,
+    "m0": {
+     "connected": true,
+     "train2": "S174",
+     "dep": 1208.0,
+     "slack": 5.0,
+     "arrive": 1212.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S174",
+     "dep": 1208.0,
+     "slack": 5.0,
+     "arrive": 1212.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S174",
+     "dep": 1208.0,
+     "slack": 5.0,
+     "arrive": 1212.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1170.0,
+    "station": "석계",
+    "expected_min": 67.12,
+    "train1": "S486",
+    "arr_at_station": 1232.5,
+    "m0": {
+     "connected": true,
+     "train2": "K180",
+     "dep": 1240.0,
+     "slack": 7.5,
+     "arrive": 1244.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K180",
+     "dep": 1240.0,
+     "slack": 7.5,
+     "arrive": 1244.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K180",
+     "dep": 1240.0,
+     "slack": 7.5,
+     "arrive": 1244.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1200.0,
+    "station": "석계",
+    "expected_min": 66.88,
+    "train1": "K686",
+    "arr_at_station": 1262.0,
+    "m0": {
+     "connected": true,
+     "train2": "S186",
+     "dep": 1266.5,
+     "slack": 4.5,
+     "arrive": 1271.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S186",
+     "dep": 1266.5,
+     "slack": 4.5,
+     "arrive": 1271.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S186",
+     "dep": 1266.5,
+     "slack": 4.5,
+     "arrive": 1271.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1230.0,
+    "station": "석계",
+    "expected_min": 66.58,
+    "train1": "K690",
+    "arr_at_station": 1297.0,
+    "m0": {
+     "connected": true,
+     "train2": "K194",
+     "dep": 1302.0,
+     "slack": 5.0,
+     "arrive": 1306.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K194",
+     "dep": 1302.0,
+     "slack": 5.0,
+     "arrive": 1306.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K194",
+     "dep": 1302.0,
+     "slack": 5.0,
+     "arrive": 1306.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 360.0,
+    "station": "석계",
+    "expected_min": 68.7,
+    "train1": "K406",
+    "arr_at_station": 419.5,
+    "m0": {
+     "connected": true,
+     "train2": "K8",
+     "dep": 429.0,
+     "slack": 9.5,
+     "arrive": 433.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K8",
+     "dep": 429.0,
+     "slack": 9.5,
+     "arrive": 433.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K8",
+     "dep": 429.0,
+     "slack": 9.5,
+     "arrive": 433.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 390.0,
+    "station": "석계",
+    "expected_min": 66.37,
+    "train1": "K410",
+    "arr_at_station": 458.5,
+    "m0": {
+     "connected": true,
+     "train2": "K16",
+     "dep": 463.0,
+     "slack": 4.5,
+     "arrive": 467.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K16",
+     "dep": 463.0,
+     "slack": 4.5,
+     "arrive": 467.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K16",
+     "dep": 463.0,
+     "slack": 4.5,
+     "arrive": 467.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 420.0,
+    "station": "석계",
+    "expected_min": 67.37,
+    "train1": "K606",
+    "arr_at_station": 488.5,
+    "m0": {
+     "connected": true,
+     "train2": "K22",
+     "dep": 495.0,
+     "slack": 6.5,
+     "arrive": 499.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K22",
+     "dep": 495.0,
+     "slack": 6.5,
+     "arrive": 499.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K22",
+     "dep": 495.0,
+     "slack": 6.5,
+     "arrive": 499.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 450.0,
+    "station": "석계",
+    "expected_min": 66.1,
+    "train1": "K608",
+    "arr_at_station": 513.5,
+    "m0": {
+     "connected": true,
+     "train2": "S28",
+     "dep": 517.0,
+     "slack": 3.5,
+     "arrive": 521.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S28",
+     "dep": 517.0,
+     "slack": 3.5,
+     "arrive": 521.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S28",
+     "dep": 517.0,
+     "slack": 3.5,
+     "arrive": 521.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 480.0,
+    "station": "석계",
+    "expected_min": 67.43,
+    "train1": "K426",
+    "arr_at_station": 559.5,
+    "m0": {
+     "connected": true,
+     "train2": "S38",
+     "dep": 564.5,
+     "slack": 5.0,
+     "arrive": 568.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S38",
+     "dep": 564.5,
+     "slack": 5.0,
+     "arrive": 568.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S38",
+     "dep": 564.5,
+     "slack": 5.0,
+     "arrive": 568.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 510.0,
+    "station": "석계",
+    "expected_min": 66.76,
+    "train1": "K616",
+    "arr_at_station": 585.5,
+    "m0": {
+     "connected": true,
+     "train2": "K44",
+     "dep": 594.0,
+     "slack": 8.5,
+     "arrive": 598.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K44",
+     "dep": 594.0,
+     "slack": 8.5,
+     "arrive": 598.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K44",
+     "dep": 594.0,
+     "slack": 8.5,
+     "arrive": 598.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 540.0,
+    "station": "석계",
+    "expected_min": 70.83,
+    "train1": "K620",
+    "arr_at_station": 622.0,
+    "m0": {
+     "connected": true,
+     "train2": "K52",
+     "dep": 632.0,
+     "slack": 10.0,
+     "arrive": 636.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K52",
+     "dep": 632.0,
+     "slack": 10.0,
+     "arrive": 636.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K52",
+     "dep": 632.0,
+     "slack": 10.0,
+     "arrive": 636.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 570.0,
+    "station": "석계",
+    "expected_min": 67.9,
+    "train1": "K622",
+    "arr_at_station": 636.0,
+    "m0": {
+     "connected": true,
+     "train2": "S54",
+     "dep": 641.0,
+     "slack": 5.0,
+     "arrive": 645.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "S54",
+     "dep": 641.0,
+     "slack": 5.0,
+     "arrive": 645.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "S54",
+     "dep": 641.0,
+     "slack": 5.0,
+     "arrive": 645.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 600.0,
+    "station": "석계",
+    "expected_min": 69.1,
+    "train1": "K626",
+    "arr_at_station": 662.5,
+    "m0": {
+     "connected": true,
+     "train2": "K58",
+     "dep": 668.0,
+     "slack": 5.5,
+     "arrive": 672.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K58",
+     "dep": 668.0,
+     "slack": 5.5,
+     "arrive": 672.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K58",
+     "dep": 668.0,
+     "slack": 5.5,
+     "arrive": 672.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 630.0,
+    "station": "석계",
+    "expected_min": 66.64,
+    "train1": "K628",
+    "arr_at_station": 697.5,
+    "m0": {
+     "connected": true,
+     "train2": "K812",
+     "dep": 702.5,
+     "slack": 5.0,
+     "arrive": 707.0,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K812",
+     "dep": 702.5,
+     "slack": 5.0,
+     "arrive": 707.0,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K812",
+     "dep": 702.5,
+     "slack": 5.0,
+     "arrive": 707.0,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1260.0,
+    "station": "석계",
+    "expected_min": 68.9,
+    "train1": "K494",
+    "arr_at_station": 1323.5,
+    "m0": {
+     "connected": true,
+     "train2": "K200",
+     "dep": 1328.0,
+     "slack": 4.5,
+     "arrive": 1332.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K200",
+     "dep": 1328.0,
+     "slack": 4.5,
+     "arrive": 1332.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K200",
+     "dep": 1328.0,
+     "slack": 4.5,
+     "arrive": 1332.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1290.0,
+    "station": "석계",
+    "expected_min": 66.8,
+    "train1": "K694",
+    "arr_at_station": 1349.0,
+    "m0": {
+     "connected": true,
+     "train2": "K206",
+     "dep": 1355.0,
+     "slack": 6.0,
+     "arrive": 1359.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K206",
+     "dep": 1355.0,
+     "slack": 6.0,
+     "arrive": 1359.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K206",
+     "dep": 1355.0,
+     "slack": 6.0,
+     "arrive": 1359.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1320.0,
+    "station": "석계",
+    "expected_min": 66.83,
+    "train1": "K502",
+    "arr_at_station": 1397.0,
+    "m0": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 24.0,
+     "arrive": 1425.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 24.0,
+     "arrive": 1425.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 24.0,
+     "arrive": 1425.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1350.0,
+    "station": "석계",
+    "expected_min": 75.33,
+    "train1": "K504",
+    "arr_at_station": 1413.5,
+    "m0": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 7.5,
+     "arrive": 1425.5,
+     "same_train": false
+    },
+    "m1": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 7.5,
+     "arrive": 1425.5,
+     "same_train": false
+    },
+    "m2": {
+     "connected": true,
+     "train2": "K218",
+     "dep": 1421.0,
+     "slack": 7.5,
+     "arrive": 1425.5,
+     "same_train": false
+    },
+    "status": "추적"
+   },
+   {
+    "od": "금천구청→월계",
+    "t": 1380.0,
+    "station": "석계",
+    "expected_min": 67.63,
+    "train1": "K704",
+    "arr_at_station": 1460.0,
+    "m0": {
+     "connected": false,
+     "reason": "운행 종료"
+    },
+    "m1": {
+     "connected": false,
+     "reason": "운행 종료"
+    },
+    "m2": {
+     "connected": false,
+     "reason": "운행 종료"
+    },
+    "status": "추적"
+   }
+  ]
+ },
+ "S4": [
+  {
+   "od": "가산디지털단지→녹천",
+   "t": "23:30",
+   "leg": "가산디지털단지→녹천",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  },
+  {
+   "od": "가산디지털단지→녹천",
+   "t": "00:00",
+   "leg": "가산디지털단지→녹천",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  },
+  {
+   "od": "가산디지털단지→녹천",
+   "t": "00:30",
+   "leg": "가산디지털단지→녹천",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  },
+  {
+   "od": "금천구청→월계",
+   "t": "23:30",
+   "leg": "금천구청→월계",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  },
+  {
+   "od": "금천구청→월계",
+   "t": "00:00",
+   "leg": "금천구청→월계",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  },
+  {
+   "od": "금천구청→월계",
+   "t": "00:30",
+   "leg": "금천구청→월계",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  },
+  {
+   "od": "남구로→월계",
+   "t": "23:30",
+   "leg": "가산디지털단지→월계",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  },
+  {
+   "od": "남구로→월계",
+   "t": "00:00",
+   "leg": "가산디지털단지→월계",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  },
+  {
+   "od": "남구로→월계",
+   "t": "00:30",
+   "leg": "가산디지털단지→월계",
+   "now_reason": "운행 종료",
+   "one_change_at": [
+    "구로",
+    "신도림",
+    "영등포",
+    "신길",
+    "대방",
+    "노량진"
+   ],
+   "two_changes_at": [],
+   "cause": "광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '운행 종료'"
+  }
+ ],
+ "S5": {
+  "V1": {
+   "cases": 3720,
+   "evaluated": 3720,
+   "mismatch": 0
+  },
+  "T1": {
+   "candidates": 432,
+   "direct_guro": 144,
+   "direct_guro_ok": 144,
+   "impossible": 0,
+   "revisit": 0,
+   "duplicate": null
+  },
+  "T1a_train_check": "불가능한 연결",
+  "T1b_ok": true,
+  "T2_ok": true,
+  "audit": {
+   "od": 300,
+   "candidates": 3451,
+   "impossible": 0,
+   "revisit": 0,
+   "duplicate_transfer": null,
+   "connected": 3451
+  }
+ }
+}
