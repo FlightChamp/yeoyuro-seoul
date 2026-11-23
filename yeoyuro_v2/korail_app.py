@@ -11,7 +11,7 @@ yeoyuro_v2/korail_app.py — 광역철도 확장(코레일 1호선)을 앱에 �
   * 각 후보를 열차 단위로 따라가 3분류 (C2): 연결 확인 / 연결 미확인 / 연결 불가
   * 확정 추천 = 연결 확인 후보 중 기대 소요가 가장 짧은 것 (C3). 없으면 '확인하지 못함' (C4)
   * 비교 기준 = 같은 엔진에서 1~9호선만 쓴 최단 기대 소요 (A4)
-- 심야: 00:00~04:29 입력은 전날 운행일의 24:00~28:29 (엔진 parse_hhmm 과 같은 경계, D1·D-102 정정)
+- 심야: 00:00~04:29 입력은 전날 운행일의 24:00~28:29 (엔진 parse_hhmm 과 같은 경계, D1·D-102 정정, D-103 공통 모듈)
 """
 from __future__ import annotations
 
@@ -146,19 +146,15 @@ class ServiceDay:
 
 
 def day_type_of(date: dt.date) -> str:
-    w = date.weekday()
-    return "saturday" if w == 5 else ("sunday" if w == 6 else "weekday")
+    from yeoyuro_v2.service_day import day_type_of as f
+    return f(date)
 
 
 def service_day(date, hhmm: str) -> ServiceDay:
-    """입력 날짜·시각 → 운행일. 시각 경계는 엔진 parse_hhmm 과 같다 (04:29 까지 전날 심야)."""
-    if isinstance(date, str):
-        date = dt.date.fromisoformat(date)
-    m = td.parse_hhmm(hhmm)
-    late = m >= 1440
-    sd = date - dt.timedelta(days=1) if late else date
-    label = "운행일 기준: %d월 %d일(%s)%s" % (sd.month, sd.day, DAY_KO[sd.weekday()], " 심야" if late else "")
-    return ServiceDay(sd, day_type_of(sd), float(m), late, label)
+    """입력 날짜·시각 → 운행일. D-103: 공통 시간 모듈(service_day.service_clock)을 그대로 쓴다 (값은 D-101 과 같음)."""
+    from yeoyuro_v2.service_day import service_clock
+    c = service_clock(date, hhmm)
+    return ServiceDay(c.service_date, c.day_type, float(c.minute), c.late_night, c.label)
 
 
 # ---------------------------------------------------------------------- 계획 (A·C)

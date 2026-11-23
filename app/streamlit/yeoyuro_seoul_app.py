@@ -63,6 +63,7 @@ for extra in (ROOT, ROOT / "scripts", ROOT / "app" / "streamlit"):
 
 from yeoyuro_v2 import provenance as _PV  # noqa: E402 — 계산 출처 기록 (D-075)
 from yeoyuro_v2 import korail_app as _KA  # noqa: E402 — 광역철도 확장 토글 (D-101, 기본 끔)
+from yeoyuro_v2.service_day import service_clock as _service_clock  # noqa: E402 — 심야 운행일 (D-103)
 
 st.set_page_config(page_title="여유로 서울", page_icon="🚇", layout="wide",
                    initial_sidebar_state="expanded")
@@ -412,11 +413,15 @@ def get_td_evaluator(day_type: str, depart: str, query_date):
         return None
 
 
+def _svc():
+    """지금 입력(달력 날짜·시각) → 운행일 (D-103). 04:30 이후 입력은 날짜·시각 그대로."""
+    return _service_clock(st.session_state["q_date"], st.session_state["q_time"])
+
+
 def _query_args():
-    dow = pd.Timestamp(st.session_state["q_date"]).day_of_week
-    day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
-    hhmm = "%02d:%02d" % (st.session_state["q_time"].hour, st.session_state["q_time"].minute)
-    return day_type, hhmm, str(st.session_state["q_date"])
+    """엔진에 넘기는 (요일 유형, 시각, 조회 날짜) — 운행일 기준 (D-103 R3). 심야면 전날 요일·'24:30'·전날 날짜."""
+    c = _svc()
+    return c.day_type, c.hhmm, str(c.service_date)
 
 
 def _force_degrade() -> str:
@@ -1280,11 +1285,8 @@ def _current_scorer():
     get_scorer 는 @st.cache_resource 라 같은 인자면 이미 만들어진 객체를 준다.
     여기서 새로 계산하는 것은 없다.
     """
-    dow = pd.Timestamp(st.session_state["q_date"]).day_of_week
-    day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
-    hhmm = "%02d:%02d" % (st.session_state["q_time"].hour,
-                          st.session_state["q_time"].minute)
-    return get_scorer(day_type, hhmm, str(st.session_state["q_date"]))
+    day_type, hhmm, qd = _query_args()                 # 운행일 기준 (D-103)
+    return get_scorer(day_type, hhmm, qd)
 
 
 def build_route_congestion_profile(scorer, path, time_bin=None, edge_congestion=None):
@@ -1476,7 +1478,7 @@ def route_card(title, ev, o, d_, note=None, tone="normal",
         if ev.get("td_policy"):
             st.caption("혼잡도는 각 구간에 **실제로 도착하는 시각**의 과거 패턴으로 계산했습니다 "
                        "(출발 %s → 도착 약 %02d:%02d). 실시간 정보가 아닙니다."
-                       % (_query_args()[1], (int(round(ev["arrive_min"])) // 60) % 24,
+                       % (_svc().input_hhmm, (int(round(ev["arrive_min"])) // 60) % 24,
                           int(round(ev["arrive_min"])) % 60))
         if ev.get("event_risk_min"):
             st.caption("이벤트 영향으로 쾌적 체감시간 +%.1f분 가산" % ev["event_risk_min"])
@@ -1604,10 +1606,7 @@ def page_route():
         st.session_state["ts_handoff"] = None
 
     if ready and do_search and not ko_only:
-        dow = pd.Timestamp(st.session_state["q_date"]).day_of_week
-        day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
-        hhmm = "%02d:%02d" % (st.session_state["q_time"].hour,
-                              st.session_state["q_time"].minute)
+        day_type, hhmm, svc_date = _query_args()          # 운행일 기준 (D-103 R3)
         sr = sr_module()
         result, fallback = None, False
         ctx = "od=%s->%s %s %s %s mode=%s" % (o, d_, st.session_state["q_date"], hhmm, day_type,
@@ -1617,7 +1616,7 @@ def page_route():
             try:
                 if _force_degrade() == "precomputed":
                     raise RuntimeError("YEOYURO_FORCE_DEGRADE=precomputed")
-                rs = get_scorer(day_type, hhmm, str(st.session_state["q_date"]))
+                rs = get_scorer(day_type, hhmm, svc_date)
                 result = sr.find_route_by_station(rs, load_display_master(), o, d_,
                                                   st.session_state["q_mode"])
                 if not result.get("ok"):
@@ -1648,7 +1647,7 @@ def page_route():
         plan = None
         with st.spinner("광역철도 포함 경로를 열차 시각표로 확인하는 중입니다..."):
             try:
-                plan = get_ext_planner(sd.day_type, str(st.session_state["q_date"])).plan(o, d_, sd)
+                plan = get_ext_planner(sd.day_type, str(sd.date)).plan(o, d_, sd)   # 조회 날짜도 운행일 (D-103 R3)
             except Exception:                                # noqa: BLE001
                 _PV.LOGGER.warning("extension plan failed: %s->%s %s", o, d_, sd, exc_info=True)
         st.session_state["ext_result"] = plan
@@ -1708,6 +1707,9 @@ def page_route():
         st.warning("검색 조건(날짜·시각·선호 모드 등)이 바뀌었습니다. **[경로 검색]** 을 다시 눌러 주세요. "
                    "이전 결과는 지금 조건과 맞지 않아 숨겼습니다.")
         return
+    if _svc().late_night:                                # 심야 입력일 때만 (D-103 R7)
+        st.caption("%s — 자정 뒤 입력은 전날 운행일의 시각표·혼잡 통계로 계산합니다. "
+                   "이 카드는 열차별 막차 연결을 확인하지 않습니다." % _svc().label)
     _render_route_result(result, bool(st.session_state.get("route_fallback")), o, d_)
     if ext_on():                                         # 기존 결과 아래에 따로 (A3)
         st.divider()
@@ -2065,8 +2067,8 @@ def page_time_shift():
 
     if auto:
         o, d_, qd, hhmm = sig[0], sig[1], sig[2], sig[3]
-        dow = pd.Timestamp(qd).day_of_week
-        day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
+        _c = _service_clock(qd, hhmm)                     # 운행일 기준 (D-103 R3), 화면에는 입력 그대로
+        day_type, svc_hhmm, svc_qd = _c.day_type, _c.hhmm, str(_c.service_date)
         b1, b2, b3 = st.columns([3, 1, 1])
         b1.markdown("**%s → %s** · %s %s 기준 · 경로 추천 결과의 최속 경로" % (o, d_, qd, hhmm))
         b2.button("← 경로로 돌아가기", key="ts_back", width="stretch",
@@ -2074,8 +2076,8 @@ def page_time_shift():
         b3.button("조건 바꾸기", key="ts_edit", width="stretch", on_click=_ts_reset_handoff)
         with st.spinner("시각별로 같은 경로를 다시 계산하는 중입니다..."):
             try:
-                router = get_td_router(day_type, qd)
-                t0 = parse_hhmm(hhmm)
+                router = get_td_router(day_type, svc_qd)
+                t0 = parse_hhmm(svc_hhmm)                    # 00:30 과 24:30 은 같은 1470 (엔진 해석 불변)
                 ev = router.evaluator(bin_index_of(t0))
                 path = list(ho["path"])
                 ts = evaluate_time_shift(ev, path, t0, T1,
@@ -2113,18 +2115,18 @@ def page_time_shift():
         st.info("출발역과 도착역이 같습니다.")
         return
 
-    dow = pd.Timestamp(q_date).day_of_week
-    day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
-    hhmm = "%02d:%02d" % (q_time.hour, q_time.minute)
+    _c = _service_clock(q_date, q_time)                   # 운행일 기준 (D-103 R3), 화면에는 입력 그대로
+    day_type, svc_hhmm, svc_qd = _c.day_type, _c.hhmm, str(_c.service_date)
+    hhmm = _c.input_hhmm
     with st.spinner("시각별로 같은 경로를 다시 계산하는 중입니다..."):
         try:
-            rs = get_scorer(day_type, hhmm, str(q_date))
+            rs = get_scorer(day_type, svc_hhmm, svc_qd)
             res = sr_module().find_route_by_station(rs, disp, o, d_, "fast")
-            tde = get_td_evaluator(day_type, hhmm, str(q_date))
+            tde = get_td_evaluator(day_type, svc_hhmm, svc_qd)
             if not res.get("ok") or tde is None:
                 st.warning("경로를 계산하지 못했습니다.")
                 return
-            t0 = parse_hhmm(hhmm)
+            t0 = parse_hhmm(svc_hhmm)
             from yeoyuro_v2.app_bridge import retime_result
             res = retime_result(res, lambda b: tde, t0, "fast")
             path = res["fastest"]["path"]
