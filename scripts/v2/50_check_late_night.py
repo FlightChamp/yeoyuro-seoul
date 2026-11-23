@@ -158,17 +158,32 @@ def analyze_cards(df: pd.DataFrame) -> dict:
 
 
 # ---------------------------------------------------------------------- T4 확장 카드
+_M49: dict = {}
+
+
+def _m49():
+    """49 검증 스크립트를 한 번만 불러온다. 작업자 프로세스에서도 이 함수로 불러야 한다 —
+    Windows 는 작업자를 새로 띄우므로(spawn), importlib 로 부른 모듈의 함수를 그대로 넘기면 피클이 안 된다 (D-103b)."""
+    if "m" not in _M49:
+        _M49["m"] = _load("m49", "scripts/v2/49_check_korail_app.py")
+    return _M49["m"]
+
+
+def t4_task(args):
+    return _m49().w2_task(args)
+
+
 def run_t4(workers, dry) -> dict:
     f = ROOT / "data" / "marts" / "v2" / "korail_app_3a2d" / "W2.parquet"
     if not f.exists():
         return {"skipped": "D-101 검증 저장본 W2.parquet 없음"}
-    m49 = _load("m49", "scripts/v2/49_check_korail_app.py")
+    m49 = _m49()
     e47 = m49._e47()
     ods = [(o, d) for o, d, _ in e47.k_sample(e47.router(e47.spec(on=True)).display.station_key.unique())]
     times = [330, 480, 1080, 1410, 1470]
     if dry:
         ods = ods[:5]
-    new = run_pool(m49.w2_task, [(o, d, times) for o, d in ods], 1 if dry else workers, "T4")
+    new = run_pool(t4_task, [(o, d, times) for o, d in ods], 1 if dry else workers, "T4")
     old = pd.read_parquet(f)
     k = ["o", "d", "t"]
     cols = ["status", "best_status", "best_path", "best_trains"]
