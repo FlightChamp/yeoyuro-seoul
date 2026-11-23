@@ -242,75 +242,24 @@
  "T3_same_args": 2472,
  "T4": {
   "compared": 2060,
-  "different": 484,
-  "examples": [
-   {
-    "o": "혜화",
-    "d": "용산",
-    "t": 1470,
-    "status_new": "none",
-    "best_status_new": NaN,
-    "best_path_new": NaN,
-    "best_trains_new": NaN,
-    "status_old": "none",
-    "best_status_old": NaN,
-    "best_path_old": NaN,
-    "best_trains_old": NaN
-   },
-   {
-    "o": "신이문",
-    "d": "목동",
-    "t": 1470,
-    "status_new": "none",
-    "best_status_new": NaN,
-    "best_path_new": NaN,
-    "best_trains_new": NaN,
-    "status_old": "none",
-    "best_status_old": NaN,
-    "best_path_old": NaN,
-    "best_trains_old": NaN
-   },
-   {
-    "o": "신이문",
-    "d": "까치산",
-    "t": 1470,
-    "status_new": "none",
-    "best_status_new": NaN,
-    "best_path_new": NaN,
-    "best_trains_new": NaN,
-    "status_old": "none",
-    "best_status_old": NaN,
-    "best_path_old": NaN,
-    "best_trains_old": NaN
-   },
-   {
-    "o": "경복궁",
-    "d": "개봉",
-    "t": 1410,
-    "status_new": "none",
-    "best_status_new": NaN,
-    "best_path_new": NaN,
-    "best_trains_new": NaN,
-    "status_old": "none",
-    "best_status_old": NaN,
-    "best_path_old": NaN,
-    "best_trains_old": NaN
-   },
-   {
-    "o": "경복궁",
-    "d": "개봉",
-    "t": 1470,
-    "status_new": "none",
-    "best_status_new": NaN,
-    "best_path_new": NaN,
-    "best_trains_new": NaN,
-    "status_old": "none",
-    "best_status_old": NaN,
-    "best_path_old": NaN,
-    "best_trains_old": NaN
-   }
-  ],
-  "best_not_connected": 0
+  "different": 0,
+  "different_before_fix_d103c": 484,
+  "different_by_column": {
+   "status": 0,
+   "best_status": 0,
+   "best_path": 0,
+   "best_trains": 0
+  },
+  "status_of_raw_only": {
+   "none": 484
+  },
+  "examples": [],
+  "best_not_connected": 0,
+  "first_run": {
+   "compared": 2060,
+   "different": 484,
+   "best_not_connected": 0
+  }
  },
  "T5": {
   "cases": 18,
