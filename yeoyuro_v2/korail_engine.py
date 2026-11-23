@@ -42,6 +42,7 @@ GURO_GI = "1_구로@경인"
 GURO_NODES = (GURO_GB, GURO_GI)
 GURO_WALK_MIN = K.SAME_LINE_TRANSFER_WALK[K.GURO]     # 1.0 (D-093)
 MAX_WAIT = 60.0
+KORAIL_DEFAULT_K = 10      # D-099 D1: 코레일 기능을 켜면 기본 목표 후보 수 (끄면 기존 k 그대로)
 
 
 # ---------------------------------------------------------------------- 1. 코레일 그래프 조각
@@ -316,6 +317,7 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
         w_d = self.korail_wait(lg, t)
         b0 = td.BIN_START_MIN + td.bin_index_of(t) * td.BIN_WIDTH_MIN
         best = None
+        split_reason = None        # 바로 가기가 구조상 불가능하고 갈아타기는 구조상 가능하지만 그 시각에 안 될 때의 R3 사유
         if w_d.reason is None and not np.isnan(w_d.E):
             best = (t + w_d.E + self._ride_med(via, b0), {"mode": "direct", "wait": w_d})
         for k, c, walk in T.line1_split_points(via, self.line1_splits):
@@ -323,6 +325,9 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
             b = {"codes": via[k:], "nodes": lg["nodes"][k:]}
             w_a = self.korail_wait(a, t)
             if w_a.reason is not None or np.isnan(w_a.E):
+                if (w_a.reason not in (None, T.IMPOSSIBLE)
+                        and self.kidx.pair(self.day_type, "1", b["codes"][0], b["codes"][-1], tuple(b["codes"]))[0]):
+                    split_reason = split_reason or w_a.reason
                 continue
             t_s = t + w_a.E + self._ride_med(a["codes"], b0) + walk
             if np.isnan(t_s):
@@ -330,6 +335,8 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
             b1 = td.BIN_START_MIN + td.bin_index_of(t_s) * td.BIN_WIDTH_MIN
             w_b = self.korail_wait(b, t_s)
             if np.isnan(w_b.E):
+                if w_b.reason not in (None, T.IMPOSSIBLE):
+                    split_reason = split_reason or w_b.reason
                 continue
             arr = t_s + w_b.E + self._ride_med(b["codes"], b1)
             if np.isnan(arr):
@@ -337,6 +344,10 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
             if best is None or arr < best[0] - 1e-9:
                 best = (arr, {"mode": "split", "wait": w_a, "k": k, "code": c, "walk": walk, "b": b})
         if best is None:
+            if w_d.reason == T.IMPOSSIBLE and split_reason:
+                # 사유 표기 (D-099 구현): 바로 가는 열차는 원래 없지만 같은 노선 갈아타기로는 이어지는 구간이
+                # 그 시각에 운행이 없으면 '불가능한 연결' 이 아니라 R3 사유로 적는다 (후보 제외는 같음)
+                w_d = KorailLegWait(w_d.board, w_d.alight, w_d.t_board, w_d.E, w_d.next_train_wait, split_reason)
             return {"mode": "direct", "wait": w_d}
         return best[1]
 
@@ -548,9 +559,13 @@ class KorailTDRouter(td.TDRouter):
 
     def __init__(self, *args, include_korail: bool = False, cap_wait: float | None = None,
                  wait_mode: str = "E", guro_walk: float | None = None, assume_congestion: bool = False,
-                 line1_splits: dict | None = None, max_k: int = 20, **kw):
+                 line1_splits: dict | None = None, max_k: int = 20, rep_wait: bool = False, **kw):
+        k_explicit = "k" in kw or len(args) >= 7
         super().__init__(*args, **kw)
         self.include_korail = include_korail
+        if include_korail and not k_explicit:
+            self.k = KORAIL_DEFAULT_K                       # D-099 D1
+        self.rep_wait = rep_wait                            # D-099 D2: 민감도 전용
         self.assume_congestion = assume_congestion          # T4 민감도 전용
         self.line1_splits = line1_splits                    # D-097 B (None = 기본, {} = 끔)
         self.max_k = max_k                                  # D-097 A2
@@ -577,6 +592,8 @@ class KorailTDRouter(td.TDRouter):
             base = super().scorer(b)
             self._base_scorers[b] = base
             self._aug[b] = augment_scorer(base, self.pieces, self.assume_congestion)
+            if self.rep_wait:
+                self._add_rep_wait(self._aug[b], b)
         return self._aug[b]
 
     def evaluator(self, depart_bin: int, policy: str | None = None):
@@ -590,6 +607,48 @@ class KorailTDRouter(td.TDRouter):
                 self.event_scale, self.event_exclude_lines, pieces=self.pieces, index=self.kidx,
                 cap_wait=self.cap_wait, wait_mode=self.wait_mode, line1_splits=self.line1_splits)
         return self._evals[key]
+
+    def rep_E(self, node: str, b: int) -> float:
+        """D-099 D2 대표 대기: 그 코레일 노드에서 인접 다음 역까지 가는 모든 열차의 30분 구간 E, 방향별 중앙값."""
+        code = self.pieces.node_code[node]
+        nxt = sorted({int(r.to_code) for r in self.pieces.ride.itertuples() if r.from_node == node})
+        b0 = td.BIN_START_MIN + b * td.BIN_WIDTH_MIN
+        es = []
+        for c in nxt:
+            deps = self.kidx.pair(self.day_type, "1", code, c, (code, c))[0]
+            e = K.wait_profile(deps, b0, b0 + 30, MAX_WAIT).E if deps else float("nan")
+            if not np.isnan(e):
+                es.append(e)
+        return float(np.median(es)) if es else 0.0
+
+    def _add_rep_wait(self, s, b: int):
+        """민감도 전용: 코레일 노드로 갈아타는 간선에 더할 대표 대기를 따로 기억 (간선 자체는 바꾸지 않음 — 평가 불변)."""
+        extra, cache = {}, {}
+        for u, lst in s.adj.items():
+            for e in lst:
+                v = e["to"]
+                if e["kind"] == "transfer" and v in self.pieces.korail_nodes:
+                    if v not in cache:
+                        cache[v] = self.rep_E(v, b)
+                    extra[(u, v)] = cache[v]
+        s._rep_extra = extra
+
+    def _time_yen(self, scorer, v_o, v_d, K):
+        """소요시간 Yen. rep_wait(민감도)면 탐색하는 동안만 갈아타는 간선 비용에 대표 대기를 더한 복사본으로."""
+        extra = getattr(scorer, "_rep_extra", None) if self.rep_wait else None
+        if not extra:
+            return scorer._yen(v_o, v_d, K=K, weight="time")
+        saved = scorer.adj
+        adj2 = dict(saved)
+        for u in {u for u, _ in extra}:
+            if u in saved:
+                adj2[u] = [dict(e, time=float(e["time"]) + extra[(u, e["to"])]) if (u, e["to"]) in extra else e
+                           for e in saved[u]]
+        scorer.adj = adj2
+        try:
+            return scorer._yen(v_o, v_d, K=K, weight="time")
+        finally:
+            scorer.adj = saved
 
     def _clean(self, p):
         """Yen 결과 → 실제 노드 경로. 기존 규칙(출발·도착 같은 역 노드 자르기, 재방문 제외) + 구로 갈아타기 규칙."""
@@ -626,7 +685,7 @@ class KorailTDRouter(td.TDRouter):
         ev = self.evaluator(b)
         K = k
         while True:
-            t_paths = scorer._yen(v_o, v_d, K=K, weight="time")
+            t_paths = self._time_yen(scorer, v_o, v_d, K)
             valid = [p for p in t_paths if (q := self._clean(p)) is not None and self._structurally_possible(q, ev)]
             if len(valid) >= k or K >= self.max_k or len(t_paths) < K:
                 break

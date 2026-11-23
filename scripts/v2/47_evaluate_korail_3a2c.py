@@ -130,21 +130,21 @@ def _mods():
 
 
 def router(spec: tuple):
-    """spec = (net, on, wait_mode, cap, guro_walk, assume, k, splits) — splits: None(기본) 또는 ((역코드, 보행, 방향들), …)"""
+    """spec = (net, on, wait_mode, cap, guro_walk, assume, k, splits, rep) — splits: None(기본) 또는 ((역코드, 보행, 방향들), …)"""
     if spec not in _R:
-        net, on, wait_mode, cap, gw, assume, k, splits = spec
+        net, on, wait_mode, cap, gw, assume, k, splits, rep = spec
         l1 = None if splits is None else {c: (w, tuple(dirs)) for c, w, dirs in splits}
         mod, sr = _mods()
         root = DATA9 if net == "app9" else ROOT
         disp = sr.load_display_master(root)
         _R[spec] = KE.KorailTDRouter(root, mod, sr, disp, "weekday", policy="step", k=k, multi_bin=True,
                                      include_korail=on, cap_wait=cap, wait_mode=wait_mode, guro_walk=gw,
-                                     assume_congestion=assume, line1_splits=l1)
+                                     assume_congestion=assume, line1_splits=l1, rep_wait=rep)
     return _R[spec]
 
 
-def spec(net="app9", on=True, wait_mode="E", cap=None, gw=None, assume=False, k=5, splits=None):
-    return (net, on, wait_mode, cap, gw, assume, k, splits)
+def spec(net="app9", on=True, wait_mode="E", cap=None, gw=None, assume=False, k=5, splits=None, rep=False):
+    return (net, on, wait_mode, cap, gw, assume, k, splits, rep)
 
 
 # D-097 재평가 설정 (R-P2·R-B1)
@@ -184,12 +184,16 @@ def task(args):
     r = router(sp)
     rows = []
     for o, d, t, kk in items:
+        t0 = time.perf_counter()
         try:
             res = r.evaluate_od(o, d, float(t), k=kk)
         except Exception as e:        # 역 이름이 그 그래프에 없음 등 — 기록만
             rows.append({"tag": tag, "o": o, "d": d, "t": t, "ok": False, "excluded": f"error:{type(e).__name__}"})
             continue
-        rows.append(_row(r, res, o, d, t, tag))
+        row = _row(r, res, o, d, t, tag)
+        row["sec"] = time.perf_counter() - t0
+        row["cands_all"] = "#".join("|".join(x.path) for x in res) if tag.startswith("s1_") else ""
+        rows.append(row)
     return rows
 
 
@@ -926,6 +930,299 @@ def main_reeval(a):
     return 0
 
 
+# ---------------------------------------------------------------------- D-099 재계산 (S1~S5)
+OUT_R2 = ROOT / "data" / "marts" / "v2" / "korail_3a2c_r2"
+REPORT_R2 = ROOT / "reports" / "v2" / "korail_3a2c_reeval2.md"
+SUMMARY_R2 = ROOT / "reports" / "v2" / "korail_3a2c_reeval2.json"
+
+
+def analyze_s1(df) -> dict:
+    tags = {"k10": "s1_k10", "k20": "s1_k20", "k10rep": "s1_k10rep"}
+    T_ = {k: df[(df.tag == v)].set_index(["o", "d", "t"]) for k, v in tags.items()}
+    out = {"time_per_od_sec": {k: round(float(T_[k].sec.mean()), 3) for k in T_},
+           "time_total_sec": {k: round(float(T_[k].sec.sum()), 1) for k in T_}}
+    for a, b in (("k10", "k20"), ("k10", "k10rep"), ("k10rep", "k20")):
+        out[f"{a}_vs_{b}"] = _comp(df.assign(tag=df.tag.replace({tags[a]: a, tags[b]: b})), a, b)
+    A, B, C = T_["k10"], T_["k10rep"], T_["k20"]
+    ks = [k for k in A.index if k in B.index and A.loc[k].ok and B.loc[k].ok]
+    jac, miss, better = [], 0, 0
+    for k in ks:
+        sa = set(str(A.loc[k].cands_all).split("#"))
+        sb = set(str(B.loc[k].cands_all).split("#"))
+        jac.append(len(sa & sb) / len(sa | sb) if sa | sb else 1.0)
+        if A.loc[k].path not in sb and B.loc[k].actual > A.loc[k].actual + INV_TOL:
+            miss += 1
+        if B.loc[k].actual < A.loc[k].actual - INV_TOL:
+            better += 1
+    out["rep_vs_k10"] = {"cases": len(ks), "candidate_jaccard_median": round(float(np.median(jac)), 3) if jac else None,
+                         "rep_missed_k10_top1_and_slower": miss, "rep_faster": better}
+    return out
+
+
+def s3_tracking(p2: pd.DataFrame) -> dict:
+    """D4: R-P2 기본 설정에서 1순위가 같은 노선 갈아타기인 OD·시각 → 엔진이 고른 역에서 열차 단위 추적."""
+    st = pd.read_parquet(ROOT / "data" / "marts" / "v2" / "train_timetable" / "stop_times.parquet")
+    idx = T.TrainIndex(st[st.day_type == "weekday"])
+    r = router(spec(splits=None))
+    rows = []
+    g = p2[(p2.tag == "B12") & p2.ok & (p2.l1split.fillna("") != "")]
+    for x in g.itertuples():
+        t0 = float(x.t)
+        path = x.path.split("|")
+        ev = r.evaluator(td.bin_index_of(t0))
+        legs = T.legs_from_path(ev, path)
+        st_name = x.l1split.split(";")[0]
+        code = {v: k for k, v in K.SCOPE.items()}[st_name]
+        j = next((i for i, lg in enumerate(legs) if lg.group == "1" and code in lg.codes[1:-1]), None)
+        if j is None:
+            rows.append({"od": f"{x.o}→{x.d}", "t": t0, "station": st_name, "status": "구간 없음"})
+            continue
+        pre = T.verify_connection(idx, legs[:j], t0, "weekday") if j else None
+        if j and (pre is None or pre.arrive_min is None):
+            rows.append({"od": f"{x.o}→{x.d}", "t": t0, "station": st_name, "status": f"앞 구간 연결 안 됨 ({pre.status if pre else '-'})"})
+            continue
+        tb = (pre.arrive_min if j else t0) + legs[j].walk_before
+        via = list(legs[j].codes)
+        k = via.index(code)
+        a, b = via[:k + 1], via[k:]
+        r1, w1 = idx.next_ride("weekday", "1", a[0], a[-1], tb, 60, via=tuple(a))
+        rec = {"od": f"{x.o}→{x.d}", "t": t0, "station": st_name, "expected_min": round(float(x.actual), 2)}
+        if r1 is None:
+            rec["status"] = f"앞 열차 없음 ({w1})"
+            rows.append(rec)
+            continue
+        rec.update({"train1": r1.train, "arr_at_station": round(r1.arr_min, 2)})
+        walk = T.LINE1_SPLITS_DEFAULT[code][0]
+        for m in (0.0, 1.0, 2.0):
+            need = max(walk, m) if code == 1018 else walk
+            r2, w2 = idx.next_ride("weekday", "1", b[0], b[-1], r1.arr_min + need, 60, via=tuple(b))
+            key = f"m{m:g}"
+            if r2 is None:
+                rec[key] = {"connected": False, "reason": w2}
+            else:
+                rec[key] = {"connected": True, "train2": r2.train, "dep": round(r2.dep_min, 2),
+                            "slack": round(r2.dep_min - r1.arr_min, 2), "arrive": round(r2.arr_min, 2),
+                            "same_train": r1.train == r2.train}
+        rec["status"] = "추적"
+        rows.append(rec)
+    tr = [x for x in rows if x.get("status") == "추적"]
+    summ = {"cases": len(rows), "tracked": len(tr), "by_station": {}}
+    for nm in ("석계", "광운대"):
+        z = [x for x in tr if x["station"] == nm]
+        d = {"n": len(z)}
+        for m in ("m0", "m1", "m2"):
+            ok = [x[m] for x in z if x[m]["connected"]]
+            d[m] = {"connected": len(ok), "same_train": sum(o["same_train"] for o in ok),
+                    "slack_min": round(min(o["slack"] for o in ok), 2) if ok else None,
+                    "slack_median": round(float(np.median([o["slack"] for o in ok])), 2) if ok else None}
+        if z:
+            dl = [x["m1"]["arrive"] - x["m0"]["arrive"] for x in z if x["m0"]["connected"] and x["m1"]["connected"]]
+            d["arrive_delay_m1_vs_m0_median"] = round(float(np.median(dl)), 2) if dl else None
+            dl2 = [x["m2"]["arrive"] - x["m0"]["arrive"] for x in z if x["m0"]["connected"] and x["m2"]["connected"]]
+            d["arrive_delay_m2_vs_m0_median"] = round(float(np.median(dl2)), 2) if dl2 else None
+        summ["by_station"][nm] = d
+    summ["untracked"] = [x for x in rows if x.get("status") != "추적"]
+    return {"summary": summ, "rows": rows}
+
+
+def s4_remaining(p2: pd.DataFrame) -> list[dict]:
+    """D5: D-097 재평가 기본 설정에서 '불가능한 연결' 로 후보가 빠졌던 OD·시각 — 그 후보의 코레일 구간과 원인.
+
+    지금 엔진으로 같은 OD·시각을 다시 평가해, 바로 가는 열차가 그날 0대인 코레일 구간을 가진 제외 후보를 모두 본다.
+    원인: (a) 광운대·석계 갈아타기로는 이어지지만 그 시각에 운행 없음 (R3 사유를 '불가능한 연결' 로 잘못 적었던 것)
+          (b) 광운대·석계 밖 역에서 1번 바꾸면 이어짐 (c) 2번 바꿔야 이어짐 (d) 1~2번 바꿔도 안 이어짐
+    """
+    st = pd.read_parquet(ROOT / "data" / "marts" / "v2" / "train_timetable" / "stop_times.parquet")
+    idx = T.TrainIndex(st[st.day_type == "weekday"])
+    r = router(spec(splits=None))
+    out = []
+    g = p2[(p2.tag == "B12") & p2.excluded.fillna("").str.contains("불가능한 연결")]
+    for x in g.itertuples():
+        t0 = float(x.t)
+        r.evaluate_od(x.o, x.d, t0)
+        ev = r.evaluator(td.bin_index_of(t0))
+        for ex in r.excluded:
+            for lg in ev.legs(ex.path):
+                if not lg["korail"]:
+                    continue
+                via = tuple(lg["codes"])
+                if idx.pair("weekday", "1", via[0], via[-1], via)[0]:
+                    continue                                   # 바로 가는 열차가 있는 구간은 대상 아님
+                leg = T.Leg("1", via[0], via[-1], lg["nodes"][0], lg["nodes"][-1], 0.0, via)
+                structural = T._ride_leg(idx, "weekday", leg, 0.0, 10_000.0)[1] != T.IMPOSSIBLE
+                ok1 = [K.SCOPE.get(via[k], str(via[k])) for k in range(1, len(via) - 1)
+                       if idx.pair("weekday", "1", via[0], via[k], via[:k + 1])[0]
+                       and idx.pair("weekday", "1", via[k], via[-1], via[k:])[0]]
+                ok2 = []
+                if not ok1:
+                    for k1 in range(1, len(via) - 2):
+                        if not idx.pair("weekday", "1", via[0], via[k1], via[:k1 + 1])[0]:
+                            continue
+                        for k2 in range(k1 + 1, len(via) - 1):
+                            if idx.pair("weekday", "1", via[k1], via[k2], via[k1:k2 + 1])[0] and \
+                                    idx.pair("weekday", "1", via[k2], via[-1], via[k2:])[0]:
+                                ok2.append(f"{K.SCOPE.get(via[k1], via[k1])}+{K.SCOPE.get(via[k2], via[k2])}")
+                                break
+                        if len(ok2) >= 3:
+                            break
+                if structural:
+                    cause = f"광운대·석계 갈아타기로는 이어지지만 그 시각 운행 없음 → R3 '{ex.no_service_reason}'"
+                elif ok1:
+                    cause = "광운대·석계 밖 역에서 1번 바꾸면 이어짐 (D-097 대상 역 아님)"
+                elif ok2:
+                    cause = "2번 바꿔야 이어짐 (D-097 은 한 구간 최대 1번)"
+                else:
+                    cause = "1~2번 바꿔도 안 이어짐"
+                out.append({"od": f"{x.o}→{x.d}", "t": td.fmt_min(t0),
+                            "leg": f"{K.SCOPE.get(via[0], via[0])}→{K.SCOPE.get(via[-1], via[-1])}",
+                            "now_reason": ex.no_service_reason, "one_change_at": ok1[:6], "two_changes_at": ok2[:3],
+                            "cause": cause})
+    seen, uniq = set(), []
+    for o in out:
+        key = (o["od"], o["t"], o["leg"])
+        if key not in seen:
+            seen.add(key)
+            uniq.append(o)
+    return uniq
+
+
+def s5_regression() -> dict:
+    """S5: 기능 끔 V1(3,720건) + 켬(k=10) T1·T2·켠 그래프 감사."""
+    import importlib.util
+    sp_ = importlib.util.spec_from_file_location("c46", ROOT / "scripts" / "v2" / "46_check_korail_engine.py")
+    c46 = importlib.util.module_from_spec(sp_)
+    sp_.loader.exec_module(c46)
+    v1 = c46.v1_check(None)
+    r = router(spec(k=10))
+    sr = _mods()[1]
+    t = c46.t1_t1a_t2(r, sr)
+    au = c46.audit_on(r, sr)
+    return {"V1": {k: v1[k] for k in ("cases", "evaluated", "mismatch")},
+            "T1": {k: t["T1"].get(k) for k in ("candidates", "direct_guro", "direct_guro_ok", "impossible", "revisit", "duplicate")},
+            "T1a_train_check": t["T1a"]["train_check"], "T1b_ok": all(c["ok"] for c in t["T1b"]["cases"]),
+            "T2_ok": all(c["transfers"] == 0 for c in t["T2"]),
+            "audit": {k: au.get(k) for k in ("od", "candidates", "impossible", "revisit", "duplicate_transfer", "connected")}}
+
+
+def write_report_r2(S: dict, O: dict, R1: dict) -> None:
+    L = ["# Phase 3A-2c 재계산 — D-099 (코레일 기능 켬 기본 k=10) · 원 결과·D-097 결과와 나란히", "",
+         "- 규칙: [사전 등록 문서 8절](../../docs/v2/preregistration_3a2.md) D-099 (**사후 개선**, D-097 재평가 d5d09f4 를 본 뒤 고정). "
+         "앞 결과: [원 평가](korail_3a2c_evaluation.md) · [D-097 재평가](korail_3a2c_reeval.md)",
+         "- 'k=10 이 전역 최적' 이라는 뜻이 아니다. 같은 표본에서 k=20 과 비교한 잔여 차이만 보고한다 (D3).",
+         "- 재현: `python scripts/v2/47_evaluate_korail_3a2c.py --reeval2`", ""]
+    if "S1" in S:
+        v = S["S1"]
+        L += ["## S1 후보 탐색 설정 비교 (K 표본 × 평일 6개 출발, 최종 평가는 모두 하차역 기준 E)", "",
+              "| 비교 | 건수 | 1순위 변경 | 뒤쪽이 더 빠른 경로 찾음 | 줄어든 시간 중앙·최대(분) |", "|---|---|---|---|---|"]
+        for k, lab in (("k10_vs_k20", "k=10 → k=20"), ("k10_vs_k10rep", "k=10 → k=10 + 대표 E (민감도)"), ("k10rep_vs_k20", "k=10 + 대표 E → k=20")):
+            x = v[k]
+            L.append(f"| {lab} | {x['cases']} | {x['top1_changed']} | {x['better_found']} | {x['better_gain_median']}·{x['better_gain_max']} |")
+        rv = v["rep_vs_k10"]
+        L += ["", f"- 대표 E 민감도: 후보 집합 겹침(자카드) 중앙 {rv['candidate_jaccard_median']} · k=10 1순위를 후보에서 놓치고 더 느려진 건 **{rv['rep_missed_k10_top1_and_slower']}** · 더 빨라진 건 {rv['rep_faster']}",
+              f"- 계산 시간(OD·시각당 평균 초): {v['time_per_od_sec']} · 합계 {v['time_total_sec']}", ""]
+    if "S2" in S:
+        L += ["## S2 개선 전후 — '더 큰 k 에서 더 빠른 경로를 새로 찾은' 건수 (K 표본 2,472건)", "",
+              "| 단계 | 비교 | 1순위 변경 | 더 빠른 경로 | 줄어든 시간 중앙·최대(분) |", "|---|---|---|---|---|"]
+        for row in S["S2"]:
+            L.append(f"| {row['stage']} | {row['cmp']} | {row.get('top1_changed')} | {row.get('better_found')} | {row.get('better_gain_median')}·{row.get('better_gain_max')} |")
+        L.append("")
+    if "S3" in S:
+        sm = S["S3"]["summary"]
+        L += ["## S3 석계·광운대 갈아타기 열차 단위 추적 (R-P2 기본 설정, 1순위가 같은 노선 갈아타기)", "",
+              f"- 대상 {sm['cases']} · 추적 {sm['tracked']} · 추적 못함 {len(sm['untracked'])}", "",
+              "| 역 | 건수 | 요구 최소 여유 | 연결됨 | 같은 열차(갈아타기 아님) | 여유 최소·중앙(분) |", "|---|---|---|---|---|---|"]
+        for nm, d in sm["by_station"].items():
+            for m in ("m0", "m1", "m2"):
+                z = d.get(m, {})
+                lab = f"{m[1:]}분" + (" (광운대는 보행 2분 그대로)" if nm == "광운대" else "")
+                L.append(f"| {nm} | {d['n']} | {lab} | {z.get('connected')} | {z.get('same_train')} | {z.get('slack_min')}·{z.get('slack_median')} |")
+            if d.get("n"):
+                L.append(f"| {nm} | | 최소 여유 1분·2분일 때 도착 지연 중앙 | {d.get('arrive_delay_m1_vs_m0_median')}분 · {d.get('arrive_delay_m2_vs_m0_median')}분 | | |")
+        L.append("")
+        L += ["<details><summary>추적 목록 (열차번호·시각)</summary>", "", "| OD | 출발 | 역 | 앞 열차 | 그 역 도착 | 뒤 열차(여유 0) | 출발 | 여유 |", "|---|---|---|---|---|---|---|---|"]
+        for x in S["S3"]["rows"]:
+            if x.get("status") != "추적":
+                L.append(f"| {x['od']} | {td.fmt_min(x['t'])} | {x['station']} | {x['status']} | | | | |")
+                continue
+            m0 = x["m0"]
+            L.append(f"| {x['od']} | {td.fmt_min(x['t'])} | {x['station']} | {x['train1']} | {td.fmt_min(x['arr_at_station'])} | "
+                     f"{m0.get('train2', '-')} | {td.fmt_min(m0['dep']) if m0.get('connected') else m0.get('reason')} | {m0.get('slack', '-')} |")
+        L += ["", "</details>", ""]
+    if "S4" in S:
+        L += ["## S4 남은 '불가능한 연결' (D-097 재평가 기본 설정의 해당 OD·시각, 바로 가는 열차가 0대인 코레일 구간을 가진 제외 후보)", "",
+              "| OD | 시각 | 코레일 구간 | 지금 제외 사유 | 1번 바꾸면 이어지는 역 | 2번 바꾸면 이어지는 역 | 원인 |", "|---|---|---|---|---|---|---|"]
+        for x in S["S4"]:
+            L.append(f"| {x['od']} | {x['t']} | {x['leg']} | {x['now_reason']} | {', '.join(x['one_change_at']) or '-'} | {', '.join(x['two_changes_at']) or '-'} | {x['cause']} |")
+        n_od = len({(x["od"], x["t"]) for x in S["S4"]})
+        n_imp = sum(x["now_reason"] == "불가능한 연결" for x in S["S4"])
+        L += ["", f"- 대상 OD·시각 {n_od}개, 제외 후보 구간 {len(S['S4'])}개 — 지금 엔진에서도 '불가능한 연결' 로 남는 것 **{n_imp}개**, "
+              f"나머지 {len(S['S4']) - n_imp}개는 D-100 사유 표기 정정으로 R3 사유(운행 종료 등)로 적힘 (후보 제외·추천은 같음)",
+              "- 이 후보들은 추천 전에 빠진다(잘못된 추천 아님). OD 자체에 다른 경로가 있는지는 R-P2 '경로 있음' 열 참고", ""]
+    if "S5" in S:
+        v = S["S5"]
+        L += ["## S5 기존 기능 회귀", "",
+              f"- 기능 끔 V1: v2.3 {v['V1']['cases']:,}건 불일치 **{v['V1']['mismatch']}**",
+              f"- 켬(k=10) T1: {v['T1']} · T1a 열차 단위 {v['T1a_train_check']} · T1b {'통과' if v['T1b_ok'] else '**실패**'} · T2 {'통과' if v['T2_ok'] else '**실패**'}",
+              f"- 켠 그래프 감사: {v['audit']}", ""]
+    REPORT_R2.write_text("\n".join(L), encoding="utf-8", newline="\n")
+
+
+def main_reeval2(a):
+    names = a.only or ["S1", "S3", "S4", "S5"]
+    out_dir = OUT_R2 if not a.dry else Path(os.environ.get("TEMP", "/tmp")) / "korail_3a2c_r2_dry"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    r9 = router(spec())
+    ods_k = k_sample(r9.display.station_key.unique())
+    if a.dry:
+        ods_k = ods_k[:8] + ods_k[-4:]
+    O = json.loads(SUMMARY.read_text(encoding="utf-8")) if SUMMARY.exists() else {}
+    R1 = json.loads(SUMMARY_R.read_text(encoding="utf-8")) if SUMMARY_R.exists() else {}
+    S = json.loads(SUMMARY_R2.read_text(encoding="utf-8")) if SUMMARY_R2.exists() and not a.dry else {}
+    p2f = OUT_R / "R-P2.parquet"
+    bt = [td.parse_hhmm(x) for x in BASE_TIMES]
+    for name in names:
+        t0 = time.time()
+        if name == "S1":
+            f = out_dir / "S1.parquet"
+            if f.exists() and not a.force and not a.dry:
+                df = pd.read_parquet(f)
+                print(f"S1: 저장된 결과 사용 ({len(df):,}행)")
+            else:
+                J = (jobs_for(spec(k=10), "s1_k10", ods_k, bt) + jobs_for(spec(k=20), "s1_k20", ods_k, bt)
+                     + jobs_for(spec(k=10, rep=True), "s1_k10rep", ods_k, bt))
+                print(f"  S1: 작업 {len(J)}개", flush=True)
+                df = run_tasks(J, a.workers)
+                df.to_parquet(f, index=False)
+            df = df.drop_duplicates(subset=["tag", "o", "d", "t"]).reset_index(drop=True)
+            S["S1"] = analyze_s1(df)
+            ov = O.get("V9", {}).get("K_k5_vs_k10", {})
+            S["S2"] = [{"stage": "원 평가 (k=5)", "cmp": "k=5 → 10", **ov},
+                       {"stage": "D-097 (k=5, A1·A2)", "cmp": "k=5 → 10", **R1.get("R-V9", {}).get("k5_vs_k10", {})},
+                       {"stage": "D-097 (k=5, A1·A2)", "cmp": "k=5 → 20", **R1.get("R-V9", {}).get("k5_vs_k20", {})},
+                       {"stage": "D-099 (k=10)", "cmp": "k=10 → 20", **S["S1"]["k10_vs_k20"]}]
+        elif name in ("S3", "S4"):
+            if not p2f.exists():
+                raise FileNotFoundError("D-097 재평가 결과 data/marts/v2/korail_3a2c_r1/R-P2.parquet 이 필요합니다")
+            p2 = pd.read_parquet(p2f).drop_duplicates(subset=["tag", "o", "d", "t"])
+            if a.dry:
+                p2 = p2.head(40)
+            S[name] = s3_tracking(p2) if name == "S3" else s4_remaining(p2)
+        elif name == "S5":
+            S["S5"] = s5_regression() if not a.dry else {"V1": {"cases": 0, "evaluated": 0, "mismatch": 0}, "T1": {},
+                                                          "T1a_train_check": "-", "T1b_ok": True, "T2_ok": True, "audit": {}}
+        print(f"  → {name} 끝 ({time.time() - t0:.0f}초)", flush=True)
+    global REPORT_R2
+    if a.dry:
+        REPORT_R2 = out_dir / "dry_reeval2.md"
+        write_report_r2(S, O, R1)
+        print(f"연습 보고서: {REPORT_R2}\n[연습 실행] 결과는 저장하지 않았습니다 (보고 금지).")
+        return 0
+    SUMMARY_R2.write_text(json.dumps(S, ensure_ascii=False, indent=1, default=str), encoding="utf-8", newline="\n")
+    write_report_r2(S, O, R1)
+    print(f"저장: {REPORT_R2.relative_to(ROOT)}, {SUMMARY_R2.relative_to(ROOT)}")
+    return 0
+
+
 def _comp(df, a_tag, b_tag) -> dict:
     A = df[(df.tag == a_tag) & df.ok].set_index(["o", "d", "t"])
     B = df[(df.tag == b_tag) & df.ok].set_index(["o", "d", "t"])
@@ -947,7 +1244,10 @@ def main():
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--reeval", action="store_true", help="D-097 재평가 (원 결과 data/marts/v2/korail_3a2c 필요)")
+    ap.add_argument("--reeval2", action="store_true", help="D-099 재계산 S1~S5 (D-097 재평가 결과 korail_3a2c_r1 필요)")
     a = ap.parse_args()
+    if a.reeval2:
+        return main_reeval2(a)
     if a.reeval:
         return main_reeval(a)
     names = a.only or ["V2", "T4", "V3", "V4", "V5", "V6", "V7", "V9", "V8"]

@@ -243,3 +243,31 @@ def test_d097_seokgye_southbound_not_default():
     assert all(c != 1018 for _, c, _ in T.line1_split_points(south, T.LINE1_SPLITS_DEFAULT))
     north = (1017, 1018, 1019, 1020)
     assert {c for _, c, _ in T.line1_split_points(north, T.LINE1_SPLITS_DEFAULT)} == {1018, 1019}
+
+
+# ------------------------------------------------------------------ D-099 후보 탐색 개선
+def test_d099_default_k_on_only(v1):
+    """D1: 켜면 k 를 따로 주지 않았을 때 기본 10, 끄면 기존 k 그대로, k 를 주면 그 값."""
+    mod, sr, disp = v1
+    plain = td.TDRouter(ROOT, mod, sr, disp, "weekday")
+    off = KE.KorailTDRouter(ROOT, mod, sr, disp, "weekday", include_korail=False)
+    on = KE.KorailTDRouter(ROOT, mod, sr, disp, "weekday", include_korail=True)
+    on5 = KE.KorailTDRouter(ROOT, mod, sr, disp, "weekday", include_korail=True, k=5)
+    assert off.k == plain.k and on.k == KE.KORAIL_DEFAULT_K == 10 and on5.k == 5
+
+
+def test_d099_rep_wait_changes_search_only(v1):
+    """D2: 대표 대기는 탐색 비용에만 — 같은 경로의 평가 값은 그대로, 평가용 그래프 간선도 그대로."""
+    mod, sr, disp = v1
+    a = KE.KorailTDRouter(ROOT, mod, sr, disp, "weekday", include_korail=True)
+    b = KE.KorailTDRouter(ROOT, mod, sr, disp, "weekday", include_korail=True, rep_wait=True)
+    bi = td.bin_index_of(480)
+    sa, sb = a.scorer(bi), b.scorer(bi)
+    assert getattr(sb, "_rep_extra", None) and not getattr(sa, "_rep_extra", None)
+    ta = {(u, e["to"]): e["time"] for u, l in sa.adj.items() for e in l}
+    tb = {(u, e["to"]): e["time"] for u, l in sb.adj.items() for e in l}
+    assert ta == tb                                            # 간선은 바뀌지 않음
+    qa = {tuple(x.path): x.actual_time_min for x in a.evaluate_od("가산디지털단지", "월계", 480)}
+    qb = {tuple(x.path): x.actual_time_min for x in b.evaluate_od("가산디지털단지", "월계", 480)}
+    for p in set(qa) & set(qb):
+        assert math.isclose(qa[p], qb[p], abs_tol=1e-9), p     # 같은 경로면 같은 평가
