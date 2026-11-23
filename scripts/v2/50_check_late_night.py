@@ -188,8 +188,20 @@ def run_t4(workers, dry) -> dict:
     k = ["o", "d", "t"]
     cols = ["status", "best_status", "best_path", "best_trains"]
     mm = new[k + cols].merge(old[k + cols], on=k, suffixes=("_new", "_old"))
-    diff = mm[(mm[[c + "_new" for c in cols]].astype(str).values != mm[[c + "_old" for c in cols]].astype(str).values).any(axis=1)]
-    return {"compared": int(len(mm)), "different": int(len(diff)), "examples": diff.head(5).to_dict("records"),
+
+    def norm(df):
+        # 결측(None·NaN)은 '' 로 맞춘 뒤 비교 — None 과 NaN 을 문자열로 바꾸면 'None' ≠ 'nan' 이 되어
+        # 확정 추천이 없는(status none) 같은 결과를 '다름' 으로 세던 결함 (D-103c)
+        return df.astype(object).where(pd.notna(df), "").astype(str).to_numpy()
+
+    neq = norm(mm[[c + "_new" for c in cols]]) != norm(mm[[c + "_old" for c in cols]])
+    diff = mm[neq.any(axis=1)]
+    raw = (mm[[c + "_new" for c in cols]].astype(str).to_numpy() != mm[[c + "_old" for c in cols]].astype(str).to_numpy())
+    return {"compared": int(len(mm)), "different": int(len(diff)),
+            "different_before_fix_d103c": int(raw.any(axis=1).sum()),
+            "different_by_column": {c: int(neq[:, i].sum()) for i, c in enumerate(cols)},
+            "status_of_raw_only": mm[raw.any(axis=1) & ~neq.any(axis=1)].status_new.value_counts().to_dict(),
+            "examples": diff.head(5).to_dict("records"),
             "best_not_connected": int((new.best_status.notna() & (new.best_status != "연결 확인")).sum())}
 
 
@@ -268,7 +280,7 @@ def write_report(S: dict, dest: Path) -> None:
          "- 재현: `python scripts/v2/50_check_late_night.py --workers 8`", "",
          "| T | 검증 | 결과 | 기준 |", "|---|---|---|---|",
          f"| T3 | 비심야 불변 (412쌍 × {len(DAY_INPUTS)}개 입력) | 인자 같음 {S['T3_same_args']}/{t3.get('rows')} · 결과 바뀐 건 **{t3.get('any_changed')}** · 오류 {t3.get('errors')} | 0 |",
-         f"| T4 | 확장 카드 = D-101 저장본 | {('비교 ' + str(t4.get('compared')) + ' · 다름 **' + str(t4.get('different')) + '** · 확정 추천 연결 불가 ' + str(t4.get('best_not_connected'))) if 'compared' in t4 else t4.get('skipped')} | 다름 0 · 연결 불가 0 |",
+         f"| T4 | 확장 카드 = D-101 저장본 | {('비교 ' + str(t4.get('compared')) + ' · 다름 **' + str(t4.get('different')) + '** (결측 비교 수정 전 셈 ' + str(t4.get('different_before_fix_d103c')) + ', D-103c) · 확정 추천 연결 불가 ' + str(t4.get('best_not_connected'))) if 'compared' in t4 else t4.get('skipped')} | 다름 0 · 연결 불가 0 |",
          f"| T5 | 두 카드 운행일 | 같음 {t5['same']}/{t5['cases']} | 모두 같음 |",
          f"| T7 | 앱 비심야 화면 = 구현 전 | 같음 **{t7['day_same']}/{t7['day_cases']}** · 심야 사례 {len(t7['late'])}개는 아래 | 모두 같음 |",
          f"| T8 | 심야 전후 (412쌍 × {len(LATE_INPUTS)}개 입력 = {t8.get('rows')}건) | 경로 바뀜 {t8.get('path_changed')} · 소요 바뀜 {t8.get('actual_changed')} · 최대 혼잡 바뀜 {t8.get('maxc_changed')} · 결과 있음 여부 바뀜 {t8.get('ok_changed')} · 오류 {t8.get('errors')} | 보고 |",
@@ -281,6 +293,10 @@ def write_report(S: dict, dest: Path) -> None:
           "## T7 심야 화면 사례 (전·후, 켬/끔)", "", "| 사례 | 전 metric | 후 metric | 운행일 문구 | 켬=끔 기존 카드 | 오류 |", "|---|---|---|---|---|---|"]
     for x in t7["late"]:
         L.append(f"| {x['case']} | {x['before_metrics']} | {x['after_metrics']} | {x['label_shown']} | {x['on_off_base_same']} | {len(x['exceptions'])} |")
+    if "compared" in t4:
+        L += ["", "## T4 상세", "", f"- 열별 다름: {t4.get('different_by_column')}",
+              f"- 결측 비교 수정(D-103c) 전에는 다름 {t4.get('different_before_fix_d103c')} — 그중 수정 뒤 같아진 건의 상태: {t4.get('status_of_raw_only')}",
+              f"- 첫 실행 결과(수정 전 도구): {t4.get('first_run')}", f"- 다른 예: {t4.get('examples')}"]
     L += ["", "## T7 비심야 차이", ""] + ([f"- {x['case']}: {x['keys']}" for x in t7["day_diffs"]] or ["- 없음"])
     L += ["", "## T5", "", "| 입력 | 기존 카드 (운행일 요일 시각) | 확장 카드 (운행일 요일 분) | 같음 |", "|---|---|---|---|"]
     L += [f"| {r['input']} | {r['base_card']} | {r['extension']} | {r['same']} |" for r in t5["rows"]]
@@ -295,7 +311,20 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--only-t4", action="store_true",
+                    help="저장된 보고서(json)는 그대로 두고 T4 만 다시 계산해 보고서를 다시 쓴다 (D-103c)")
     a = ap.parse_args()
+    if a.only_t4:
+        f = REP / "late_night_3a2e.json"
+        S = json.loads(f.read_text(encoding="utf-8"))
+        first = S.get("T4", {})
+        t0 = time.time()
+        S["T4"] = run_t4(a.workers, False)
+        S["T4"]["first_run"] = {k: first.get(k) for k in ("compared", "different", "best_not_connected")}
+        print(f"  → T4 끝 ({time.time() - t0:.0f}초)", flush=True)
+        write_report(S, REP)
+        print(f"저장: {REP / 'late_night_3a2e.md'}, {f}")
+        return 0
     e47 = _load("e47", "scripts/v2/47_evaluate_korail_3a2c.py")
     pairs = [(o, d) for o, d, _ in e47.v23_pairs(412)]
     late, day = LATE_INPUTS, DAY_INPUTS
