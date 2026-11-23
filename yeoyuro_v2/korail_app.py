@@ -52,6 +52,10 @@ BASIS_EXPECTED = ("기대 소요 = 첫 승차 대기 제외(R4) + 갈아타는 �
 BASIS_TIMETABLE = ("시각표 확인 = 입력 시각 뒤 첫 열차부터 실제 열차번호로 이어 탄 결과입니다(첫 대기 포함). "
                    "두 값은 다를 수 있습니다.")
 BASIS_STATIC = "정해진 시각표(2026-09-01) 기준이며 실시간 지연·운행 변경은 반영하지 않습니다."
+HOLIDAY_EXT = ("공휴일이라 휴일 시각표로 열차 연결을 확인했습니다. 1~9호선 구간의 혼잡·배차는 공휴일 관측값이 아니라 "
+               "요일 기준 통계입니다. 토요일과 겹친 공휴일의 시각표, 선거일 특별 운행은 확인하지 못했습니다.")
+HOLIDAY_BASE = ("공휴일 — 이 카드의 배차·혼잡은 요일 기준 통계입니다(공휴일 관측값·공휴일 시각표 아님).")
+OUT_OF_RANGE = "공휴일 판정은 2025~2027년만 지원합니다. 이 날짜는 요일로만 판정했습니다."
 
 CONNECT_OK, CONNECT_UNKNOWN, CONNECT_FAIL = "연결 확인", "연결 미확인", "연결 불가"
 
@@ -143,6 +147,9 @@ class ServiceDay:
     minute: float            # 운행일 기준 절대 분 (심야면 1440 이상)
     late_night: bool
     label: str               # 화면 문구
+    timetable_day_type: str = ""     # D-104: 공휴일이면 sunday(END) — 확장 계산기는 이 요일의 시각표를 쓴다
+    holiday: tuple = ()
+    holiday_supported: bool = True
 
 
 def day_type_of(date: dt.date) -> str:
@@ -154,7 +161,8 @@ def service_day(date, hhmm: str) -> ServiceDay:
     """입력 날짜·시각 → 운행일. D-103: 공통 시간 모듈(service_day.service_clock)을 그대로 쓴다 (값은 D-101 과 같음)."""
     from yeoyuro_v2.service_day import service_clock
     c = service_clock(date, hhmm)
-    return ServiceDay(c.service_date, c.day_type, float(c.minute), c.late_night, c.label)
+    return ServiceDay(c.service_date, c.day_type, float(c.minute), c.late_night, c.label,
+                      c.timetable_day_type, c.holiday, c.holiday_supported)
 
 
 # ---------------------------------------------------------------------- 계획 (A·C)

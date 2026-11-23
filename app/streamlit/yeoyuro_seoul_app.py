@@ -680,6 +680,10 @@ def render_extension(plan, searched: bool):
         return
     with st.container(border=True):
         st.caption(plan.service.label)
+        if plan.service.holiday:                         # D-104 P3
+            st.caption(_KA.HOLIDAY_EXT)
+        if not plan.service.holiday_supported:           # D-104 P6
+            st.caption(_KA.OUT_OF_RANGE)
         b = plan.best
         if plan.status == "none":
             why = plan.main_reason
@@ -1647,7 +1651,7 @@ def page_route():
         plan = None
         with st.spinner("광역철도 포함 경로를 열차 시각표로 확인하는 중입니다..."):
             try:
-                plan = get_ext_planner(sd.day_type, str(sd.date)).plan(o, d_, sd)   # 조회 날짜도 운행일 (D-103 R3)
+                plan = get_ext_planner(sd.timetable_day_type, str(sd.date)).plan(o, d_, sd)   # 시각표 요일(D-104)·조회 날짜 운행일(D-103)
             except Exception:                                # noqa: BLE001
                 _PV.LOGGER.warning("extension plan failed: %s->%s %s", o, d_, sd, exc_info=True)
         st.session_state["ext_result"] = plan
@@ -1710,6 +1714,10 @@ def page_route():
     if _svc().late_night:                                # 심야 입력일 때만 (D-103 R7)
         st.caption("%s — 자정 뒤 입력은 전날 운행일의 시각표·혼잡 통계로 계산합니다. "
                    "이 카드는 열차별 막차 연결을 확인하지 않습니다." % _svc().label)
+    if _svc().holiday:                                   # 공휴일 운행일일 때만 (D-104 P4)
+        st.caption(_KA.HOLIDAY_BASE)
+    if not _svc().holiday_supported:                     # 공휴일 날짜표 범위 밖 (D-104 P6)
+        st.caption(_KA.OUT_OF_RANGE)
     _render_route_result(result, bool(st.session_state.get("route_fallback")), o, d_)
     if ext_on():                                         # 기존 결과 아래에 따로 (A3)
         st.divider()
