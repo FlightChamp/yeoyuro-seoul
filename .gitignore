@@ -128,3 +128,6 @@ reports/v2/facility_poc_cases.csv
 # 공모전판 전용: 빠른하차정보 파생 엘리베이터 표. 원천(공공데이터포털 15143840)은 이용허락 제한이 없지만
 # 공모전 버전 산출물이므로 v2 저장소에는 올리지 않는다 (Phase 1-1, 2026-11)
 data/app_v26/data/marts/fast_exit_elevator.parquet
+
+# D-101 검증 스크립트(49)가 잠시 만드는 구현 전 앱 사본
+app/streamlit/_w1_before_app.py

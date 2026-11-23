@@ -276,7 +276,27 @@ def test_express_pass_rows_never_become_stops(tmp_path):
 
 # ------------------------------------------------------------------ 격리 (기존 결과 불변)
 # 검증·확장 전용 모듈 (기존 엔진·앱이 import 하지 않음): 3A-2a 연결 검증·3A-2b 코레일 확장
-ISOLATED = {"korail_line1.py", "train_timetable.py", "korail_engine.py"}   # 3A-2b 확장도 기능 켤 때만 (D-095 E2)
+ISOLATED = {"korail_line1.py", "train_timetable.py", "korail_engine.py",   # 3A-2b 확장도 기능 켤 때만 (D-095 E2)
+            "korail_app.py"}   # D-101: 앱 연결 층 — 코레일 모듈은 함수 안에서만 불러옴 (끔이면 안 올라옴, 아래 테스트)
+
+
+def test_off_app_does_not_load_korail_modules():
+    """D-101: 앱은 korail_app(가벼운 층)을 통해서만 코레일 기능을 쓰고, 토글이 꺼져 있으면 코레일·열차 단위 모듈을
+    메모리에 올리지 않는다 (별도 프로세스에서 끔 상태로 앱을 한 번 실행해 확인)."""
+    import subprocess
+    code = (
+        "import sys; sys.path.insert(0, %r)\n"
+        "from streamlit.testing.v1 import AppTest\n"
+        "at = AppTest.from_file(%r, default_timeout=600)\n"
+        "at.session_state['nav_page'] = '경로 추천'; at.session_state['view_route'] = '경로'\n"
+        "at.run()\n"
+        "assert not at.exception, at.exception\n"
+        "bad = [m for m in sys.modules if m.split('.')[-1] in ('korail_line1', 'train_timetable', 'korail_engine')]\n"
+        "print('LOADED', bad)\n"
+    ) % (str(ROOT), str(ROOT / "app" / "streamlit" / "yeoyuro_seoul_app.py"))
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, encoding="utf-8", timeout=900)
+    assert r.returncode == 0, r.stderr[-2000:]
+    assert "LOADED []" in r.stdout, r.stdout[-500:]
 
 
 def test_engine_and_app_do_not_import_korail_line1():

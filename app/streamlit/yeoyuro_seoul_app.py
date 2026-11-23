@@ -62,6 +62,7 @@ for extra in (ROOT, ROOT / "scripts", ROOT / "app" / "streamlit"):
         sys.path.insert(0, str(extra))
 
 from yeoyuro_v2 import provenance as _PV  # noqa: E402 — 계산 출처 기록 (D-075)
+from yeoyuro_v2 import korail_app as _KA  # noqa: E402 — 광역철도 확장 토글 (D-101, 기본 끔)
 
 st.set_page_config(page_title="여유로 서울", page_icon="🚇", layout="wide",
                    initial_sidebar_state="expanded")
@@ -499,6 +500,11 @@ DEFAULTS = {
     "q_date": _D_DATE,
     "q_time": _D_TIME,
     "q_mode": "calm",
+    # 광역철도 확장 (D-101): 세션마다 기본 끔. 결과는 기존 경로 결과와 따로 보관한다.
+    "ext_on": False,
+    "ext_result": None,
+    "ext_query": None,
+    "ext_flash": None,
 }
 for k, v in DEFAULTS.items():
     st.session_state.setdefault(k, v)
@@ -551,6 +557,8 @@ def _sync_widgets_from_canonical():
     """이동 시점에만 canonical → 위젯. 콜백 안에서 부르므로 위젯 생성 전이다."""
     for w, c in WIDGET_CANON.items():
         v = st.session_state.get(c)
+        if w in ("ts_origin", "ts_dest") and ext_on() and v in _korail_only_names():
+            v = None                               # 시간 비교 화면은 1~9호선 역만 (D-101 B)
         if v is None and w in ("ts_origin", "ts_dest", "w_date", "w_time", "w_mode", "ts_date", "ts_time"):
             st.session_state.pop(w, None)          # 다음 렌더에서 기본값으로 시드
         else:
@@ -561,7 +569,152 @@ def _seed(widget_key: str, default=None):
     """위젯 state 가 없을 때만 canonical 값으로 채운다."""
     if widget_key not in st.session_state:
         v = st.session_state.get(WIDGET_CANON[widget_key])
+        if widget_key in ("ts_origin", "ts_dest") and ext_on() and v in _korail_only_names():
+            v = None                               # 시간 비교 화면은 1~9호선 역만 (D-101 B)
         st.session_state[widget_key] = default if v is None else v
+
+
+# --------------------------------------------------------------------------
+# 광역철도 확장 (D-101, 사전 등록 9절) — 기본 끔. 끄면 아래 함수들은 화면에 아무 영향이 없다.
+# --------------------------------------------------------------------------
+def _korail_only_names() -> set:
+    """1~9호선 앱 목록에 없는 코레일 1호선 역 이름 (켰을 때만 고를 수 있음)."""
+    d = load_mart("station_display_master", "data/master")
+    return set() if d is None else set(_KA.korail_only_stations(d))
+
+
+def ext_on() -> bool:
+    return bool(st.session_state.get("ext_on"))
+
+
+def _on_ext_toggle():
+    """토글이 바뀌면 확장 결과를 지운다. 끌 때 코레일 전용 역을 골라 두었으면 비우고 안내한다 (B4)."""
+    st.session_state["ext_result"] = None
+    st.session_state["ext_query"] = None
+    if not st.session_state.get("ext_on"):
+        only = _korail_only_names()
+        cleared = False
+        for c, w in (("origin_station_key", "sel_origin"), ("destination_station_key", "sel_dest")):
+            if st.session_state.get(c) in only:
+                st.session_state[c] = None
+                st.session_state[w] = None
+                cleared = True
+        if st.session_state.get("selected_station_key") in only:
+            st.session_state["selected_station_key"] = None
+        if cleared:
+            st.session_state["route_result"] = None
+            st.session_state["ext_flash"] = _KA.OFF_CLEARED
+
+
+@st.cache_data(show_spinner=False)
+def _ext_display(disp: pd.DataFrame) -> pd.DataFrame:
+    return _KA.extended_display(disp)
+
+
+@st.cache_resource(show_spinner=False, max_entries=2)
+def get_ext_planner(day_type: str, query_date: str):
+    """요일·날짜별 확장 경로 계산기 (만드는 데 수 초, 메모리 약 0.5GB → 최대 2개만 보관)."""
+    import station_routing as sr
+    from yeoyuro_v2.line9 import register_v1_directions
+    mod = sr.load_scorer_class(ROOT)
+    register_v1_directions(mod)
+    return _KA.ExtensionPlanner(DATA_ROOT, mod, sr, load_mart("station_display_master", "data/master"),
+                                day_type, query_date=query_date, repo_root=ROOT)
+
+
+@st.cache_data(show_spinner=False)
+def _ext_overlay(stamp: float):
+    return _KA.map_overlay(MAP_WORKBOOK)
+
+
+def ext_bundle(bundle: dict, stamp: float) -> dict:
+    """켬일 때 노선도: 3-A 를 운영 노선처럼 더하고(클릭 가능), 3-B 는 예정 모양 재료만 붙인다 (B5)."""
+    if bundle is None or not MAP_WORKBOOK.exists():
+        return bundle
+    ov = _ext_overlay(stamp)
+    b = dict(bundle)
+    vn = ov["a_nodes"].copy()
+    b["map_visual_nodes"] = pd.concat([bundle["map_visual_nodes"], vn], ignore_index=True)
+    seg = ov["a_segs"].copy()
+    seg["line_id"], seg["color"] = "1", LINE_COLORS["1"]
+    b["map_line_segments"] = pd.concat([bundle["map_line_segments"], seg], ignore_index=True)
+    if bundle.get("map_transfer_links") is not None and len(ov["a_links"]):
+        tl = ov["a_links"].copy()
+        tl["connector_visible"] = True
+        b["map_transfer_links"] = pd.concat([bundle["map_transfer_links"], tl], ignore_index=True)
+    ca = bundle["map_click_areas"].copy()
+    common = set(_KA.common_stations(load_mart("station_display_master", "data/master")))
+    ca.loc[ca.station_key.isin(common), "available_lines"] = ca.loc[ca.station_key.isin(common), "available_lines"].map(
+        lambda v: _KA._sorted_lines(str(v).split(",") + ["1"]))
+    b["map_click_areas"] = pd.concat([ca, ov["a_click"][[c for c in ca.columns if c in ov["a_click"].columns]]],
+                                     ignore_index=True)
+    lb = bundle["map_labels"]
+    b["map_labels"] = pd.concat([lb, ov["a_labels"][[c for c in lb.columns if c in ov["a_labels"].columns]]],
+                                ignore_index=True)
+    b["planned_b_segs"], b["planned_b_nodes"] = ov["b_segs"], ov["b_nodes"]
+    return b
+
+
+def _ext_current():
+    """지금 입력·토글로 계산된 확장 결과만 돌려준다 (조건이 바뀌었으면 None)."""
+    if not ext_on():
+        return None
+    if st.session_state.get("ext_query") != _query_sig():
+        return None
+    return st.session_state.get("ext_result")
+
+
+def render_extension(plan, searched: bool):
+    """확장 카드 (A3~A7, C2~C5). 기존 결과 카드 아래에 따로 그린다."""
+    st.markdown("#### 🚆 " + _KA.CARD_TITLE)
+    if plan is None:
+        if searched:
+            st.warning("광역철도 포함 경로를 계산하지 못했습니다. 잠시 뒤 다시 검색해 주세요.")
+        else:
+            st.caption("[경로 검색] 을 누르면 광역철도 포함 경로도 함께 계산합니다.")
+        return
+    with st.container(border=True):
+        st.caption(plan.service.label)
+        b = plan.best
+        if plan.status == "none":
+            why = plan.main_reason
+            st.warning(_KA.NONE_FOUND + (" (주된 사유: %s)" % why if why else ""))
+        elif plan.status == "no_benefit":
+            st.info(_KA.NO_BENEFIT)
+            if b is not None:
+                st.caption("1~9호선 경로 기대 소요 %.0f분 · 시각표 확인 %s 도착" % (b.expected_min, b.train_arrive or "-"))
+        else:
+            c1, c2, c3 = st.columns(3)
+            c1.metric("기대 소요", "%.0f분" % b.expected_min, help=_KA.BASIS_EXPECTED)
+            c2.metric("시각표 확인 도착", b.train_arrive or "-", help=_KA.BASIS_TIMETABLE)
+            if plan.baseline_min is not None:
+                c3.metric("1~9호선만 이용 시", "%.0f분" % plan.baseline_min,
+                          delta="%+.0f분" % (b.expected_min - plan.baseline_min), delta_color="inverse")
+            else:
+                c3.metric("1~9호선만 이용 시", "해당 없음", help="코레일 전용 역이라 1~9호선만으로는 갈 수 없습니다.")
+            st.markdown("**✅ %s** · 환승 %d회" % (b.status, b.transfers))
+            for lg in b.legs:
+                tag = ("<span style='background:#FFF4CC;border-radius:4px;padding:1px 6px;font-size:0.8rem'>%s</span>"
+                       % _KA.BADGE_UNKNOWN) if lg.korail else (
+                    "<span style='color:#6B7280;font-size:0.85rem'>최대 혼잡 %.0f%%</span>" % lg.max_congestion
+                    if lg.max_congestion is not None else "")
+                st.markdown("%s **%s → %s** %s" % (line_badges(lg.line), lg.board, lg.alight, tag),
+                            unsafe_allow_html=True)
+            if any(lg.korail for lg in b.legs):
+                st.caption(_KA.NO_COMFORT)
+            with st.expander("시각표 확인 — 열차번호로 따라가기"):
+                for i, r in enumerate(b.rides):
+                    if i:
+                        st.caption("↳ 갈아타기 · 기다림 %.1f분" % r.wait_min)
+                    st.markdown("`%s` %s %s → %s %s" % (r.train, r.board, r.dep, r.alight, r.arr))
+                if b.first_wait_min is not None:
+                    st.caption("첫 열차까지 기다림 %.1f분 (기대 소요에는 넣지 않음, R4)" % b.first_wait_min)
+        n_ex = sum(plan.excluded_train.values())
+        if n_ex:
+            st.caption("확정 추천에서 뺀 후보: " + ", ".join("%s %d" % kv for kv in plan.excluded_train.most_common()))
+        st.caption(_KA.BASIS_EXPECTED)
+        st.caption(_KA.BASIS_TIMETABLE)
+        st.caption(_KA.BASIS_STATIC)
 
 
 def _go(page: str, view: str | None = None):
@@ -660,6 +813,23 @@ def draw_map(bundle: dict, highlight_path=None, show_endpoints: bool = True):
             fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", hoverinfo="skip",
                                      line=dict(color=LINE_COLORS.get(str(line), "#888"),
                                                width=6),
+                                     showlegend=False))
+
+    # 1-b. 3-B 예정 노선 (광역철도 확장 켬일 때만 재료가 있음, D-101 B5): 회색 점선, 클릭 안 됨
+    pb = bundle.get("planned_b_segs")
+    if pb is not None and len(pb):
+        xs, ys = [], []
+        for r in pb.itertuples():
+            xs += [r.x0, r.x1, None]
+            ys += [r.y0, r.y1, None]
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", hoverinfo="skip",
+                                 line=dict(color="#B0B7C3", width=4, dash="dot"), showlegend=False))
+        pn = bundle.get("planned_b_nodes")
+        if pn is not None and len(pn):
+            fig.add_trace(go.Scatter(x=pn["x_px"], y=pn["y_px"], mode="markers",
+                                     marker=dict(size=6, color="#E5E7EB", line=dict(width=1, color="#9CA3AF")),
+                                     text=pn["station_key"],
+                                     hovertemplate="%{text} · 3-B 예정 (경로 계산 안 함)<extra></extra>",
                                      showlegend=False))
 
     # 2. 환승 connector
@@ -1325,6 +1495,12 @@ def page_route():
                    "`12_build_display_masters.py` 를 먼저 실행하세요.")
         return
 
+    # 광역철도 확장 (D-101): 켬일 때만 역 목록·노선도에 코레일 1호선을 더한다. 끔이면 disp·bundle 그대로.
+    base_disp = disp
+    if ext_on():
+        disp = _ext_display(base_disp)
+        bundle = ext_bundle(bundle, ensure_map_fresh())
+
     # 좌측 입력 패널은 좁게, 노선도는 넓게. 16:9 비율이라 세로도 함께 키운다.
     left, right = st.columns([0.78, 2.35], gap="small")
 
@@ -1371,6 +1547,11 @@ def page_route():
         st.selectbox("선호 모드", list(MODE_LABEL), format_func=lambda x: MODE_LABEL[x],
                      key="w_mode", on_change=_w2c, args=("w_mode",))
 
+        st.toggle(_KA.TOGGLE_LABEL, key="ext_on", help=_KA.TOGGLE_HELP, on_change=_on_ext_toggle)
+        if st.session_state.get("ext_flash"):
+            st.warning(st.session_state["ext_flash"])
+            st.session_state["ext_flash"] = None
+
         do_search = st.button("경로 검색", width="stretch", type="primary")
         st.button("초기화", width="stretch", on_click=_reset_all)
 
@@ -1413,8 +1594,16 @@ def page_route():
     o = st.session_state["origin_station_key"]
     d_ = st.session_state["destination_station_key"]
     ready = bool(o and d_ and o != d_)
+    # 코레일 전용 역이 출발·도착이면 기존 1~9호선 계산은 하지 않는다 (A5)
+    ko_only = ext_on() and (_KA.is_korail_only(o, base_disp) or _KA.is_korail_only(d_, base_disp))
 
-    if ready and do_search:
+    if ready and do_search and ko_only:
+        st.session_state["route_result"] = None
+        st.session_state["route_fallback"] = False
+        st.session_state["route_query"] = _query_sig()
+        st.session_state["ts_handoff"] = None
+
+    if ready and do_search and not ko_only:
         dow = pd.Timestamp(st.session_state["q_date"]).day_of_week
         day_type = "saturday" if dow == 5 else ("sunday" if dow == 6 else "weekday")
         hhmm = "%02d:%02d" % (st.session_state["q_time"].hour,
@@ -1453,6 +1642,18 @@ def page_route():
         st.session_state["route_query"] = _query_sig()
         st.session_state["ts_handoff"] = None          # 새 검색이면 예전 시간 비교 인계는 무효
 
+    if ready and do_search and ext_on():
+        hhmm = "%02d:%02d" % (st.session_state["q_time"].hour, st.session_state["q_time"].minute)
+        sd = _KA.service_day(st.session_state["q_date"], hhmm)
+        plan = None
+        with st.spinner("광역철도 포함 경로를 열차 시각표로 확인하는 중입니다..."):
+            try:
+                plan = get_ext_planner(sd.day_type, str(st.session_state["q_date"])).plan(o, d_, sd)
+            except Exception:                                # noqa: BLE001
+                _PV.LOGGER.warning("extension plan failed: %s->%s %s", o, d_, sd, exc_info=True)
+        st.session_state["ext_result"] = plan
+        st.session_state["ext_query"] = _query_sig()
+
     # 결과가 지금 입력(출발·도착·날짜·시각·모드)으로 계산된 것인지. 다르면 결과·CTA·하이라이트를 숨긴다.
     stale = (st.session_state.get("route_result") is not None
              and st.session_state.get("route_query") != _query_sig())
@@ -1466,6 +1667,10 @@ def page_route():
             res = st.session_state.get("route_result")
             if res and res.get("ok") and not stale:
                 path = res["recommended"]["path"]
+            elif ko_only:
+                xp = _ext_current()
+                if xp is not None and xp.best is not None:
+                    path = xp.best.path
             ev = st.plotly_chart(draw_map(bundle, path), width="stretch",
                                  on_select="rerun", key="subway_map",
                                  selection_mode="points", config=MAP_ZOOM_CONFIG)
@@ -1485,6 +1690,10 @@ def page_route():
             st.info("출발역과 도착역이 같습니다. 다른 역을 선택해 주세요.")
         return
 
+    if ko_only:                                          # 코레일 전용 역: 확장 카드만 (A5)
+        st.info(_KA.NOT_IN_BASE)
+        render_extension(_ext_current(), searched=st.session_state.get("ext_query") is not None)
+        return
     result = st.session_state.get("route_result")
     if result is None:
         if do_search:
@@ -1492,12 +1701,17 @@ def page_route():
                     "다른 구간이나 시각을 선택해 주세요.")
         else:
             st.caption("[경로 검색] 을 누르면 결과가 표시됩니다.")
+        if ext_on():
+            render_extension(_ext_current(), searched=bool(do_search))
         return
     if stale:
         st.warning("검색 조건(날짜·시각·선호 모드 등)이 바뀌었습니다. **[경로 검색]** 을 다시 눌러 주세요. "
                    "이전 결과는 지금 조건과 맞지 않아 숨겼습니다.")
         return
     _render_route_result(result, bool(st.session_state.get("route_fallback")), o, d_)
+    if ext_on():                                         # 기존 결과 아래에 따로 (A3)
+        st.divider()
+        render_extension(_ext_current(), searched=st.session_state.get("ext_query") is not None)
 
 
 SHIFT_REASON_KO = {
