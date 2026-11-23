@@ -1,0 +1,149 @@
+{
+ "counts": {
+  "2025": {
+   "dates": 19,
+   "weekday_holidays": 17,
+   "saturday_holidays": 1,
+   "rows": 20
+  },
+  "2026": {
+   "dates": 22,
+   "weekday_holidays": 16,
+   "saturday_holidays": 4,
+   "rows": 22
+  },
+  "2027": {
+   "dates": 24,
+   "weekday_holidays": 15,
+   "saturday_holidays": 5,
+   "rows": 24
+  }
+ },
+ "H9": {
+  "compared": 1236,
+  "errors": 0,
+  "changed": {
+   "status": 949,
+   "best_path": 949,
+   "best_trains": 1146,
+   "expected": 949
+  },
+  "status_before": {
+   "ok": 872,
+   "no_benefit": 277,
+   "none": 87
+  },
+  "status_after": {
+   "none": 971,
+   "no_benefit": 265
+  },
+  "best_not_connected_after": 0,
+  "timetable_total_diff_median": 3.0,
+  "timetable_total_diff_max_abs": 26.0,
+  "by_time": {
+   "08:00": {
+    "status_changed": 321,
+    "trains_changed": 409
+   },
+   "18:00": {
+    "status_changed": 322,
+    "trains_changed": 412
+   },
+   "23:30": {
+    "status_changed": 306,
+    "trains_changed": 325
+   }
+  },
+  "examples": [
+   {
+    "o": "혜화",
+    "d": "용산",
+    "hhmm": "08:00",
+    "status_b": "ok",
+    "status_a": "none",
+    "best_trains_b": "4031|K49",
+    "best_trains_a": "",
+    "train_total_b": 29.5,
+    "train_total_a": NaN
+   },
+   {
+    "o": "혜화",
+    "d": "용산",
+    "hhmm": "18:00",
+    "status_b": "ok",
+    "status_a": "none",
+    "best_trains_b": "4661|K165",
+    "best_trains_a": "",
+    "train_total_b": 24.0,
+    "train_total_a": NaN
+   },
+   {
+    "o": "혜화",
+    "d": "용산",
+    "hhmm": "23:30",
+    "status_b": "ok",
+    "status_a": "none",
+    "best_trains_b": "K4335|K825",
+    "best_trains_a": "",
+    "train_total_b": 31.5,
+    "train_total_a": NaN
+   },
+   {
+    "o": "신이문",
+    "d": "목동",
+    "hhmm": "08:00",
+    "status_b": "ok",
+    "status_a": "none",
+    "best_trains_b": "K427|5530",
+    "best_trains_a": "",
+    "train_total_b": 52.333,
+    "train_total_a": NaN
+   },
+   {
+    "o": "신이문",
+    "d": "목동",
+    "hhmm": "18:00",
+    "status_b": "ok",
+    "status_a": "none",
+    "best_trains_b": "K167|5638",
+    "best_trains_a": "",
+    "train_total_b": 53.5,
+    "train_total_a": NaN
+   }
+  ]
+ },
+ "APP": {
+  "day_cases": 14,
+  "day_same": 14,
+  "day_diffs": [],
+  "holiday": [
+   {
+    "case": "신림 강남 2026-05-01 08:00 calm",
+    "changed_keys": [
+     "captions"
+    ],
+    "metrics_same": true,
+    "notice": true,
+    "exceptions": []
+   },
+   {
+    "case": "홍대입구 잠실 2025-06-03 18:00 calm",
+    "changed_keys": [
+     "captions"
+    ],
+    "metrics_same": true,
+    "notice": true,
+    "exceptions": []
+   },
+   {
+    "case": "상봉 건대입구 2026-05-02 00:30 calm",
+    "changed_keys": [
+     "captions"
+    ],
+    "metrics_same": true,
+    "notice": true,
+    "exceptions": []
+   }
+  ]
+ }
+}
