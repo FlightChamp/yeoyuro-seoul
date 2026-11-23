@@ -162,3 +162,28 @@ def test_app_holiday_notices():
     assert KA.HOLIDAY_BASE not in caps and KA.OUT_OF_RANGE not in caps
     caps = _search(False, "신림", "강남", "2028-01-04", "08:00")                  # 범위 밖
     assert KA.OUT_OF_RANGE in caps
+
+
+# ---------------------------------------------------------------------- D-104b (사후): 시각표 요일 ≠ 통계 요일
+@pytest.mark.skipif(not (ROOT / "data" / "app_v26" / "data" / "marts" / "route_edge_mart.parquet").exists(),
+                    reason="app_v26 데이터 없음")
+def test_holiday_planner_uses_timetable_day_for_korail():
+    """평일 공휴일 계산기: 1~9호선 통계는 평일(조회 날짜 요일), 코레일 열차 조회는 END.
+    D-104 첫 구현은 엔진 평가기가 통계 요일(평일)로 END 색인을 찾아 모든 코레일 후보를 '불가능한 연결' 로 뺐다."""
+    import pandas as pd
+    sys.path.insert(0, str(ROOT / "app" / "streamlit"))
+    import station_routing as sr
+    from yeoyuro_v2 import korail_app as KA
+    from yeoyuro_v2.line9 import register_v1_directions
+    mod = sr.load_scorer_class(ROOT)
+    register_v1_directions(mod)
+    data9 = ROOT / "data" / "app_v26"
+    disp = pd.read_csv(data9 / "data" / "master" / "station_display_master.csv")
+    sd = KA.service_day("2026-05-01", "08:00")
+    assert (sd.day_type, sd.timetable_day_type) == ("weekday", "sunday")
+    p = KA.ExtensionPlanner(data9, mod, sr, disp, sd.timetable_day_type, query_date=str(sd.date), repo_root=ROOT)
+    r = p.plan("혜화", "용산", sd)
+    assert p.on.scorer(0).day_type == "weekday"                       # 통계 요일 그대로 (P3)
+    assert p.on.evaluator(0).tt_day == "sunday"                       # 열차 조회는 휴일 시각표
+    assert "불가능한 연결" not in r.excluded_engine
+    assert r.best is not None and r.best.status == KA.CONNECT_OK

@@ -9,9 +9,10 @@ scripts/v2/51_check_holidays.py — 공휴일 시각표 요일 검증 H6·H7·H9
 | H7 | 앱: 평일 공휴일 사례에서 전·후 차이(안내 문구) 보고 |
 | — | 2025~2027 공휴일 수·평일 공휴일 수 (자료에서 셈) |
 
-실행:  python scripts/v2/51_check_holidays.py --workers 8      (사용자 PC 예상 5~10분, 미확인)
+실행:  python scripts/v2/51_check_holidays.py --workers 8      (사용자 PC 약 3분)
+       python scripts/v2/51_check_holidays.py --workers 8 --tag b   (D-104b 수정 뒤 재계산 → holidays_3a2f_b.*)
        python scripts/v2/51_check_holidays.py --dry
-산출:  reports/v2/holidays_3a2f.{md,json}
+산출:  reports/v2/holidays_3a2f.{md,json}  (--tag 가 있으면 holidays_3a2f_<tag>.{md,json}, 첫 보고서는 덮어쓰지 않음)
 """
 from __future__ import annotations
 
@@ -81,7 +82,8 @@ def h9_task(args):
                      "best_trains": "" if b is None else "|".join(x.train for x in b.rides),
                      "expected": None if b is None else round(b.expected_min, 3),
                      "train_total": None if b is None or b.train_total_min is None else round(b.train_total_min, 3),
-                     "excl": json.dumps(dict(r.excluded_train), ensure_ascii=False)})
+                     "excl": json.dumps(dict(r.excluded_train), ensure_ascii=False),
+                     "excl_engine": json.dumps(dict(r.excluded_engine), ensure_ascii=False)})
     return rows
 
 
@@ -99,6 +101,15 @@ def run_pool(jobs, workers):
     return pd.DataFrame(rows)
 
 
+def _sum_counts(d: pd.DataFrame) -> dict:
+    """엔진 단계에서 뺀 후보 사유 합계 (D-104b: 첫 결과에서 '불가능한 연결' 이 쏟아진 것을 보이게)."""
+    out: dict = {}
+    for x in d.get("excl_engine", pd.Series(dtype=str)).dropna():
+        for k, v in json.loads(x).items():
+            out[k] = out.get(k, 0) + v
+    return out
+
+
 def analyze_h9(df: pd.DataFrame) -> dict:
     k = ["o", "d", "hhmm"]
     b, a = df[df["mode"] == "before"], df[df["mode"] == "after"]
@@ -110,6 +121,7 @@ def analyze_h9(df: pd.DataFrame) -> dict:
     return {"compared": int(len(m)), "errors": int(df.get("error", pd.Series(dtype=str)).notna().sum()) if "error" in df else 0,
             "changed": ch, "status_before": b.status.value_counts().to_dict(), "status_after": a.status.value_counts().to_dict(),
             "best_not_connected_after": int(((a.best_status != "") & (a.best_status != "연결 확인")).sum()),
+            "engine_excluded_before": _sum_counts(b), "engine_excluded_after": _sum_counts(a),
             "timetable_total_diff_median": float(d.median()) if len(d) else None,
             "timetable_total_diff_max_abs": float(d.abs().max()) if len(d) else None,
             "by_time": {hm: {"status_changed": int((g.status_b != g.status_a).sum()),
@@ -179,11 +191,16 @@ def counts() -> dict:
     return out
 
 
-def write_report(S: dict, dest: Path) -> None:
+def write_report(S: dict, dest: Path, tag: str = "") -> None:
     h9, app = S["H9"], S["APP"]
-    L = ["# Phase 3A-2f 공휴일 시각표 요일 검증 — D-104", "",
-         "- 규칙: [사전 등록 문서 11절](../../docs/v2/preregistration_3a2.md) D-104 (구현 전 고정) · 구현 기록 D-104a",
-         "- 재현: `python scripts/v2/51_check_holidays.py --workers 8`", "",
+    name = "holidays_3a2f" + (f"_{tag}" if tag else "")
+    head = ["# Phase 3A-2f 공휴일 시각표 요일 검증 — D-104" + (f" (재계산 {tag})" if tag else ""), "",
+            "- 규칙: [사전 등록 문서 11절](../../docs/v2/preregistration_3a2.md) D-104 (구현 전 고정) · 구현 기록 D-104a"
+            + (" · 사후 수정 D-104b (11-6절)" if tag else ""),
+            "- 재현: `python scripts/v2/51_check_holidays.py --workers 8" + (f" --tag {tag}`" if tag else "`")]
+    if tag:
+        head.append("- 첫 결과 [holidays_3a2f.md](holidays_3a2f.md) 는 그대로 둔다 (평가기 시각표 요일 결함이 있던 계산)")
+    L = head + ["",
          "| H | 검증 | 결과 | 기준 |", "|---|---|---|---|",
          f"| 자료 | 2025~2027 공휴일 날짜 수 (평일·토요일 공휴일) | {', '.join(f'{y}: {v['dates']}일 (평일 {v['weekday_holidays']}·토 {v['saturday_holidays']})' for y, v in S['counts'].items())} | 사전 등록 표와 같음 (테스트) |",
          f"| H6 | 비공휴일 앱 화면 = 구현 전 | 같음 **{app['day_same']}/{app['day_cases']}** | 모두 같음 |",
@@ -192,6 +209,7 @@ def write_report(S: dict, dest: Path) -> None:
          "", "## H9 상세", "",
          f"- 상태 전 {h9['status_before']} → 후 {h9['status_after']}",
          f"- 시각별: {h9['by_time']}",
+         f"- 엔진 단계 제외 사유 합계: 전 {h9['engine_excluded_before']} → 후 {h9['engine_excluded_after']}",
          f"- 시각표 확인 소요 차이(둘 다 연결 확인): 중앙 {h9['timetable_total_diff_median']} · 최대 {h9['timetable_total_diff_max_abs']}분",
          f"- 열차가 바뀐 예: {h9['examples']}",
          "", "## H6 차이", ""] + ([f"- {x['case']}: {x['keys']}" for x in app["day_diffs"]] or ["- 없음"]) + [
@@ -199,8 +217,8 @@ def write_report(S: dict, dest: Path) -> None:
          "- 혼잡·배차 통계는 공휴일 관측값이 아니라 요일 기준 (P3·P4) — 기존 카드의 배차 기반 대기도 평일 공휴일에 평일 배차",
          "- 토요일과 겹친 공휴일 = 휴일 시각표는 설계 가정 (미확인), 선거일 특별 운행 미반영",
          "- 공휴일 판정 범위(2025~2027)와 시각표 유효기간(2026-09-01 시각표)은 다름", ""]
-    (dest / "holidays_3a2f.md").write_text("\n".join(L) + "\n", encoding="utf-8", newline="\n")
-    (dest / "holidays_3a2f.json").write_text(json.dumps(S, ensure_ascii=False, indent=1, default=str) + "\n",
+    (dest / f"{name}.md").write_text("\n".join(L) + "\n", encoding="utf-8", newline="\n")
+    (dest / f"{name}.json").write_text(json.dumps(S, ensure_ascii=False, indent=1, default=str) + "\n",
                                              encoding="utf-8", newline="\n")
 
 
@@ -208,6 +226,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--tag", default="", help="보고서 이름 꼬리표 (예: b → holidays_3a2f_b.md). 기존 보고서를 덮어쓰지 않으려고 씀")
     a = ap.parse_args()
     e47 = _load("e47", "scripts/v2/47_evaluate_korail_3a2c.py")
     ods = [(o, d) for o, d, _ in e47.k_sample(e47.router(e47.spec(on=True)).display.station_key.unique())]
@@ -227,12 +246,15 @@ def main() -> int:
     if a.dry:
         d = Path(tempfile.gettempdir()) / "holidays_3a2f_dry"
         d.mkdir(exist_ok=True)
-        write_report(S, d)
-        print(f"연습 보고서: {d / 'holidays_3a2f.md'}")
+        write_report(S, d, a.tag)
+        print(f"연습 보고서: {d / ('holidays_3a2f' + (f'_{a.tag}' if a.tag else '') + '.md')}")
         print("[연습 실행] 결과는 저장하지 않았습니다 (보고 금지).")
     else:
-        write_report(S, REP)
-        print(f"저장: {REP / 'holidays_3a2f.md'}, {REP / 'holidays_3a2f.json'}")
+        name = "holidays_3a2f" + (f"_{a.tag}" if a.tag else "")
+        if a.tag and (REP / f"{name}.md").exists():
+            raise SystemExit(f"{name}.md 가 이미 있습니다 — 다른 --tag 를 쓰세요 (보고서 덮어쓰기 금지)")
+        write_report(S, REP, a.tag)
+        print(f"저장: {REP / (name + '.md')}, {REP / (name + '.json')}")
     return 0
 
 

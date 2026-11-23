@@ -222,8 +222,12 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
 
     def __init__(self, scorer, headway, policy="step", include_initial_wait=False, event_scale=1.0,
                  event_exclude_lines=(), pieces: KorailPieces | None = None, index: T.TrainIndex | None = None,
-                 cap_wait: float | None = None, wait_mode: str = "E", line1_splits: dict | None = None):
+                 cap_wait: float | None = None, wait_mode: str = "E", line1_splits: dict | None = None,
+                 timetable_day_type: str | None = None):
         super().__init__(scorer, headway, policy, include_initial_wait, event_scale, event_exclude_lines)
+        # D-104b: 코레일 시각표 요일. 통계 요일(scorer.day_type, 조회 날짜의 요일)과 다를 수 있다 (평일 공휴일 → END).
+        # 시각표 색인(index)은 이 요일 행만 갖고 있으므로 열차 조회는 반드시 이 값으로 한다.
+        self.tt_day = timetable_day_type or self.day_type
         # D-097 B: 광운대·석계 같은 노선 갈아타기 설정 (None = 기본 LINE1_SPLITS_DEFAULT, {} = 끔)
         self.line1_splits = T.LINE1_SPLITS_DEFAULT if line1_splits is None else line1_splits
         self.pieces = pieces
@@ -278,7 +282,7 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
 
     def korail_wait(self, lg: dict, t: float) -> KorailLegWait:
         """코레일 포함 구간을 t(그 역 도착 분)에 탈 때: 30분 구간 E + 시각표상 다음 열차 + R3 사유."""
-        day = self.day_type
+        day = self.tt_day
         via = tuple(lg["codes"])
         deps, _, _ = self.kidx.pair(day, "1", via[0], via[-1], via)
         r, why = self.kidx.next_ride(day, "1", via[0], via[-1], t, MAX_WAIT, via=via)
@@ -301,7 +305,7 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
 
     def _ride_med(self, via, b0) -> float:
         """그 30분 구간에 via 를 한 열차로 가는 열차들의 탑승 시간 중앙값 (없으면 그날 중앙값)."""
-        deps, arrs, _ = self.kidx.pair(self.day_type, "1", via[0], via[-1], tuple(via))
+        deps, arrs, _ = self.kidx.pair(self.tt_day, "1", via[0], via[-1], tuple(via))
         if not deps:
             return float("nan")
         r = [a - d for d, a in zip(deps, arrs) if b0 <= d < b0 + 30]
@@ -326,7 +330,7 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
             w_a = self.korail_wait(a, t)
             if w_a.reason is not None or np.isnan(w_a.E):
                 if (w_a.reason not in (None, T.IMPOSSIBLE)
-                        and self.kidx.pair(self.day_type, "1", b["codes"][0], b["codes"][-1], tuple(b["codes"]))[0]):
+                        and self.kidx.pair(self.tt_day, "1", b["codes"][0], b["codes"][-1], tuple(b["codes"]))[0]):
                     split_reason = split_reason or w_a.reason
                 continue
             t_s = t + w_a.E + self._ride_med(a["codes"], b0) + walk
@@ -605,7 +609,8 @@ class KorailTDRouter(td.TDRouter):
             self._evals[key] = KorailTDEvaluator(
                 self.scorer(depart_bin), self.headway, policy, self.include_initial_wait,
                 self.event_scale, self.event_exclude_lines, pieces=self.pieces, index=self.kidx,
-                cap_wait=self.cap_wait, wait_mode=self.wait_mode, line1_splits=self.line1_splits)
+                cap_wait=self.cap_wait, wait_mode=self.wait_mode, line1_splits=self.line1_splits,
+                timetable_day_type=self.day_type)
         return self._evals[key]
 
     def rep_E(self, node: str, b: int) -> float:
