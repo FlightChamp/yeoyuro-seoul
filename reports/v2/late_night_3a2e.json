@@ -1,0 +1,574 @@
+{
+ "pairs": 412,
+ "T8": {
+  "rows": 4944,
+  "errors": 0,
+  "both_ok": 4944,
+  "ok_changed": 0,
+  "day_type_changed": 4944,
+  "time_bin_changed": 4944,
+  "path_changed": 325,
+  "actual_changed": 273,
+  "maxc_changed": 3537,
+  "exp100_changed": 0,
+  "any_changed": 3611,
+  "old_maxc_zero": 2818,
+  "new_maxc_zero": 2817,
+  "maxc_old_mean": 4.760275080906149,
+  "maxc_new_mean": 4.764765372168285,
+  "actual_diff_median": 0.0,
+  "actual_diff_absmax": 10.299999999999997,
+  "by_input": {
+   "2026-11-28 00:00": {
+    "n": 412,
+    "path_changed": 33,
+    "old": "saturday 05:30~06:00",
+    "new": "weekday 24:00~24:30",
+    "maxc_old_mean": 4.81,
+    "maxc_new_mean": 15.71
+   },
+   "2026-11-28 00:30": {
+    "n": 412,
+    "path_changed": 30,
+    "old": "saturday 05:30~06:00",
+    "new": "weekday 24:30~25:00",
+    "maxc_old_mean": 0.0,
+    "maxc_new_mean": 11.31
+   },
+   "2026-11-28 01:00": {
+    "n": 412,
+    "path_changed": 30,
+    "old": "saturday 05:30~06:00",
+    "new": "weekday 24:30~25:00",
+    "maxc_old_mean": 0.0,
+    "maxc_new_mean": 11.31
+   },
+   "2026-11-28 01:30": {
+    "n": 412,
+    "path_changed": 30,
+    "old": "saturday 05:30~06:00",
+    "new": "weekday 24:30~25:00",
+    "maxc_old_mean": 0.0,
+    "maxc_new_mean": 11.31
+   },
+   "2026-11-29 00:00": {
+    "n": 412,
+    "path_changed": 27,
+    "old": "sunday 05:30~06:00",
+    "new": "saturday 24:00~24:30",
+    "maxc_old_mean": 2.67,
+    "maxc_new_mean": 4.85
+   },
+   "2026-11-29 00:30": {
+    "n": 412,
+    "path_changed": 20,
+    "old": "sunday 05:30~06:00",
+    "new": "saturday 24:30~25:00",
+    "maxc_old_mean": 0.0,
+    "maxc_new_mean": 0.0
+   },
+   "2026-11-29 01:00": {
+    "n": 412,
+    "path_changed": 20,
+    "old": "sunday 05:30~06:00",
+    "new": "saturday 24:30~25:00",
+    "maxc_old_mean": 0.0,
+    "maxc_new_mean": 0.0
+   },
+   "2026-11-29 01:30": {
+    "n": 412,
+    "path_changed": 20,
+    "old": "sunday 05:30~06:00",
+    "new": "saturday 24:30~25:00",
+    "maxc_old_mean": 0.0,
+    "maxc_new_mean": 0.0
+   },
+   "2026-11-30 00:00": {
+    "n": 412,
+    "path_changed": 34,
+    "old": "weekday 05:30~06:00",
+    "new": "sunday 24:00~24:30",
+    "maxc_old_mean": 15.71,
+    "maxc_new_mean": 2.7
+   },
+   "2026-11-30 00:30": {
+    "n": 412,
+    "path_changed": 27,
+    "old": "weekday 05:30~06:00",
+    "new": "sunday 24:30~25:00",
+    "maxc_old_mean": 11.31,
+    "maxc_new_mean": 0.0
+   },
+   "2026-11-30 01:00": {
+    "n": 412,
+    "path_changed": 27,
+    "old": "weekday 05:30~06:00",
+    "new": "sunday 24:30~25:00",
+    "maxc_old_mean": 11.31,
+    "maxc_new_mean": 0.0
+   },
+   "2026-11-30 01:30": {
+    "n": 412,
+    "path_changed": 27,
+    "old": "weekday 05:30~06:00",
+    "new": "sunday 24:30~25:00",
+    "maxc_old_mean": 11.31,
+    "maxc_new_mean": 0.0
+   }
+  },
+  "examples": [
+   {
+    "o": "수락산",
+    "d": "신대방",
+    "date": "2026-11-28",
+    "hhmm": "00:30",
+    "old_path": "7_수락산|7_마들|7_노원|7_중계|7_하계|7_공릉|7_태릉입구|7_먹골|7_중화|7_상봉|7_면목|7_사가정|7_용마산|7_중곡|7_군자|7_어린이대공원|7_건대입구|7_자양|7_청담|7_강남구청|7_학동|7_논현|7_반포|7_고속터미널|7_내방|7_이수|4_이수|4_사당|2_사당|2_낙성대|2_서울대입구|2_봉천|2_신림|2_신대방",
+    "new_path": "7_수락산|7_마들|7_노원|7_중계|7_하계|7_공릉|7_태릉입구|7_먹골|7_중화|7_상봉|7_면목|7_사가정|7_용마산|7_중곡|7_군자|7_어린이대공원|7_건대입구|2_건대입구|2_구의|2_강변|2_잠실나루|2_잠실|2_잠실새내|2_종합운동장|2_삼성|2_선릉|2_역삼|2_강남|2_교대|2_서초|2_방배|2_사당|2_낙성대|2_서울대입구|2_봉천|2_신림|2_신대방",
+    "old_actual": 64.9,
+    "new_actual": 70.7
+   },
+   {
+    "o": "수락산",
+    "d": "신대방",
+    "date": "2026-11-28",
+    "hhmm": "01:00",
+    "old_path": "7_수락산|7_마들|7_노원|7_중계|7_하계|7_공릉|7_태릉입구|7_먹골|7_중화|7_상봉|7_면목|7_사가정|7_용마산|7_중곡|7_군자|7_어린이대공원|7_건대입구|7_자양|7_청담|7_강남구청|7_학동|7_논현|7_반포|7_고속터미널|7_내방|7_이수|4_이수|4_사당|2_사당|2_낙성대|2_서울대입구|2_봉천|2_신림|2_신대방",
+    "new_path": "7_수락산|7_마들|7_노원|7_중계|7_하계|7_공릉|7_태릉입구|7_먹골|7_중화|7_상봉|7_면목|7_사가정|7_용마산|7_중곡|7_군자|7_어린이대공원|7_건대입구|2_건대입구|2_구의|2_강변|2_잠실나루|2_잠실|2_잠실새내|2_종합운동장|2_삼성|2_선릉|2_역삼|2_강남|2_교대|2_서초|2_방배|2_사당|2_낙성대|2_서울대입구|2_봉천|2_신림|2_신대방",
+    "old_actual": 64.9,
+    "new_actual": 70.7
+   },
+   {
+    "o": "수락산",
+    "d": "신대방",
+    "date": "2026-11-28",
+    "hhmm": "01:30",
+    "old_path": "7_수락산|7_마들|7_노원|7_중계|7_하계|7_공릉|7_태릉입구|7_먹골|7_중화|7_상봉|7_면목|7_사가정|7_용마산|7_중곡|7_군자|7_어린이대공원|7_건대입구|7_자양|7_청담|7_강남구청|7_학동|7_논현|7_반포|7_고속터미널|7_내방|7_이수|4_이수|4_사당|2_사당|2_낙성대|2_서울대입구|2_봉천|2_신림|2_신대방",
+    "new_path": "7_수락산|7_마들|7_노원|7_중계|7_하계|7_공릉|7_태릉입구|7_먹골|7_중화|7_상봉|7_면목|7_사가정|7_용마산|7_중곡|7_군자|7_어린이대공원|7_건대입구|2_건대입구|2_구의|2_강변|2_잠실나루|2_잠실|2_잠실새내|2_종합운동장|2_삼성|2_선릉|2_역삼|2_강남|2_교대|2_서초|2_방배|2_사당|2_낙성대|2_서울대입구|2_봉천|2_신림|2_신대방",
+    "old_actual": 64.9,
+    "new_actual": 70.7
+   },
+   {
+    "o": "이수",
+    "d": "송파",
+    "date": "2026-11-28",
+    "hhmm": "00:00",
+    "old_path": "4_이수|4_동작|9L_동작|9X_동작|9X_고속터미널|9X_신논현|9X_선정릉|9X_봉은사|9L_봉은사|9L_종합운동장|9X_종합운동장|9X_석촌|8_석촌|8_송파",
+    "new_path": "4_이수|4_동작|9L_동작|9X_동작|9X_고속터미널|9X_신논현|9X_선정릉|9X_봉은사|9X_종합운동장|9X_석촌|8_석촌|8_송파",
+    "old_actual": 29.5,
+    "new_actual": 30.5
+   },
+   {
+    "o": "이수",
+    "d": "송파",
+    "date": "2026-11-28",
+    "hhmm": "00:30",
+    "old_path": "4_이수|4_동작|9L_동작|9X_동작|9X_고속터미널|9X_신논현|9X_선정릉|9X_봉은사|9L_봉은사|9L_종합운동장|9X_종합운동장|9X_석촌|8_석촌|8_송파",
+    "new_path": "4_이수|4_동작|9X_동작|9X_고속터미널|9X_신논현|9X_선정릉|9X_봉은사|9L_봉은사|9L_종합운동장|9X_종합운동장|9X_석촌|8_석촌|8_송파",
+    "old_actual": 29.5,
+    "new_actual": 29.5
+   }
+  ]
+ },
+ "T3": {
+  "rows": 2472,
+  "errors": 0,
+  "both_ok": 2472,
+  "ok_changed": 0,
+  "day_type_changed": 0,
+  "time_bin_changed": 0,
+  "path_changed": 0,
+  "actual_changed": 0,
+  "maxc_changed": 0,
+  "exp100_changed": 0,
+  "any_changed": 0,
+  "old_maxc_zero": 0,
+  "new_maxc_zero": 0,
+  "maxc_old_mean": 63.35129449838189,
+  "maxc_new_mean": 63.35129449838189,
+  "actual_diff_median": 0.0,
+  "actual_diff_absmax": 0.0,
+  "by_input": {
+   "2026-11-25 08:00": {
+    "n": 412,
+    "path_changed": 0,
+    "old": "weekday 08:00~08:30",
+    "new": "weekday 08:00~08:30",
+    "maxc_old_mean": 107.43,
+    "maxc_new_mean": 107.43
+   },
+   "2026-11-25 18:00": {
+    "n": 412,
+    "path_changed": 0,
+    "old": "weekday 18:00~18:30",
+    "new": "weekday 18:00~18:30",
+    "maxc_old_mean": 97.05,
+    "maxc_new_mean": 97.05
+   },
+   "2026-11-28 08:00": {
+    "n": 412,
+    "path_changed": 0,
+    "old": "saturday 08:00~08:30",
+    "new": "saturday 08:00~08:30",
+    "maxc_old_mean": 44.47,
+    "maxc_new_mean": 44.47
+   },
+   "2026-11-28 18:00": {
+    "n": 412,
+    "path_changed": 0,
+    "old": "saturday 18:00~18:30",
+    "new": "saturday 18:00~18:30",
+    "maxc_old_mean": 59.47,
+    "maxc_new_mean": 59.47
+   },
+   "2026-11-29 08:00": {
+    "n": 412,
+    "path_changed": 0,
+    "old": "sunday 08:00~08:30",
+    "new": "sunday 08:00~08:30",
+    "maxc_old_mean": 27.5,
+    "maxc_new_mean": 27.5
+   },
+   "2026-11-29 18:00": {
+    "n": 412,
+    "path_changed": 0,
+    "old": "sunday 18:00~18:30",
+    "new": "sunday 18:00~18:30",
+    "maxc_old_mean": 44.19,
+    "maxc_new_mean": 44.19
+   }
+  },
+  "examples": []
+ },
+ "T3_same_args": 2472,
+ "T4": {
+  "compared": 2060,
+  "different": 484,
+  "examples": [
+   {
+    "o": "혜화",
+    "d": "용산",
+    "t": 1470,
+    "status_new": "none",
+    "best_status_new": NaN,
+    "best_path_new": NaN,
+    "best_trains_new": NaN,
+    "status_old": "none",
+    "best_status_old": NaN,
+    "best_path_old": NaN,
+    "best_trains_old": NaN
+   },
+   {
+    "o": "신이문",
+    "d": "목동",
+    "t": 1470,
+    "status_new": "none",
+    "best_status_new": NaN,
+    "best_path_new": NaN,
+    "best_trains_new": NaN,
+    "status_old": "none",
+    "best_status_old": NaN,
+    "best_path_old": NaN,
+    "best_trains_old": NaN
+   },
+   {
+    "o": "신이문",
+    "d": "까치산",
+    "t": 1470,
+    "status_new": "none",
+    "best_status_new": NaN,
+    "best_path_new": NaN,
+    "best_trains_new": NaN,
+    "status_old": "none",
+    "best_status_old": NaN,
+    "best_path_old": NaN,
+    "best_trains_old": NaN
+   },
+   {
+    "o": "경복궁",
+    "d": "개봉",
+    "t": 1410,
+    "status_new": "none",
+    "best_status_new": NaN,
+    "best_path_new": NaN,
+    "best_trains_new": NaN,
+    "status_old": "none",
+    "best_status_old": NaN,
+    "best_path_old": NaN,
+    "best_trains_old": NaN
+   },
+   {
+    "o": "경복궁",
+    "d": "개봉",
+    "t": 1470,
+    "status_new": "none",
+    "best_status_new": NaN,
+    "best_path_new": NaN,
+    "best_trains_new": NaN,
+    "status_old": "none",
+    "best_status_old": NaN,
+    "best_path_old": NaN,
+    "best_trains_old": NaN
+   }
+  ],
+  "best_not_connected": 0
+ },
+ "T5": {
+  "cases": 18,
+  "same": 18,
+  "rows": [
+   {
+    "input": "2026-11-28 00:00",
+    "base_card": "2026-11-27 weekday 24:00",
+    "extension": "2026-11-27 weekday 1440",
+    "same": true
+   },
+   {
+    "input": "2026-11-28 00:30",
+    "base_card": "2026-11-27 weekday 24:30",
+    "extension": "2026-11-27 weekday 1470",
+    "same": true
+   },
+   {
+    "input": "2026-11-28 01:00",
+    "base_card": "2026-11-27 weekday 25:00",
+    "extension": "2026-11-27 weekday 1500",
+    "same": true
+   },
+   {
+    "input": "2026-11-28 01:30",
+    "base_card": "2026-11-27 weekday 25:30",
+    "extension": "2026-11-27 weekday 1530",
+    "same": true
+   },
+   {
+    "input": "2026-11-29 00:00",
+    "base_card": "2026-11-28 saturday 24:00",
+    "extension": "2026-11-28 saturday 1440",
+    "same": true
+   },
+   {
+    "input": "2026-11-29 00:30",
+    "base_card": "2026-11-28 saturday 24:30",
+    "extension": "2026-11-28 saturday 1470",
+    "same": true
+   },
+   {
+    "input": "2026-11-29 01:00",
+    "base_card": "2026-11-28 saturday 25:00",
+    "extension": "2026-11-28 saturday 1500",
+    "same": true
+   },
+   {
+    "input": "2026-11-29 01:30",
+    "base_card": "2026-11-28 saturday 25:30",
+    "extension": "2026-11-28 saturday 1530",
+    "same": true
+   },
+   {
+    "input": "2026-11-30 00:00",
+    "base_card": "2026-11-29 sunday 24:00",
+    "extension": "2026-11-29 sunday 1440",
+    "same": true
+   },
+   {
+    "input": "2026-11-30 00:30",
+    "base_card": "2026-11-29 sunday 24:30",
+    "extension": "2026-11-29 sunday 1470",
+    "same": true
+   },
+   {
+    "input": "2026-11-30 01:00",
+    "base_card": "2026-11-29 sunday 25:00",
+    "extension": "2026-11-29 sunday 1500",
+    "same": true
+   },
+   {
+    "input": "2026-11-30 01:30",
+    "base_card": "2026-11-29 sunday 25:30",
+    "extension": "2026-11-29 sunday 1530",
+    "same": true
+   },
+   {
+    "input": "2026-11-25 08:00",
+    "base_card": "2026-11-25 weekday 08:00",
+    "extension": "2026-11-25 weekday 480",
+    "same": true
+   },
+   {
+    "input": "2026-11-25 18:00",
+    "base_card": "2026-11-25 weekday 18:00",
+    "extension": "2026-11-25 weekday 1080",
+    "same": true
+   },
+   {
+    "input": "2026-11-28 08:00",
+    "base_card": "2026-11-28 saturday 08:00",
+    "extension": "2026-11-28 saturday 480",
+    "same": true
+   },
+   {
+    "input": "2026-11-28 18:00",
+    "base_card": "2026-11-28 saturday 18:00",
+    "extension": "2026-11-28 saturday 1080",
+    "same": true
+   },
+   {
+    "input": "2026-11-29 08:00",
+    "base_card": "2026-11-29 sunday 08:00",
+    "extension": "2026-11-29 sunday 480",
+    "same": true
+   },
+   {
+    "input": "2026-11-29 18:00",
+    "base_card": "2026-11-29 sunday 18:00",
+    "extension": "2026-11-29 sunday 1080",
+    "same": true
+   }
+  ]
+ },
+ "T7": {
+  "day_cases": 13,
+  "day_same": 13,
+  "day_diffs": [],
+  "late": [
+   {
+    "case": "신림 강남 2026-11-28 00:30 calm",
+    "before_metrics": [
+     [
+      "예상 소요시간",
+      "16분"
+     ],
+     [
+      "쾌적 체감시간",
+      "16분"
+     ],
+     [
+      "최대 기대 혼잡도",
+      "0%"
+     ],
+     [
+      "환승",
+      "0회"
+     ]
+    ],
+    "after_metrics": [
+     [
+      "예상 소요시간",
+      "16분",
+      ""
+     ],
+     [
+      "쾌적 체감시간",
+      "16분",
+      ""
+     ],
+     [
+      "최대 기대 혼잡도",
+      "9%",
+      ""
+     ],
+     [
+      "환승",
+      "0회",
+      ""
+     ]
+    ],
+    "label_shown": true,
+    "on_off_base_same": true,
+    "exceptions": []
+   },
+   {
+    "case": "노량진 온수 2026-11-28 00:30 calm",
+    "before_metrics": [
+     [
+      "예상 소요시간",
+      "35분"
+     ],
+     [
+      "쾌적 체감시간",
+      "38분"
+     ],
+     [
+      "최대 기대 혼잡도",
+      "0%"
+     ],
+     [
+      "환승",
+      "2회"
+     ]
+    ],
+    "after_metrics": [
+     [
+      "예상 소요시간",
+      "35분",
+      ""
+     ],
+     [
+      "쾌적 체감시간",
+      "38분",
+      ""
+     ],
+     [
+      "최대 기대 혼잡도",
+      "12%",
+      ""
+     ],
+     [
+      "환승",
+      "2회",
+      ""
+     ]
+    ],
+    "label_shown": true,
+    "on_off_base_same": true,
+    "exceptions": []
+   },
+   {
+    "case": "상봉 건대입구 2026-11-30 00:10 calm",
+    "before_metrics": [
+     [
+      "예상 소요시간",
+      "12분"
+     ],
+     [
+      "쾌적 체감시간",
+      "12분"
+     ],
+     [
+      "최대 기대 혼잡도",
+      "6%"
+     ],
+     [
+      "환승",
+      "0회"
+     ]
+    ],
+    "after_metrics": [
+     [
+      "예상 소요시간",
+      "12분",
+      ""
+     ],
+     [
+      "쾌적 체감시간",
+      "12분",
+      ""
+     ],
+     [
+      "최대 기대 혼잡도",
+      "4%",
+      ""
+     ],
+     [
+      "환승",
+      "0회",
+      ""
+     ]
+    ],
+    "label_shown": true,
+    "on_off_base_same": true,
+    "exceptions": []
+   }
+  ]
+ }
+}
