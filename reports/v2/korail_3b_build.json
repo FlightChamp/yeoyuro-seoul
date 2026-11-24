@@ -1,0 +1,734 @@
+{
+ "check": {
+  "skipped_out_of_scope_trains": 298,
+  "time_reversal": [],
+  "dup_station": [],
+  "non_monotonic": [],
+  "outside_service_day": [],
+  "dup_train": 0,
+  "passing_in_scope": {
+   "weekday": 0,
+   "holiday": 0
+  },
+  "t4": {
+   "AR|holiday|*": 318,
+   "AR|weekday|*": 366,
+   "GC|holiday|DOWN": 43,
+   "GC|holiday|UP": 43,
+   "GC|weekday|DOWN": 61,
+   "GC|weekday|UP": 60,
+   "GJ_A|holiday|DOWN": 73,
+   "GJ_A|holiday|UP": 72,
+   "GJ_A|weekday|DOWN": 90,
+   "GJ_A|weekday|UP": 89,
+   "GJ_B|holiday|DOWN": 72,
+   "GJ_B|holiday|UP": 72,
+   "GJ_B|weekday|DOWN": 85,
+   "GJ_B|weekday|UP": 86,
+   "SB|holiday|DOWN": 130,
+   "SB|holiday|UP": 130,
+   "SB|weekday|DOWN": 168,
+   "SB|weekday|UP": 168
+  },
+  "t4_mismatch": {},
+  "t5_gj_weekday_gt_holiday": [
+   183,
+   149,
+   true
+  ],
+  "rows": 30575,
+  "trains": {
+   "saturday|AR": 318,
+   "saturday|GC": 86,
+   "saturday|GJ": 149,
+   "saturday|SB": 260,
+   "sunday|AR": 318,
+   "sunday|GC": 86,
+   "sunday|GJ": 149,
+   "sunday|SB": 260,
+   "weekday|AR": 366,
+   "weekday|GC": 121,
+   "weekday|GJ": 183,
+   "weekday|SB": 336
+  }
+ },
+ "c1": {
+  "errors": {
+   "all": {
+    "1.00": 1.3833,
+    "1.60": 0.72,
+    "1.81": 0.6562,
+    "2.78": 1.6073,
+    "n": 91
+   },
+   "1-8": {
+    "1.00": 1.45,
+    "1.60": 0.8267,
+    "1.81": 0.632,
+    "2.78": 1.557,
+    "n": 79
+   },
+   "3B": {
+    "1.00": 0.775,
+    "1.60": 0.455,
+    "1.81": 0.9575,
+    "2.78": 2.1431,
+    "n": 12
+   }
+  },
+  "best_by_error": 1.81,
+  "chosen": 1.81,
+  "rule": "①∪② 절대 오차 중앙값 최소, 1.81 과 차이 0.10분 미만이면 1.81 (D-105 4-3 C1)",
+  "ratio_median": {
+   "1-8": 1.814,
+   "3B": 1.55
+  },
+  "official_file_sha256": "434216e2c26fa7149ae7566badfa9938f87e83f28deb542aab68e1b10a9dc822"
+ },
+ "c1_validation": [
+  {
+   "set": "3B",
+   "station": "공덕",
+   "pair": "5↔GJ",
+   "observed": 2.9,
+   "official": 2.967
+  },
+  {
+   "set": "3B",
+   "station": "공덕",
+   "pair": "6↔GJ",
+   "observed": 2.9,
+   "official": 2.117
+  },
+  {
+   "set": "3B",
+   "station": "모란",
+   "pair": "8↔SB",
+   "observed": 1.52,
+   "official": 1.383
+  },
+  {
+   "set": "3B",
+   "station": "복정",
+   "pair": "8↔SB",
+   "observed": 0.77,
+   "official": 0.217
+  },
+  {
+   "set": "3B",
+   "station": "옥수",
+   "pair": "3↔GJ",
+   "observed": 3.6,
+   "official": 2.15
+  },
+  {
+   "set": "3B",
+   "station": "왕십리",
+   "pair": "2↔GJ",
+   "observed": 2.82,
+   "official": 0.7
+  },
+  {
+   "set": "3B",
+   "station": "왕십리",
+   "pair": "5↔GJ",
+   "observed": 6.53,
+   "official": 2.75
+  },
+  {
+   "set": "3B",
+   "station": "이촌",
+   "pair": "4↔GJ",
+   "observed": 1.85,
+   "official": 1.083
+  },
+  {
+   "set": "3B",
+   "station": "청량리",
+   "pair": "1↔GJ",
+   "observed": 3.0,
+   "official": 2.3
+  },
+  {
+   "set": "3B",
+   "station": "왕십리",
+   "pair": "2↔SB",
+   "observed": 2.0,
+   "official": 1.375
+  },
+  {
+   "set": "3B",
+   "station": "왕십리",
+   "pair": "5↔SB",
+   "observed": 5.0,
+   "official": 3.383
+  },
+  {
+   "set": "3B",
+   "station": "김포공항",
+   "pair": "5↔AR",
+   "observed": 2.75,
+   "official": 1.694
+  },
+  {
+   "set": "1-8",
+   "station": "동대문",
+   "pair": "1↔4",
+   "observed": 4.383,
+   "official": 2.7
+  },
+  {
+   "set": "1-8",
+   "station": "동묘앞",
+   "pair": "1↔6",
+   "observed": 3.0,
+   "official": 1.333
+  },
+  {
+   "set": "1-8",
+   "station": "서울역",
+   "pair": "1↔4",
+   "observed": 3.567,
+   "official": 2.217
+  },
+  {
+   "set": "1-8",
+   "station": "시청",
+   "pair": "1↔2",
+   "observed": 3.533,
+   "official": 1.4
+  },
+  {
+   "set": "1-8",
+   "station": "신설동",
+   "pair": "1↔2",
+   "observed": 3.117,
+   "official": 2.217
+  },
+  {
+   "set": "1-8",
+   "station": "종로3가",
+   "pair": "1↔3",
+   "observed": 2.683,
+   "official": 1.633
+  },
+  {
+   "set": "1-8",
+   "station": "종로3가",
+   "pair": "1↔5",
+   "observed": 5.433,
+   "official": 4.333
+  },
+  {
+   "set": "1-8",
+   "station": "건대입구",
+   "pair": "2↔7",
+   "observed": 2.533,
+   "official": 1.067
+  },
+  {
+   "set": "1-8",
+   "station": "교대",
+   "pair": "2↔3",
+   "observed": 2.4,
+   "official": 1.05
+  },
+  {
+   "set": "1-8",
+   "station": "대림",
+   "pair": "2↔7",
+   "observed": 4.083,
+   "official": 3.833
+  },
+  {
+   "set": "1-8",
+   "station": "동대문역사문화공원",
+   "pair": "2↔4",
+   "observed": 2.333,
+   "official": 0.633
+  },
+  {
+   "set": "1-8",
+   "station": "동대문역사문화공원",
+   "pair": "2↔5",
+   "observed": 2.4,
+   "official": 3.25
+  },
+  {
+   "set": "1-8",
+   "station": "사당",
+   "pair": "2↔4",
+   "observed": 2.267,
+   "official": 1.033
+  },
+  {
+   "set": "1-8",
+   "station": "성수",
+   "pair": "2↔2",
+   "observed": 0.633,
+   "official": 0.317
+  },
+  {
+   "set": "1-8",
+   "station": "시청",
+   "pair": "2↔1",
+   "observed": 3.533,
+   "official": 1.4
+  },
+  {
+   "set": "1-8",
+   "station": "신당",
+   "pair": "2↔6",
+   "observed": 4.017,
+   "official": 3.367
+  },
+  {
+   "set": "1-8",
+   "station": "신도림",
+   "pair": "2↔2",
+   "observed": 2.083,
+   "official": 1.133
+  },
+  {
+   "set": "1-8",
+   "station": "신설동",
+   "pair": "2↔1",
+   "observed": 3.117,
+   "official": 2.217
+  },
+  {
+   "set": "1-8",
+   "station": "영등포구청",
+   "pair": "2↔5",
+   "observed": 4.317,
+   "official": 1.533
+  },
+  {
+   "set": "1-8",
+   "station": "왕십리",
+   "pair": "2↔5",
+   "observed": 3.733,
+   "official": 1.2
+  },
+  {
+   "set": "1-8",
+   "station": "을지로3가",
+   "pair": "2↔3",
+   "observed": 3.667,
+   "official": 2.067
+  },
+  {
+   "set": "1-8",
+   "station": "을지로4가",
+   "pair": "2↔5",
+   "observed": 2.983,
+   "official": 1.067
+  },
+  {
+   "set": "1-8",
+   "station": "잠실",
+   "pair": "2↔8",
+   "observed": 2.633,
+   "official": 2.633
+  },
+  {
+   "set": "1-8",
+   "station": "충정로",
+   "pair": "2↔5",
+   "observed": 4.683,
+   "official": 2.95
+  },
+  {
+   "set": "1-8",
+   "station": "합정",
+   "pair": "2↔6",
+   "observed": 2.683,
+   "official": 1.133
+  },
+  {
+   "set": "1-8",
+   "station": "가락시장",
+   "pair": "3↔8",
+   "observed": 1.483,
+   "official": 0.483
+  },
+  {
+   "set": "1-8",
+   "station": "고속터미널",
+   "pair": "3↔7",
+   "observed": 4.367,
+   "official": 2.35
+  },
+  {
+   "set": "1-8",
+   "station": "교대",
+   "pair": "3↔2",
+   "observed": 2.4,
+   "official": 1.05
+  },
+  {
+   "set": "1-8",
+   "station": "불광",
+   "pair": "3↔6",
+   "observed": 3.833,
+   "official": 1.383
+  },
+  {
+   "set": "1-8",
+   "station": "약수",
+   "pair": "3↔6",
+   "observed": 2.683,
+   "official": 1.8
+  },
+  {
+   "set": "1-8",
+   "station": "연신내",
+   "pair": "3↔6",
+   "observed": 4.033,
+   "official": 2.517
+  },
+  {
+   "set": "1-8",
+   "station": "오금",
+   "pair": "3↔5",
+   "observed": 1.483,
+   "official": 0.9
+  },
+  {
+   "set": "1-8",
+   "station": "을지로3가",
+   "pair": "3↔2",
+   "observed": 3.667,
+   "official": 2.067
+  },
+  {
+   "set": "1-8",
+   "station": "종로3가",
+   "pair": "3↔1",
+   "observed": 2.683,
+   "official": 1.633
+  },
+  {
+   "set": "1-8",
+   "station": "종로3가",
+   "pair": "3↔5",
+   "observed": 2.933,
+   "official": 1.633
+  },
+  {
+   "set": "1-8",
+   "station": "충무로",
+   "pair": "3↔4",
+   "observed": 1.683,
+   "official": 0.233
+  },
+  {
+   "set": "1-8",
+   "station": "노원",
+   "pair": "4↔7",
+   "observed": 6.55,
+   "official": 3.867
+  },
+  {
+   "set": "1-8",
+   "station": "동대문",
+   "pair": "4↔1",
+   "observed": 4.383,
+   "official": 2.7
+  },
+  {
+   "set": "1-8",
+   "station": "동대문역사문화공원",
+   "pair": "4↔2",
+   "observed": 2.333,
+   "official": 0.633
+  },
+  {
+   "set": "1-8",
+   "station": "동대문역사문화공원",
+   "pair": "4↔5",
+   "observed": 2.567,
+   "official": 1.483
+  },
+  {
+   "set": "1-8",
+   "station": "사당",
+   "pair": "4↔2",
+   "observed": 2.267,
+   "official": 1.033
+  },
+  {
+   "set": "1-8",
+   "station": "삼각지",
+   "pair": "4↔6",
+   "observed": 3.9,
+   "official": 2.15
+  },
+  {
+   "set": "1-8",
+   "station": "서울역",
+   "pair": "4↔1",
+   "observed": 3.567,
+   "official": 2.217
+  },
+  {
+   "set": "1-8",
+   "station": "충무로",
+   "pair": "4↔3",
+   "observed": 1.683,
+   "official": 0.233
+  },
+  {
+   "set": "1-8",
+   "station": "강동",
+   "pair": "5↔5",
+   "observed": 2.583,
+   "official": 0.267
+  },
+  {
+   "set": "1-8",
+   "station": "공덕",
+   "pair": "5↔6",
+   "observed": 2.9,
+   "official": 1.017
+  },
+  {
+   "set": "1-8",
+   "station": "군자",
+   "pair": "5↔7",
+   "observed": 1.817,
+   "official": 1.05
+  },
+  {
+   "set": "1-8",
+   "station": "까치산",
+   "pair": "5↔2",
+   "observed": 1.617,
+   "official": 0.233
+  },
+  {
+   "set": "1-8",
+   "station": "동대문역사문화공원",
+   "pair": "5↔2",
+   "observed": 2.4,
+   "official": 3.25
+  },
+  {
+   "set": "1-8",
+   "station": "동대문역사문화공원",
+   "pair": "5↔4",
+   "observed": 2.567,
+   "official": 1.483
+  },
+  {
+   "set": "1-8",
+   "station": "영등포구청",
+   "pair": "5↔2",
+   "observed": 4.317,
+   "official": 1.533
+  },
+  {
+   "set": "1-8",
+   "station": "오금",
+   "pair": "5↔3",
+   "observed": 1.483,
+   "official": 0.9
+  },
+  {
+   "set": "1-8",
+   "station": "왕십리",
+   "pair": "5↔2",
+   "observed": 3.733,
+   "official": 1.2
+  },
+  {
+   "set": "1-8",
+   "station": "을지로4가",
+   "pair": "5↔2",
+   "observed": 2.983,
+   "official": 1.067
+  },
+  {
+   "set": "1-8",
+   "station": "종로3가",
+   "pair": "5↔1",
+   "observed": 5.433,
+   "official": 4.333
+  },
+  {
+   "set": "1-8",
+   "station": "종로3가",
+   "pair": "5↔3",
+   "observed": 2.933,
+   "official": 1.633
+  },
+  {
+   "set": "1-8",
+   "station": "천호",
+   "pair": "5↔8",
+   "observed": 1.983,
+   "official": 0.483
+  },
+  {
+   "set": "1-8",
+   "station": "청구",
+   "pair": "5↔6",
+   "observed": 1.283,
+   "official": 1.45
+  },
+  {
+   "set": "1-8",
+   "station": "충정로",
+   "pair": "5↔2",
+   "observed": 4.683,
+   "official": 2.95
+  },
+  {
+   "set": "1-8",
+   "station": "공덕",
+   "pair": "6↔5",
+   "observed": 2.9,
+   "official": 1.017
+  },
+  {
+   "set": "1-8",
+   "station": "동묘앞",
+   "pair": "6↔1",
+   "observed": 3.0,
+   "official": 1.333
+  },
+  {
+   "set": "1-8",
+   "station": "불광",
+   "pair": "6↔3",
+   "observed": 3.833,
+   "official": 1.383
+  },
+  {
+   "set": "1-8",
+   "station": "삼각지",
+   "pair": "6↔4",
+   "observed": 3.9,
+   "official": 2.15
+  },
+  {
+   "set": "1-8",
+   "station": "신당",
+   "pair": "6↔2",
+   "observed": 4.017,
+   "official": 3.367
+  },
+  {
+   "set": "1-8",
+   "station": "약수",
+   "pair": "6↔3",
+   "observed": 2.683,
+   "official": 1.8
+  },
+  {
+   "set": "1-8",
+   "station": "연신내",
+   "pair": "6↔3",
+   "observed": 4.033,
+   "official": 2.517
+  },
+  {
+   "set": "1-8",
+   "station": "청구",
+   "pair": "6↔5",
+   "observed": 1.283,
+   "official": 1.45
+  },
+  {
+   "set": "1-8",
+   "station": "태릉입구",
+   "pair": "6↔7",
+   "observed": 2.883,
+   "official": 0.633
+  },
+  {
+   "set": "1-8",
+   "station": "합정",
+   "pair": "6↔2",
+   "observed": 2.683,
+   "official": 1.133
+  },
+  {
+   "set": "1-8",
+   "station": "건대입구",
+   "pair": "7↔2",
+   "observed": 2.533,
+   "official": 1.067
+  },
+  {
+   "set": "1-8",
+   "station": "고속터미널",
+   "pair": "7↔3",
+   "observed": 4.367,
+   "official": 2.35
+  },
+  {
+   "set": "1-8",
+   "station": "군자",
+   "pair": "7↔5",
+   "observed": 1.817,
+   "official": 1.05
+  },
+  {
+   "set": "1-8",
+   "station": "노원",
+   "pair": "7↔4",
+   "observed": 6.55,
+   "official": 3.867
+  },
+  {
+   "set": "1-8",
+   "station": "대림",
+   "pair": "7↔2",
+   "observed": 4.083,
+   "official": 3.833
+  },
+  {
+   "set": "1-8",
+   "station": "이수",
+   "pair": "7↔4",
+   "observed": 2.85,
+   "official": 2.383
+  },
+  {
+   "set": "1-8",
+   "station": "태릉입구",
+   "pair": "7↔6",
+   "observed": 2.883,
+   "official": 0.633
+  },
+  {
+   "set": "1-8",
+   "station": "가락시장",
+   "pair": "8↔3",
+   "observed": 1.483,
+   "official": 0.483
+  },
+  {
+   "set": "1-8",
+   "station": "잠실",
+   "pair": "8↔2",
+   "observed": 2.633,
+   "official": 2.633
+  },
+  {
+   "set": "1-8",
+   "station": "천호",
+   "pair": "8↔5",
+   "observed": 1.983,
+   "official": 0.483
+  }
+ ],
+ "sources": {
+  "202608281a045c7905b490.xlsx": "5cee7c8d3409d02bcde2c412b6ab6bc5d5fa5335d07e9331187d89bed6473a70",
+  "202608281a045c7cc64640.xlsx": "a6e95ad13a77fd6a39ee42eb869b7a2238bed6e4a1050514b27f871fd0d3527a",
+  "수인분당선 시각표 2026.8.22 적용.xlsx": "44543f0280afb17acbcdb12aefcd40ec79ff28fc28b6c1e1f80d9743ee3d14d0",
+  "공항철도 일반열차 운행시각표 2025.12.29.적용.xlsx": "2fd72bee9b1709e0c7a88c3a09f3363ea1955a29695a2a51f984f3c0821ef638",
+  "서울교통공사_환승역거리 소요시간 정보_20260831.csv": "434216e2c26fa7149ae7566badfa9938f87e83f28deb542aab68e1b10a9dc822"
+ }
+}
