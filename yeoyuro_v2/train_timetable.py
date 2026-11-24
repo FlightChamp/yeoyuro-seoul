@@ -234,6 +234,19 @@ def group_of_line(line_id: str) -> str:
     return str(line_id)
 
 
+# Phase 3B-2 (D-105 1절·E2): 경의중앙선(GJ)·경춘선(GC) 열차가 같이 서는 청량리–중랑 간선은 'GJC'.
+# 갈아타지 않고 이어지는 주행 간선의 묶음은 두 묶음을 모두 운행하는 열차 묶음으로 좁힌다 (한 열차로 계속 탐).
+# 그 밖의 노선은 묶음이 바뀌면 지금처럼 구간을 끊는다 (None).
+_GROUP_MERGE = {frozenset({"GJC", "GJ"}): "GJ", frozenset({"GJC", "GC"}): "GC"}
+
+
+def merge_group(a: str, b: str) -> str | None:
+    """같은 열차로 이어 탈 수 있는 두 간선 묶음의 공통 묶음. 같으면 그대로, 합칠 수 없으면 None."""
+    if a == b:
+        return a
+    return _GROUP_MERGE.get(frozenset({a, b}))
+
+
 def _real_code_map(ride: pd.DataFrame) -> dict:
     """노드 → 역코드. 분기 가상 노드(예: 2_성수@seongsu_branch, 코드 9002)는 같은 역 본선 노드의 코드로."""
     m = {}
@@ -248,12 +261,13 @@ def _real_code_map(ride: pd.DataFrame) -> dict:
     return m
 
 
-def legs_from_path(evaluator, path: list[str]) -> list[Leg]:
+def legs_from_path(evaluator, path: list[str], walk_of=None) -> list[Leg]:
     """TimeDependentEvaluator 가 보는 것과 같은 규칙으로 경로를 탑승 구간으로 나눈다.
 
     - 주행 간선이 이어지는 동안 = 한 구간 (같은 노선 묶음)
     - '같은 열차로 통과'인 환승 간선(강동 직결 등, is_through_pass)은 구간을 끊지 않는다
-    - 그 밖의 환승 간선 = 구간 경계, 보행시간은 간선 time
+    - 그 밖의 환승 간선 = 구간 경계, 보행시간은 간선 time (walk_of(i, u, v, e) 를 주면 그 값 — 3B-2 방향별 보행·연결 여유)
+    - 묶음이 바뀌어도 merge_group 으로 합쳐지면 같은 구간 (3B-2 경의중앙·경춘 공용 구간)
     """
     adj = evaluator.s.adj
     ride = evaluator.s.ride
@@ -278,7 +292,11 @@ def legs_from_path(evaluator, path: list[str]) -> list[Leg]:
         if e["kind"] == "ride":
             g = group_of_line(line_of[(u, v)])
             if cur is not None and cur["group"] != g:
-                close()
+                m = merge_group(cur["group"], g)
+                if m is None:
+                    close()
+                else:
+                    cur["group"] = m
             if cur is None:
                 cur = {"group": g, "nodes": [u], "codes": [code[u]], "walk": walk}
                 walk = 0.0
@@ -289,7 +307,7 @@ def legs_from_path(evaluator, path: list[str]) -> list[Leg]:
             continue
         elif e["kind"] == "transfer":
             close()
-            walk += float(e["time"])
+            walk += float(e["time"]) if walk_of is None else float(walk_of(i, u, v, e))
     close()
     return legs
 

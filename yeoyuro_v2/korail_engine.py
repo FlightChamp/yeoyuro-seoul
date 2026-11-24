@@ -19,6 +19,18 @@ True 일 때만 새로 만든 복사본 객체에 코레일 노드·간선·표�
 - 후보 생성: 소요시간 탐색('time') = 코레일 포함 그래프, 혼잡 기반 탐색('cost') = 코레일을 뺀 원래 그래프 (E8).
 - 운행 없음 (R3, E10): 그 구간을 실제로 타는 분에 60분 안 열차가 없으면 후보 제외, 사유 3가지 기록.
 - 새 환승역(코레일 ↔ 다른 노선) 보행 = 3A-1 환승 후보(노량진·석계 3.0분), 혼잡 페널티 0 = 자료 없음 (E9).
+
+Phase 3B-2 (D-105 사전 등록 4절) — include_3b=True 일 때만
+---------------------------------------------------------
+- 경의중앙(GJ)·수인분당(SB)·공항철도(AR) 노드 '<묶음>_<역명>'. 경춘선 열차는 청량리·회기·중랑에서 GJ 노드를 같이 쓰고
+  (같은 승강장, 사용자 확인), 상봉·망우만 'GC_' 노드 (다른 승강장). 두 열차가 같이 지나는 간선은 묶음 'GJC'.
+- 대기 E2 = 구간 하차역 기준 E 를, 그 구간을 **한 열차로** 가는 실제 열차 출발 집합으로 (GJC 구간은 경의중앙·경춘 열차 합집합,
+  상봉·망우 노드에서 타면 그 승강장 열차만 — 간선을 만든 열차 묶음으로 자동 구분).
+- 환승 = data/master/transfer_3b_evidence.csv (A·U·B, B = 공식 거리시간 × 계수). 김포공항 방향별 보행은 평가에서 실제 방향 값,
+  탐색 그래프는 최댓값, 최솟값 그래프 후보를 합집합 (4-2 D1·D2).
+- 열차 연결 검증(verify): 보행 0분 환승은 연결 여유 1.0분(민감도), 0분 초과는 3-A 규칙 (4-2).
+- 정차표(data/marts/v2/korail_3b, gitignore)가 없으면 3-B 만 끄고 3-A 로 계산 (status_3b = 'unavailable').
+- 공항철도 구간이 있는 결과는 시각표 기준일·최신성 '미검증'·추천 상태 '참고 경로' 를 따로 단다 (2절).
 """
 
 from __future__ import annotations
@@ -43,6 +55,21 @@ GURO_NODES = (GURO_GB, GURO_GI)
 GURO_WALK_MIN = K.SAME_LINE_TRANSFER_WALK[K.GURO]     # 1.0 (D-093)
 MAX_WAIT = 60.0
 KORAIL_DEFAULT_K = 10      # D-099 D1: 코레일 기능을 켜면 기본 목표 후보 수 (끄면 기존 k 그대로)
+
+# Phase 3B-2 (D-105)
+K3B_MART = ROOT / "data" / "marts" / "v2" / "korail_3b" / "stop_times.parquet"
+EVIDENCE_3B = ROOT / "data" / "master" / "transfer_3b_evidence.csv"
+GROUPS_3B = ("GJ", "GC", "GJC", "SB", "AR")
+GC_OWN_NODES = ("상봉", "망우")                 # 경춘선 승강장이 따로 있는 역 (그 밖의 공용 구간 역은 GJ 노드)
+ZERO_WALK_MARGIN = 1.0                          # 4-2: 보행 0분 환승의 열차 연결 여유 (민감도 0.5·1.0·2.0)
+B_FACTOR_DEFAULT = 1.81                         # 4-3 C1 확정 (3B-1 결과 6d0c45f)
+AR_FRESHNESS = "미검증 (2026-10-23 개정 시각표 대조 전)"
+REFERENCE_ROUTE = "참고 경로"
+# 김포공항 방향별 환승: 이웃 역으로 열차 진행 방향 읽기 (D-105 4-1, 방향 = 열차 진행 방향)
+#   (역, 노선 묶음 접두) -> (서쪽 이웃 역, 동쪽으로 가는 열차 이름, 서쪽으로 가는 열차 이름)
+DIR_SIDES = {("김포공항", "9"): ("개화", "중앙보훈병원", "개화"),
+             ("김포공항", "5"): ("개화산", "마천·하남검단산", "방화"),
+             ("김포공항", "AR"): ("계양", "서울역", "인천공항")}
 
 
 # ---------------------------------------------------------------------- 1. 코레일 그래프 조각
@@ -69,6 +96,10 @@ class KorailPieces:
     node_code: dict                 # 노드 -> 역코드
     korail_nodes: set
     stations: dict                  # 역명 -> [노드]
+    dir_transfer: dict = field(default_factory=dict)   # 3B: (u, v) -> {'station', 'line_u', 'line_v', 'spec', 'max', 'min'}
+    edge_groups: dict = field(default_factory=dict)    # 3B: (u, v) -> 그 간선을 지나는 열차 묶음 집합
+    transfer_meta: list = field(default_factory=list)  # 3B: 환승 간선 근거 (검사·보고용)
+    missing_transfer: list = field(default_factory=list)  # 3B: 근거 표에 있으나 노드가 없어 못 만든 연결
 
 
 def _hw_bin(minute: float) -> str:
@@ -143,6 +174,164 @@ def build_pieces(day_type: str, base_nodes: set, stop_times: pd.DataFrame | None
     return KorailPieces(ride, transfer, run_tab, dwell_tab, node_code, korail_nodes, stations)
 
 
+# ---------------------------------------------------------------------- 1b. 3-B 그래프 조각 (D-105, Phase 3B-2)
+def k3b_available(path: Path = K3B_MART) -> bool:
+    return Path(path).exists()
+
+
+def node_3b(group: str, station: str) -> str:
+    """열차 묶음·역 → 노드. 경춘선은 상봉·망우만 GC_ 노드, 공용 구간(청량리·회기·중랑)은 GJ_ 노드."""
+    if group == "GC":
+        return f"GC_{station}" if station in GC_OWN_NODES else f"GJ_{station}"
+    return f"{group}_{station}"
+
+
+def _code_name_3b() -> dict:
+    from yeoyuro_v2 import korail_3b as K3
+    m = {c: n for n, c in K3.CODE.items()}
+    m.update({c: n for n, (_, c) in K3.AR_CODE.items()})
+    return m
+
+
+def index_rows_3b(st: pd.DataFrame) -> pd.DataFrame:
+    """3-B 정차표 + 'GJC' 묶음(경의중앙·경춘 열차 합집합 — 공용 구간 E2·연결 검증용) 행."""
+    st = st[st.group.isin(["GJ", "GC", "SB", "AR"])]
+    gjc = st[st.group.isin(["GJ", "GC"])].assign(group="GJC")
+    return pd.concat([st, gjc], ignore_index=True)
+
+
+def _transfer_nodes(line: str, station: str, known: set) -> list[str]:
+    if line == "9":
+        return [n for n in (f"9L_{station}", f"9X_{station}") if n in known]
+    if line == "GC":
+        n = node_3b("GC", station)
+        return [n] if n in known else []
+    n = f"{line}_{station}"
+    return [n] if n in known else []
+
+
+def _dir_spec(rows: pd.DataFrame) -> dict:
+    return {(str(r.dir_a), str(r.dir_b)): float(r.minutes) for r in rows.itertuples()}
+
+
+def build_pieces_3b(day_type: str, known_nodes: set, stop_times: pd.DataFrame | None = None,
+                    evidence: pd.DataFrame | None = None, b_factor: float = B_FACTOR_DEFAULT,
+                    u_shift: float = 0.0) -> KorailPieces:
+    """3-B 정차표(요일 하나) → 간선·정차·환승 (D-105 4절). b_factor·u_shift 는 3B-4 민감도(B5)용."""
+    st = stop_times if stop_times is not None else pd.read_parquet(K3B_MART)
+    st = st[(st.day_type == day_type) & st.group.isin(["GJ", "GC", "SB", "AR"])].sort_values(
+        ["group", "train", "direction", "stop_seq"])
+    name = _code_name_3b()
+    seg_rows, dwell_rows = [], []
+    for (grp, _, direction), g in st.groupby(["group", "train", "direction"], sort=False):
+        codes = g.code.to_list()
+        arr = g.arr_min.to_numpy(float)
+        dep = g.dep_min.to_numpy(float)
+        nodes = [node_3b(grp, name[int(c)]) for c in codes]
+        for i in range(len(codes)):
+            if 0 < i < len(codes) - 1 and not np.isnan(arr[i]) and not np.isnan(dep[i]):
+                dwell_rows.append((nodes[i], dep[i], dep[i] - arr[i]))
+            if i + 1 < len(codes) and not np.isnan(dep[i]) and not np.isnan(arr[i + 1]):
+                seg_rows.append((nodes[i], nodes[i + 1], int(codes[i]), int(codes[i + 1]), grp, direction.lower(),
+                                 dep[i], arr[i + 1] - dep[i]))
+    seg = pd.DataFrame(seg_rows, columns=["u", "v", "a", "b", "grp", "direction", "dep", "run"])
+    seg["hw"] = seg.dep.map(_hw_bin)
+    run_tab = {(r.u, r.v, r.hw): float(r.run) for r in
+               seg.groupby(["u", "v", "hw"], as_index=False).run.median().itertuples()}
+    edge_groups = {k: set(g.grp) for k, g in seg.groupby(["u", "v"])}
+    allday = seg.groupby(["u", "v"]).agg(run=("run", "median"), a=("a", "first"), b=("b", "first"),
+                                         direction=("direction", lambda s: s.mode().iloc[0])).reset_index()
+    label = {k: ("GJC" if v == {"GJ", "GC"} else next(iter(v))) for k, v in edge_groups.items()}
+    dw = pd.DataFrame(dwell_rows, columns=["node", "dep", "dwell"])
+    dw["hw"] = dw.dep.map(_hw_bin)
+    dwell_tab = {(r.node, r.hw): float(r.dwell) for r in
+                 dw.groupby(["node", "hw"], as_index=False).dwell.median().itertuples()}
+    lines = [label[(u, v)] for u, v in zip(allday.u, allday.v)]
+    ride = pd.DataFrame({
+        "from_node": allday.u, "to_node": allday.v, "line_id": lines,
+        "from_station": [name[int(c)] for c in allday.a], "to_station": [name[int(c)] for c in allday.b],
+        "from_code": allday.a.astype(int), "to_code": allday.b.astype(int),
+        "travel_time_min": allday.run.astype(float), "distance_km": np.nan, "edge_type": "ride",
+        "branch_code": "korail3b", "from_branch": "korail3b", "to_branch": "korail3b", "is_bidirectional": 1,
+        "direction_of_edge": "korail3b", "direction": allday.direction,
+        "congestion": np.nan, "congestion_base": np.nan, "event_mult": 1.0,
+        "perceived_time_min": allday.run.astype(float), "event_risk_min": 0.0,
+    })
+    node_code = {}
+    for r in ride.itertuples():
+        node_code[r.from_node] = int(r.from_code)
+        node_code[r.to_node] = int(r.to_code)
+    nodes3 = set(node_code)
+    known = set(known_nodes) | nodes3
+
+    # 환승 (4-1): 근거 표 한 연결 = 노드 짝마다 양방향 간선 하나. 방향별 행은 (최댓값, 최솟값, 표)
+    ev = evidence if evidence is not None else pd.read_csv(EVIDENCE_3B, dtype={"line_a": str, "line_b": str})
+    transfer, dir_transfer, meta, missing = [], {}, [], []
+    for (stn, la, lb), g in ev.groupby(["station", "line_a", "line_b"], sort=False):
+        grade = g.grade.iloc[0]
+        if grade == "B":
+            mins = g.official_time.map(lambda x: int(str(x).split(":")[0]) + int(str(x).split(":")[1]) / 60) * b_factor
+        elif grade == "U":
+            mins = g.minutes.astype(float) + u_shift
+        else:
+            mins = g.minutes.astype(float)
+        mins = mins.clip(lower=0.0)
+        g = g.assign(minutes=mins.to_numpy())
+        na, nb = _transfer_nodes(la, stn, known), _transfer_nodes(lb, stn, known)
+        if not na or not nb:
+            missing.append(f"{stn} {la}↔{lb}")
+            continue
+        directional = (g.dir_a != "*").any()
+        w_max, w_min = float(g.minutes.max()), float(g.minutes.min())
+        for u in na:
+            for v in nb:
+                transfer.append((u, v, w_max, f"{stn} {la}↔{lb} ({grade})"))
+                meta.append(dict(station=stn, u=u, v=v, grade=grade, max=w_max, min=w_min, directional=bool(directional)))
+                if directional:
+                    spec = _dir_spec(g)
+                    for x, y in ((u, v), (v, u)):
+                        dir_transfer[(x, y)] = {"station": stn, "line_a": la, "line_b": lb, "spec": spec,
+                                                "max": w_max, "min": w_min}
+    stations: dict[str, list] = {}
+    for n in sorted(nodes3):
+        stations.setdefault(n.split("_", 1)[1], []).append(n)
+    p = KorailPieces(ride, transfer, run_tab, dwell_tab, node_code, nodes3, stations)
+    p.dir_transfer, p.edge_groups, p.transfer_meta, p.missing_transfer = dir_transfer, edge_groups, meta, missing
+    return p
+
+
+def merge_pieces(a: KorailPieces, b: KorailPieces) -> KorailPieces:
+    """3-A 조각 + 3-B 조각 (3-A 값은 그대로, 3-B 를 덧붙임)."""
+    st = {k: list(v) for k, v in a.stations.items()}
+    for k, v in b.stations.items():
+        st.setdefault(k, [])
+        st[k] += [n for n in v if n not in st[k]]
+    p = KorailPieces(pd.concat([a.ride, b.ride], ignore_index=True), list(a.transfer) + list(b.transfer),
+                     {**a.run_tab, **b.run_tab}, {**a.dwell_tab, **b.dwell_tab}, {**a.node_code, **b.node_code},
+                     set(a.korail_nodes) | set(b.korail_nodes), st)
+    p.dir_transfer = {**a.dir_transfer, **b.dir_transfer}
+    p.edge_groups = {**a.edge_groups, **b.edge_groups}
+    p.transfer_meta = list(a.transfer_meta) + list(b.transfer_meta)
+    p.missing_transfer = list(a.missing_transfer) + list(b.missing_transfer)
+    return p
+
+
+def train_direction(station: str, node: str, neighbor: str | None, arriving: bool) -> str | None:
+    """환승역 노드에서 열차 진행 방향 이름 (DIR_SIDES).
+
+    neighbor = 그 열차가 온 이웃 노드(arriving=True) 또는 갈 이웃 노드(arriving=False). 정할 수 없으면 None."""
+    if neighbor is None:
+        return None
+    pre = node.split("_", 1)[0]
+    key = (station, "9" if pre in ("9L", "9X") else pre)
+    if key not in DIR_SIDES:
+        return None
+    west, east_name, west_name = DIR_SIDES[key]
+    nb_west = neighbor.split("_", 1)[1].split("@")[0] == west
+    moving_west = (not nb_west) if arriving else nb_west
+    return west_name if moving_west else east_name
+
+
 # ---------------------------------------------------------------------- 2. 복사본 스코어러·표시 역
 def augment_scorer(base, pieces: KorailPieces, assume_congestion: bool = False):
     """v1 RouteScorer 의 **복사본**에 코레일 간선을 붙인다. 원본(base)은 바꾸지 않는다 (T5).
@@ -212,6 +401,11 @@ class KorailTDResult(td.TDResult):
     no_service_reason: str | None = None      # R3: 운행 시작 전 / 운행 종료 / 장시간 대기 제외
     korail_waits: list = field(default_factory=list)
     line1_splits: list = field(default_factory=list)  # D-097: 이 경로에서 쓴 같은 노선 갈아타기 역 (광운대·석계)
+    # Phase 3B-2 (D-105 2절): 3-B 노선 메타데이터. 열차 연결 검증 상태(verify)와는 따로 둔다
+    lines_3b: tuple = ()                      # 이 경로가 탄 3-B 묶음 (GJ·GC·SB·AR)
+    timetable_valid_from: dict = field(default_factory=dict)   # 묶음 -> 시각표 적용일
+    freshness_status: str = ""                # 공항철도 구간이면 AR_FRESHNESS
+    recommendation_status: str = ""           # 공항철도 구간이면 '참고 경로' (확정 추천 아님)
 
 
 JUDGE_EXCLUDED = "혼잡 판정 제외(코레일 구간 혼잡도 미확인)"
@@ -239,6 +433,7 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
         self.run_tab.update(pieces.run_tab)
         self.dwell_tab.update(pieces.dwell_tab)
         self.korail_edges = {(r.from_node, r.to_node) for r in pieces.ride.itertuples()}
+        self.dir_transfer = dict(getattr(pieces, "dir_transfer", {}) or {})
         for (u, v) in self.korail_edges:                 # v1 결측 채우기로 들어간 값 지움 (E8)
             for b in range(td.N_BINS):
                 self.cong_med[(u, v, b)] = float("nan")
@@ -259,8 +454,12 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
             if e["kind"] == "ride":
                 ln = self.edge_meta[(u, v)]["line"]
                 if cur is not None and cur["line"] != ln:
-                    out.append(cur)
-                    cur = None
+                    m = T.merge_group(cur["line"], ln)          # 3B-2: 경의중앙·경춘 공용 구간은 한 열차로 계속
+                    if m is None:
+                        out.append(cur)
+                        cur = None
+                    else:
+                        cur["line"] = m
                 if cur is None:
                     cur = {"i0": i, "line": ln, "codes": [self.code[u]], "nodes": [u]}
                 cur["i1"] = i
@@ -277,20 +476,23 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
             out.append(cur)
         kor = set(K.SEOUL_KORAIL)
         for lg in out:
-            lg["korail"] = lg["line"] == "1" and any(c in kor for c in lg["codes"])
+            lg["group"] = lg["line"]
+            lg["k3b"] = lg["line"] in GROUPS_3B
+            lg["korail"] = (lg["line"] == "1" and any(c in kor for c in lg["codes"])) or lg["k3b"]
         return out
 
     def korail_wait(self, lg: dict, t: float) -> KorailLegWait:
         """코레일 포함 구간을 t(그 역 도착 분)에 탈 때: 30분 구간 E + 시각표상 다음 열차 + R3 사유."""
         day = self.tt_day
+        grp = lg.get("group", "1")
         via = tuple(lg["codes"])
-        deps, _, _ = self.kidx.pair(day, "1", via[0], via[-1], via)
-        r, why = self.kidx.next_ride(day, "1", via[0], via[-1], t, MAX_WAIT, via=via)
+        deps, _, _ = self.kidx.pair(day, grp, via[0], via[-1], via)
+        r, why = self.kidx.next_ride(day, grp, via[0], via[-1], t, MAX_WAIT, via=via)
         b0 = td.BIN_START_MIN + td.bin_index_of(t) * td.BIN_WIDTH_MIN
-        key = (via, b0, self.wait_mode)
+        key = (grp, via, b0, self.wait_mode)
         if key not in self._E_cache:
             if self.wait_mode == "H":
-                allp = self.kidx._by_board.get((day, "1", via[0]), [])
+                allp = self.kidx._by_board.get((day, grp, via[0]), [])
                 same_dir = [d for d, k, i in allp if i + 1 < len(self.kidx._trains[k][0])
                             and int(self.kidx._trains[k][0][i + 1]) == via[1]]
                 E = K.headway_half(same_dir, b0, b0 + 30)
@@ -303,9 +505,9 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
         return KorailLegWait(lg["nodes"][0], lg["nodes"][-1], t, E,
                              None if r is None else r.wait_min, None if r is not None else why)
 
-    def _ride_med(self, via, b0) -> float:
+    def _ride_med(self, via, b0, group: str = "1") -> float:
         """그 30분 구간에 via 를 한 열차로 가는 열차들의 탑승 시간 중앙값 (없으면 그날 중앙값)."""
-        deps, arrs, _ = self.kidx.pair(self.tt_day, "1", via[0], via[-1], tuple(via))
+        deps, arrs, _ = self.kidx.pair(self.tt_day, group, via[0], via[-1], tuple(via))
         if not deps:
             return float("nan")
         r = [a - d for d, a in zip(deps, arrs) if b0 <= d < b0 + 30]
@@ -318,12 +520,15 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
         'k': 갈아탈 위치(codes 기준), 'code', 'walk', 'b': 뒷 부분 구간 dict}
         """
         via = list(lg["codes"])
+        grp = lg.get("group", "1")
         w_d = self.korail_wait(lg, t)
         b0 = td.BIN_START_MIN + td.bin_index_of(t) * td.BIN_WIDTH_MIN
         best = None
         split_reason = None        # 바로 가기가 구조상 불가능하고 갈아타기는 구조상 가능하지만 그 시각에 안 될 때의 R3 사유
         if w_d.reason is None and not np.isnan(w_d.E):
-            best = (t + w_d.E + self._ride_med(via, b0), {"mode": "direct", "wait": w_d})
+            best = (t + w_d.E + self._ride_med(via, b0, grp), {"mode": "direct", "wait": w_d})
+        if grp != "1":                      # 광운대·석계 같은 노선 갈아타기는 1호선만 (D-097)
+            return best[1] if best else {"mode": "direct", "wait": w_d}
         for k, c, walk in T.line1_split_points(via, self.line1_splits):
             a = {"codes": via[:k + 1], "nodes": lg["nodes"][:k + 1]}
             b = {"codes": via[k:], "nodes": lg["nodes"][k:]}
@@ -487,9 +692,9 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
                 if e["kind"] != "transfer":
                     continue
                 n_tr += 1
-                a = float(e["time"])
+                a = self.walk_actual(path, i, u, v, e)
                 walk += a
-                perceived += float(e["cost"])
+                perceived += a if (u, v) in self.dir_transfer else float(e["cost"])
                 if keep_trace:
                     trace.append(td.EdgeTrace("transfer_walk", u, v, t, t + a, None, None))
                 t += a
@@ -533,7 +738,39 @@ class KorailTDEvaluator(td.TimeDependentEvaluator):
             out_of_window=oow, trace=trace,
             korail=any_kor or kor_min > 0, korail_ride_min=kor_min,
             congestion_judgement=JUDGE_EXCLUDED, no_service_reason=no_service, korail_waits=waits,
-            line1_splits=splits_used)
+            line1_splits=splits_used, **self.meta_3b(legs))
+
+    # --- 3B-2
+    def walk_actual(self, path, i, u, v, e) -> float:
+        """환승 간선 보행: 김포공항처럼 방향별 값이 있으면 실제 내리는·타는 열차 진행 방향 값 (D-105 4-2 D2).
+        방향을 정할 수 없으면 최댓값 (그래프 간선 값)."""
+        d = self.dir_transfer.get((u, v))
+        if d is None:
+            return float(e["time"])
+        prev = path[i - 1] if i > 0 else None
+        nxt = path[i + 2] if i + 2 < len(path) else None
+        da = train_direction(d["station"], u, prev, arriving=True)
+        db = train_direction(d["station"], v, nxt, arriving=False)
+        if da is None or db is None:
+            return float(d["max"])
+        a_is_ar = u.startswith("AR_")
+        key = (db, da) if a_is_ar else (da, db)          # 표 열: (dir_a = 5·9호선 열차, dir_b = 공항철도 열차)
+        return float(d["spec"].get(key, d["max"]))
+
+    def meta_3b(self, legs) -> dict:
+        from yeoyuro_v2 import korail_3b as K3
+        used = []
+        for lg in legs:
+            g = lg.get("group")
+            if g in GROUPS_3B:
+                for x in (("GJ", "GC") if g == "GJC" else (g,)):
+                    if x not in used:
+                        used.append(x)
+        if not used:
+            return {}
+        ar = "AR" in used
+        return {"lines_3b": tuple(used), "timetable_valid_from": {g: K3.VALID_FROM[g] for g in used},
+                "freshness_status": AR_FRESHNESS if ar else "", "recommendation_status": REFERENCE_ROUTE if ar else ""}
 
 
 # ---------------------------------------------------------------------- 4. 라우터
@@ -563,7 +800,10 @@ class KorailTDRouter(td.TDRouter):
 
     def __init__(self, *args, include_korail: bool = False, cap_wait: float | None = None,
                  wait_mode: str = "E", guro_walk: float | None = None, assume_congestion: bool = False,
-                 line1_splits: dict | None = None, max_k: int = 20, rep_wait: bool = False, **kw):
+                 line1_splits: dict | None = None, max_k: int = 20, rep_wait: bool = False,
+                 include_3b: bool = False, k3b_stop_times: pd.DataFrame | None = None, k3b_mart: Path | None = None,
+                 b_factor: float = B_FACTOR_DEFAULT, u_shift: float = 0.0, zero_walk_margin: float = ZERO_WALK_MARGIN,
+                 extra_margin: float = 0.0, min_graph: bool = True, **kw):
         k_explicit = "k" in kw or len(args) >= 7
         super().__init__(*args, **kw)
         self.include_korail = include_korail
@@ -574,6 +814,12 @@ class KorailTDRouter(td.TDRouter):
         self.line1_splits = line1_splits                    # D-097 B (None = 기본, {} = 끔)
         self.max_k = max_k                                  # D-097 A2
         self.excluded: list = []          # 마지막 evaluate_od 에서 R3 로 뺀 후보
+        # 3B-2 (D-105): 3-B 는 include_3b=True 이고 정차표가 있을 때만. 없으면 3-A 그대로 ('unavailable')
+        self.include_3b = bool(include_3b and include_korail)
+        self.status_3b = "off"
+        self.zero_walk_margin, self.extra_margin = float(zero_walk_margin), float(extra_margin)
+        self.min_graph = min_graph                          # 4-2 D1: 최솟값 그래프 후보 합집합 (B12 비교용으로 끌 수 있음)
+        self._vidx = None
         if not include_korail:
             return
         self.cap_wait, self.wait_mode = cap_wait, wait_mode
@@ -585,7 +831,23 @@ class KorailTDRouter(td.TDRouter):
             self.pieces.transfer = [(u, v, (guro_walk if {u, v} == set(GURO_NODES) else w), n)
                                     for u, v, w, n in self.pieces.transfer]
         st = pd.read_parquet(ROOT / "data" / "marts" / "v2" / "train_timetable" / "stop_times.parquet")
-        self.kidx = T.TrainIndex(st[(st.group == "1") & (st.day_type == self.day_type)])
+        idx_rows = st[(st.group == "1") & (st.day_type == self.day_type)]
+        self._st3b = None
+        if self.include_3b:
+            src = k3b_stop_times
+            mart = Path(k3b_mart) if k3b_mart is not None else K3B_MART
+            if src is None and k3b_available(mart):
+                src = pd.read_parquet(mart)
+            if src is None:
+                self.status_3b = "unavailable"                 # 정차표 없음: 3-B 만 끔, 추정 열차를 만들지 않음
+            else:
+                known = set(base0.nodes) | set(self.pieces.node_code)
+                p3 = build_pieces_3b(self.day_type, known, src, b_factor=b_factor, u_shift=u_shift)
+                self.pieces = merge_pieces(self.pieces, p3)
+                self._st3b = index_rows_3b(src[src.day_type == self.day_type])
+                idx_rows = pd.concat([idx_rows, self._st3b], ignore_index=True)
+                self.status_3b = "on"
+        self.kidx = T.TrainIndex(idx_rows)
         self.display = augment_display(self.display, self.pieces)
 
     def scorer(self, b: int):
@@ -655,6 +917,52 @@ class KorailTDRouter(td.TDRouter):
         finally:
             scorer.adj = saved
 
+    def _time_yen_min(self, scorer, v_o, v_d, K):
+        """방향별 환승 간선을 최솟값으로 바꾼 복사본 그래프의 소요시간 Yen (탐색 동안만, 평가 불변)."""
+        dt_ = self.pieces.dir_transfer
+        saved = scorer.adj
+        adj2 = dict(saved)
+        for u in {u for u, _ in dt_}:
+            if u in saved:
+                adj2[u] = [dict(e, time=dt_[(u, e["to"])]["min"], cost=dt_[(u, e["to"])]["min"])
+                           if e["kind"] == "transfer" and (u, e["to"]) in dt_ else e for e in saved[u]]
+        scorer.adj = adj2
+        try:
+            return scorer._yen(v_o, v_d, K=K, weight="time")
+        finally:
+            scorer.adj = saved
+
+    # --- 3B-2 열차 연결 검증 (D-105 4-2)
+    def verify_index(self) -> T.TrainIndex:
+        """1~9호선 전체 + 3-B 정차표 (그날 시각표 요일). 처음 부를 때 만든다."""
+        if self._vidx is None:
+            st = pd.read_parquet(ROOT / "data" / "marts" / "v2" / "train_timetable" / "stop_times.parquet")
+            rows = st[st.day_type == self.day_type]
+            if self._st3b is not None:
+                rows = pd.concat([rows, self._st3b], ignore_index=True)
+            self._vidx = T.TrainIndex(rows)
+        return self._vidx
+
+    def verification_legs(self, ev, path) -> list:
+        """열차 연결 검증용 구간: 환승 보행 = 실제 방향 값, 3-B 새 환승은 연결 여유를 더함
+        (보행 0분 → zero_walk_margin, 그 밖 → extra_margin). 기대 소요시간에는 들어가지 않는다."""
+        new = {(u, v) for u, v, _, _ in self.pieces.transfer if (u in self._nodes3b() or v in self._nodes3b())}
+
+        def walk_of(i, u, v, e):
+            w = ev.walk_actual(path, i, u, v, e)
+            if (u, v) in new or (v, u) in new:
+                w += self.zero_walk_margin if w <= 1e-9 else self.extra_margin
+            return w
+        return T.legs_from_path(ev, list(path), walk_of=walk_of)
+
+    def _nodes3b(self) -> set:
+        return {n for n in self.pieces.node_code if n.split("_", 1)[0] in GROUPS_3B}
+
+    def verify(self, path, depart_min: float, ev=None):
+        """경로를 열차 단위로 따라간다 (연결 확인/부분 확인/연결 불가/불가능한 연결). 메타데이터는 결과(q)에 따로."""
+        ev = ev or self.evaluator(td.bin_index_of(depart_min))
+        return T.verify_connection(self.verify_index(), self.verification_legs(ev, path), depart_min, self.day_type)
+
     def _clean(self, p):
         """Yen 결과 → 실제 노드 경로. 기존 규칙(출발·도착 같은 역 노드 자르기, 재방문 제외) + 구로 갈아타기 규칙."""
         sr = self.sr
@@ -675,7 +983,8 @@ class KorailTDRouter(td.TDRouter):
         for lg in ev.legs(list(path)):
             if not lg["korail"]:
                 continue
-            leg = T.Leg("1", lg["codes"][0], lg["codes"][-1], lg["nodes"][0], lg["nodes"][-1], 0.0, tuple(lg["codes"]))
+            leg = T.Leg(lg.get("group", "1"), lg["codes"][0], lg["codes"][-1], lg["nodes"][0], lg["nodes"][-1], 0.0,
+                        tuple(lg["codes"]))
             rs, why = T._ride_leg(self.kidx, self.day_type, leg, 0.0, 10_000.0, ev.line1_splits)
             if rs is None and why == T.IMPOSSIBLE:
                 return False
@@ -696,6 +1005,9 @@ class KorailTDRouter(td.TDRouter):
                 break
             K = min(self.max_k, K * 2)
         self.last_K = K
+        if self.min_graph and self.pieces.dir_transfer:      # 4-2 D1: 방향별 환승 최솟값 그래프 후보 합집합
+            valid += [p for p in self._time_yen_min(scorer, v_o, v_d, k)
+                      if (q := self._clean(p)) is not None and self._structurally_possible(q, ev)]
         in_base = v_o in base.nodes and v_d in base.nodes
         tb = base._yen(v_o, v_d, K=k, weight="time") if in_base else []
         if self.assume_congestion:                         # T4 민감도: 혼잡 가정 'cost' 탐색도 코레일 포함 그래프
