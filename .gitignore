@@ -131,3 +131,6 @@ data/app_v26/data/marts/fast_exit_elevator.parquet
 
 # D-101 검증 스크립트(49)가 잠시 만드는 구현 전 앱 사본
 app/streamlit/_w1_before_app.py
+
+# Phase 3-B 상세 시각표 mart (D-105 P4) — 재배포 권한 확인 전까지 저장소에 넣지 않음, 사용자 PC 에서 생성
+data/marts/v2/korail_3b/
