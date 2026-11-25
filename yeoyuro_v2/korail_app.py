@@ -343,9 +343,10 @@ class ExtensionPlanner:
 
     def __init__(self, root: Path, mod, sr, display: pd.DataFrame, day_type: str, query_date=None,
                  stop_times: pd.DataFrame | None = None, repo_root: Path | None = None, include_3b: bool = False,
-                 router_kw: dict | None = None):
+                 router_kw: dict | None = None, keep_3a: bool = False):
         """router_kw: 3B-4 민감도(B5·B8·B12)용 KorailTDRouter 추가 인자 (b_factor·u_shift·zero_walk_margin·extra_margin·
-        min_graph·k·k3b_stop_times). 앱은 넘기지 않는다 (기본 동작 불변)."""
+        min_graph·k·k3b_stop_times). 앱은 넘기지 않는다 (기본 동작 불변).
+        keep_3a: D-110 V5 — 3-A 켬 계산기(3-B 끔)의 후보를 더해 같은 3-B 켬 평가기·검증기로 다시 평가 (기본 꺼짐)."""
         from yeoyuro_v2 import korail_engine as KE
         T = _T()
         kw = dict(policy="step", multi_bin=True, query_date=None if query_date is None else str(query_date))
@@ -354,6 +355,9 @@ class ExtensionPlanner:
         self.include_3b = bool(include_3b)
         self.on = KE.KorailTDRouter(root, mod, sr, display, day_type, include_korail=True,   # k = 기본 10
                                     include_3b=self.include_3b, **kw, **(router_kw or {}))
+        self.keep_3a = bool(keep_3a)
+        self._ctor = (root, mod, sr, display, day_type, kw)
+        self._r3a = None
         self.off = td.TDRouter(root, mod, sr, display, day_type, k=5, **kw)                      # 앱 대안 카드와 같은 설정
         if stop_times is None:
             base = Path(repo_root) if repo_root else Path(__file__).resolve().parents[1]
@@ -422,10 +426,42 @@ class ExtensionPlanner:
             freshness_status=getattr(q, "freshness_status", "") or "",
             recommendation_status=getattr(q, "recommendation_status", "") or "")
 
+    def router_3a(self):
+        """D-110 V5: 3-A 켬 계산기 (include_korail=True, include_3b=False). 처음 부를 때 만든다."""
+        if self._r3a is None:
+            from yeoyuro_v2 import korail_engine as KE
+            root, mod, sr, display, day_type, kw = self._ctor
+            self._r3a = KE.KorailTDRouter(root, mod, sr, display, day_type, include_korail=True, include_3b=False, **kw)
+        return self._r3a
+
+    def extra_3a(self, origin: str, dest: str, m: float, have: set) -> tuple[list, Counter]:
+        """D-110 V5: 3-A 후보 중 아직 없는 경로를 3-B 켬 평가기로 평가. (운행 있는 결과, 운행 없음 사유 수)"""
+        try:
+            paths = self.router_3a().candidates(origin, dest, m)
+        except Exception:                                # noqa: BLE001 — 3-A 계산기에 없는 역(3-B 전용 역 등)
+            paths = []
+        ev = self.on.evaluator(td.bin_index_of(m))
+        out, ex = [], Counter()
+        for p in paths:
+            if tuple(p) in have:
+                continue
+            have.add(tuple(p))
+            r = ev.evaluate(list(p), m)
+            if getattr(r, "no_service_reason", None):
+                ex[r.no_service_reason] += 1
+            else:
+                out.append(r)
+        return out, ex
+
     def plan(self, origin: str, dest: str, service: ServiceDay) -> ExtensionPlan:
         m = float(service.minute)
         res = self.on.evaluate_od(origin, dest, m)
         excluded_engine = Counter(x.no_service_reason for x in getattr(self.on, "excluded", []) if x.no_service_reason)
+        if self.keep_3a:
+            have = {tuple(q.path) for q in res} | {tuple(x.path) for x in getattr(self.on, "excluded", [])}
+            more, ex = self.extra_3a(origin, dest, m, have)
+            excluded_engine += ex
+            res = sorted(res + more, key=lambda r: (round(r.actual_time_min, 6), r.perceived_time_min))
         ev = self.on.evaluator(td.bin_index_of(m))
         cands, excluded_train, best, reference = [], Counter(), None, None
         for q in res:                                    # 이미 기대 소요 순 (엔진 정렬)

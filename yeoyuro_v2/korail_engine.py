@@ -205,6 +205,12 @@ def multi_line_chain(path, station_of) -> list:
     return out
 
 
+def gc_signature(path) -> tuple:
+    """D-110 V3 탐색 묶음 키: 경춘선 승강장 노드(GC_)를 경의중앙(GJ_)으로 바꿔 쓴 노드 순서.
+    A2 의 '유효 후보 수' 를 셀 때만 쓴다 — 경로를 합치거나 지우지 않는다."""
+    return tuple(("GJ_" + n[3:]) if n.startswith("GC_") else n for n in path)
+
+
 def k3b_available(path: Path = K3B_MART) -> bool:
     return Path(path).exists()
 
@@ -833,7 +839,8 @@ class KorailTDRouter(td.TDRouter):
                  line1_splits: dict | None = None, max_k: int = 20, rep_wait: bool = False,
                  include_3b: bool = False, k3b_stop_times: pd.DataFrame | None = None, k3b_mart: Path | None = None,
                  b_factor: float = B_FACTOR_DEFAULT, u_shift: float = 0.0, zero_walk_margin: float = ZERO_WALK_MARGIN,
-                 extra_margin: float = 0.0, min_graph: bool = True, **kw):
+                 extra_margin: float = 0.0, min_graph: bool = True,
+                 rep_union: bool = False, group_gc: bool = False, max_k_v3: int = 40, **kw):
         k_explicit = "k" in kw or len(args) >= 7
         super().__init__(*args, **kw)
         self.include_korail = include_korail
@@ -849,6 +856,11 @@ class KorailTDRouter(td.TDRouter):
         self.status_3b = "off"
         self.zero_walk_margin, self.extra_margin = float(zero_walk_margin), float(extra_margin)
         self.min_graph = min_graph                          # 4-2 D1: 최솟값 그래프 후보 합집합 (B12 비교용으로 끌 수 있음)
+        # D-110 (사전 등록 preregistration_candidates.md) — 후보 생성만 바꾸는 비교군 옵션, 기본 꺼짐 = V0
+        self.rep_union = bool(rep_union)                    # V2: V0 후보 ∪ 대표 대기 가중치 Yen 후보
+        self.group_gc = bool(group_gc)                      # V3: A2 유효 후보를 GC→GJ 구조 서명 묶음 수로 셈
+        self.max_k_v3 = int(max_k_v3)                       # V3·V4 원시 후보 상한 (사전 등록 2-4: 40)
+        self.k_trace: list = []                             # D-110 8-C: 질의마다 A2 가 쓴 최대 K 기록
         self._vidx = None
         if not include_korail:
             return
@@ -889,7 +901,7 @@ class KorailTDRouter(td.TDRouter):
             base = super().scorer(b)
             self._base_scorers[b] = base
             self._aug[b] = augment_scorer(base, self.pieces, self.assume_congestion)
-            if self.rep_wait:
+            if self.rep_wait or self.rep_union:
                 self._add_rep_wait(self._aug[b], b)
         return self._aug[b]
 
@@ -906,34 +918,78 @@ class KorailTDRouter(td.TDRouter):
                 timetable_day_type=self.day_type)
         return self._evals[key]
 
+    def _rep_group(self, node: str) -> str:
+        """대표 대기 열차 조회 묶음 (D-110 2-3): 노드 접두. 청량리·회기·중랑 GJ 노드는 경의중앙·경춘 합집합 'GJC'."""
+        g = node.split("_", 1)[0]
+        if g == "GJ" and node.split("_", 1)[1] in ("청량리", "회기", "중랑"):
+            return "GJC"
+        return g if g in GROUPS_3B else "1"
+
     def rep_E(self, node: str, b: int) -> float:
-        """D-099 D2 대표 대기: 그 코레일 노드에서 인접 다음 역까지 가는 모든 열차의 30분 구간 E, 방향별 중앙값."""
+        """D-099 D2 대표 대기: 그 코레일 노드에서 인접 다음 역까지 가는 모든 열차의 30분 구간 E, 방향별 중앙값.
+        D-110: 열차 조회 묶음을 노드 접두로 (예전에는 '1' 고정 → 3-B 노드에서 0). 3-A 노드는 그대로 '1'."""
         code = self.pieces.node_code[node]
+        grp = self._rep_group(node)
         nxt = sorted({int(r.to_code) for r in self.pieces.ride.itertuples() if r.from_node == node})
         b0 = td.BIN_START_MIN + b * td.BIN_WIDTH_MIN
         es = []
         for c in nxt:
-            deps = self.kidx.pair(self.day_type, "1", code, c, (code, c))[0]
+            deps = self.kidx.pair(self.day_type, grp, code, c, (code, c))[0]
             e = K.wait_profile(deps, b0, b0 + 30, MAX_WAIT).E if deps else float("nan")
             if not np.isnan(e):
                 es.append(e)
         return float(np.median(es)) if es else 0.0
 
     def _add_rep_wait(self, s, b: int):
-        """민감도 전용: 코레일 노드로 갈아타는 간선에 더할 대표 대기를 따로 기억 (간선 자체는 바꾸지 않음 — 평가 불변)."""
-        extra, cache = {}, {}
+        """탐색용 대표 대기를 따로 기억 (간선 자체는 바꾸지 않음 — 평가 불변).
+
+        rep_wait(D-099 민감도): 코레일·3-B 노드로 갈아타는 간선만 (값 = rep_E) → s._rep_extra
+        rep_union(D-110 V2): 위 + 1~9호선 노드로 갈아타는 간선 (값 = 평가기 배차÷2 의 방향 중앙값) → s._rep_extra_all
+        같은 노선 노드끼리(분기·직결 통과)와 9호선 일반↔급행 전환 간선에는 더하지 않는다. 출발 접근 간선은 환승이 아니라 제외(R4)."""
+        extra, extra_all, cache = {}, {}, {}
+        ev = self.evaluator(b) if self.rep_union else None
+        b0 = td.BIN_START_MIN + b * td.BIN_WIDTH_MIN
         for u, lst in s.adj.items():
             for e in lst:
                 v = e["to"]
-                if e["kind"] == "transfer" and v in self.pieces.korail_nodes:
+                if e["kind"] != "transfer":
+                    continue
+                if v in self.pieces.korail_nodes:                # D-099 방식 (그대로)
                     if v not in cache:
-                        cache[v] = self.rep_E(v, b)
-                    extra[(u, v)] = cache[v]
+                        cache[v] = ("k", self.rep_E(v, b))
+                    extra[(u, v)] = cache[v][1]
+                if "_" not in u or "_" not in v:
+                    continue
+                lu, lv = u.split("_", 1)[0], v.split("_", 1)[0]
+                if lu == lv or {lu, lv} == {"9L", "9X"}:
+                    continue
+                if v not in cache:
+                    if v in self.pieces.korail_nodes:
+                        cache[v] = ("k", self.rep_E(v, b))
+                    elif ev is not None:
+                        ws = []
+                        for x in s.adj.get(v, []):
+                            m = ev.edge_meta.get((v, x["to"])) if x["kind"] == "ride" else None
+                            if m is not None:
+                                ws.append(ev._wait(m["line"], m["from_station"], m["direction"], b0))
+                        cache[v] = ("m", float(np.median(ws)) if ws else 0.0)
+                    else:
+                        cache[v] = ("m", None)
+                kind, val = cache[v]
+                if val is not None:
+                    extra_all[(u, v)] = val
         s._rep_extra = extra
+        s._rep_extra_all = extra_all
 
-    def _time_yen(self, scorer, v_o, v_d, K):
-        """소요시간 Yen. rep_wait(민감도)면 탐색하는 동안만 갈아타는 간선 비용에 대표 대기를 더한 복사본으로."""
-        extra = getattr(scorer, "_rep_extra", None) if self.rep_wait else None
+    def _time_yen(self, scorer, v_o, v_d, K, rep: str | None = None):
+        """소요시간 Yen. rep_wait(민감도)면 탐색하는 동안만 갈아타는 간선 비용에 대표 대기를 더한 복사본으로.
+        rep='all' (D-110 V2): 1~9호선 환승 포함 대표 대기 복사본 (V0 탐색과 따로 돌려 합집합)."""
+        if rep == "all":
+            if getattr(scorer, "_rep_extra_all", None) is None:      # 이 구간 스코어러를 rep_union 꺼진 채 만들었으면 지금 만든다
+                self._add_rep_wait(scorer, next((bb for bb, sc in self._aug.items() if sc is scorer), 0))
+            extra = getattr(scorer, "_rep_extra_all", None)
+        else:
+            extra = getattr(scorer, "_rep_extra", None) if self.rep_wait else None
         if not extra:
             return scorer._yen(v_o, v_d, K=K, weight="time")
         saved = scorer.adj
@@ -1032,14 +1088,10 @@ class KorailTDRouter(td.TDRouter):
         base = scorer._korail_base
         b = next((bb for bb, sc in self._aug.items() if sc is scorer), 0)
         ev = self.evaluator(b)
-        K = k
-        while True:
-            t_paths = self._time_yen(scorer, v_o, v_d, K)
-            valid = [p for p in t_paths if (q := self._clean(p)) is not None and self._structurally_possible(q, ev)]
-            if len(valid) >= k or K >= self.max_k or len(t_paths) < K:
-                break
-            K = min(self.max_k, K * 2)
+        valid, K = self._a2(scorer, v_o, v_d, k, ev)
         self.last_K = K
+        if self.rep_union:                                  # D-110 V2: 대표 대기 가중치 Yen 을 같은 A2 규칙으로 따로 → 합집합
+            valid += self._a2(scorer, v_o, v_d, k, ev, rep="all")[0]
         if self.min_graph and self.pieces.dir_transfer:      # 4-2 D1: 방향별 환승 최솟값 그래프 후보 합집합
             valid += [p for p in self._time_yen_min(scorer, v_o, v_d, k)
                       if (q := self._clean(p)) is not None and self._structurally_possible(q, ev)]
@@ -1050,6 +1102,21 @@ class KorailTDRouter(td.TDRouter):
         else:
             c_paths = base._yen(v_o, v_d, K=k, weight="cost") if in_base else []
         return valid + tb + c_paths
+
+    def _a2(self, scorer, v_o, v_d, k, ev, rep: str | None = None):
+        """D-097 A2: 유효 후보가 k 개 미만이면 K 를 2배로 (최대 max_k). D-110 V3(group_gc): 유효 후보 수를
+        GC→GJ 구조 서명의 서로 다른 수로 세고 상한은 max_k_v3. 경로는 지우지 않는다."""
+        cap = self.max_k_v3 if self.group_gc else self.max_k
+        K = k
+        while True:
+            t_paths = self._time_yen(scorer, v_o, v_d, K, rep=rep)
+            valid = [p for p in t_paths if (q := self._clean(p)) is not None and self._structurally_possible(q, ev)]
+            n = len({gc_signature(self._clean(p)) for p in valid}) if self.group_gc else len(valid)
+            if n >= k or K >= cap or len(t_paths) < K:
+                break
+            K = min(cap, K * 2)
+        self.k_trace.append(K)
+        return valid, K
 
     def raw_paths(self, scorer, origin, dest, k):
         if not self.include_korail:
