@@ -1,0 +1,926 @@
+{
+ "inputs": {
+  "requested": 4032,
+  "duplicate": 2,
+  "unique": 4030
+ },
+ "config": {
+  "head": "80d9aca8aeac5b7421046e53e46fef7630d8fae8",
+  "k3b_sha256": "5956309857cda7aaefc8e28b7ee8c9754026020e28a28f8eaf11988692332d1c",
+  "script": "5cff76d7109a",
+  "engine": "d674bbf5b33d",
+  "app": "fbc670082f77",
+  "methods": "{\"V0\": {\"group_gc\": false, \"k\": 10, \"keep_3a\": false, \"rep_union\": false}, \"V1\": {\"group_gc\": false, \"k\": 20, \"keep_3a\": false, \"rep_union\": false}, \"V2\": {\"group_gc\": false, \"k\": 10, \"keep_3a\": false, \"rep_union\": true}, \"V3\": {\"group_gc\": true, \"k\": 10, \"keep_3a\": false, \"rep_union\": false}, \"V4\": {\"group_gc\": true, \"k\": 10, \"keep_3a\": false, \"rep_union\": true}, \"V5\": {\"group_gc\": false, \"k\": 10, \"keep_3a\": true, \"rep_union\": false}}",
+  "dry": false,
+  "hash": "8d9af896b6390a10"
+ },
+ "runlog": {
+  "quality": [
+   {
+    "elapsed_sec": 1749,
+    "chunks": 674,
+    "new_chunks": 674,
+    "at": "2026-11-26 00:58:09"
+   }
+  ]
+ },
+ "xcheck": null,
+ "perf": {
+  "sample": 305,
+  "stress": 30,
+  "methods": {
+   "V0": {
+    "n": 305,
+    "mean": 0.28357101737733426,
+    "p95": 0.722995600005379,
+    "max": 1.3731974999973318,
+    "gen_mean": 0.20810074262281872,
+    "eval_mean": 0.07547027475451554,
+    "build_mean": 1.6493923333327984,
+    "stress_p95": 1.5704423450028113,
+    "stress_max": 1.752719000010984,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 134,
+    "over_budget": false
+   },
+   "V1": {
+    "n": 305,
+    "mean": 0.424162435081795,
+    "p95": 1.1174255799996906,
+    "max": 2.092860799995833,
+    "gen_mean": 0.3274651685238675,
+    "eval_mean": 0.09669726655792754,
+    "build_mean": 1.7602887166625198,
+    "stress_p95": 1.955173575002118,
+    "stress_max": 2.387705000001006,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 186,
+    "over_budget": false
+   },
+   "V2": {
+    "n": 305,
+    "mean": 0.43881630327888443,
+    "p95": 1.09540493999084,
+    "max": 1.7170002000057139,
+    "gen_mean": 0.34383964065522465,
+    "eval_mean": 0.09497666262365978,
+    "build_mean": 1.6894309333317021,
+    "stress_p95": 2.1902167700049175,
+    "stress_max": 2.288833999991766,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 203,
+    "over_budget": false
+   },
+   "V3": {
+    "n": 305,
+    "mean": 0.40693592196731204,
+    "p95": 0.9433879799995343,
+    "max": 1.9189686000026995,
+    "gen_mean": 0.31577322000010727,
+    "eval_mean": 0.09116270196720477,
+    "build_mean": 1.8054414833313785,
+    "stress_p95": 1.9493250799998338,
+    "stress_max": 2.4818754000007175,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 178,
+    "over_budget": false
+   },
+   "V4": {
+    "n": 305,
+    "mean": 0.6336530695081074,
+    "p95": 1.3539835800038418,
+    "max": 2.840478500002064,
+    "gen_mean": 0.522440280984194,
+    "eval_mean": 0.11121278852391336,
+    "build_mean": 1.7376842999995763,
+    "stress_p95": 2.8433080499991767,
+    "stress_max": 3.2517184000025736,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 270,
+    "over_budget": false
+   },
+   "V5": {
+    "n": 305,
+    "mean": 0.4961878760660556,
+    "p95": 1.3408102799992778,
+    "max": 2.0982760000042617,
+    "gen_mean": 0.2432725252456234,
+    "eval_mean": 0.25291535082043215,
+    "build_mean": 2.0241723333335053,
+    "stress_p95": 2.800970955003868,
+    "stress_max": 3.16501560001052,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 223,
+    "over_budget": false
+   }
+  },
+  "psutil": false
+ },
+ "B1": {
+  "v23_cases": 3720,
+  "v23_mismatch": 0,
+  "app_cases": 14,
+  "app_same": 14,
+  "app_diffs": []
+ },
+ "quality_elapsed_sec": 1749,
+ "methods": {
+  "V0": {
+   "M": 97,
+   "loss_gt0": 125,
+   "loss_gt1": 80,
+   "missing": 7,
+   "loss_median": 1.5326666666667847,
+   "loss_p95": 0.0,
+   "loss_max": 8.158111111111111,
+   "match_ref": 0.9669975186104218,
+   "ref_in_cands": 0.9664395659853646,
+   "extra_verified": 0,
+   "extra_adopted": 0,
+   "n_cand_mean": 11.938709677419356,
+   "v0_subset_fail": 0,
+   "chain": 0,
+   "best_ar": 0,
+   "status": {
+    "ok": 3006,
+    "no_benefit": 950,
+    "none": 64,
+    "reference": 10
+   },
+   "maxk_max": 20.0,
+   "gen_sec_max": 2.280264699991676,
+   "timeouts": 0,
+   "M_k3b": 52,
+   "M_b4": 45,
+   "M_by_time": {
+    "2026-10-14 07:30": 8,
+    "2026-10-14 08:00": 15,
+    "2026-10-14 08:30": 7,
+    "2026-10-14 17:30": 8,
+    "2026-10-14 18:00": 16,
+    "2026-10-14 18:30": 8,
+    "2026-10-14 23:30": 11,
+    "2026-10-17 14:00": 12,
+    "2026-10-18 14:00": 12
+   },
+   "perf": {
+    "n": 305,
+    "mean": 0.28357101737733426,
+    "p95": 0.722995600005379,
+    "max": 1.3731974999973318,
+    "gen_mean": 0.20810074262281872,
+    "eval_mean": 0.07547027475451554,
+    "build_mean": 1.6493923333327984,
+    "stress_p95": 1.5704423450028113,
+    "stress_max": 1.752719000010984,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 134,
+    "over_budget": false
+   },
+   "conditions": {
+    "B1": true,
+    "B3": true,
+    "B10": true,
+    "B13": true,
+    "errors": true,
+    "no_degrade": true,
+    "p95": true,
+    "budget": true,
+    "xcheck": false
+   }
+  },
+  "V1": {
+   "M": 55,
+   "loss_gt0": 67,
+   "loss_gt1": 47,
+   "missing": 5,
+   "loss_median": 1.7745000000001028,
+   "loss_p95": 0.0,
+   "loss_max": 8.158111111111111,
+   "match_ref": 0.9828784119106699,
+   "ref_in_cands": 0.9825889477668432,
+   "extra_verified": 19203,
+   "extra_adopted": 142,
+   "n_cand_mean": 16.807692307692307,
+   "v0_subset_fail": 0,
+   "chain": 0,
+   "best_ar": 0,
+   "status": {
+    "ok": 3012,
+    "no_benefit": 946,
+    "none": 62,
+    "reference": 10
+   },
+   "maxk_max": 20.0,
+   "gen_sec_max": 2.7729409000021406,
+   "timeouts": 0,
+   "M_k3b": 37,
+   "M_b4": 18,
+   "M_by_time": {
+    "2026-10-14 07:30": 3,
+    "2026-10-14 08:00": 9,
+    "2026-10-14 08:30": 1,
+    "2026-10-14 17:30": 3,
+    "2026-10-14 18:00": 8,
+    "2026-10-14 18:30": 5,
+    "2026-10-14 23:30": 8,
+    "2026-10-17 14:00": 9,
+    "2026-10-18 14:00": 9
+   },
+   "degrade_a": 0,
+   "degrade_b": 0,
+   "degrade_c": 0,
+   "degrade_examples": [],
+   "perf": {
+    "n": 305,
+    "mean": 0.424162435081795,
+    "p95": 1.1174255799996906,
+    "max": 2.092860799995833,
+    "gen_mean": 0.3274651685238675,
+    "eval_mean": 0.09669726655792754,
+    "build_mean": 1.7602887166625198,
+    "stress_p95": 1.955173575002118,
+    "stress_max": 2.387705000001006,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 186,
+    "over_budget": false
+   },
+   "conditions": {
+    "B1": true,
+    "B3": true,
+    "B10": true,
+    "B13": true,
+    "errors": true,
+    "no_degrade": true,
+    "p95": true,
+    "budget": true,
+    "xcheck": false
+   }
+  },
+  "V2": {
+   "M": 43,
+   "loss_gt0": 62,
+   "loss_gt1": 34,
+   "missing": 3,
+   "loss_median": 1.0166666666668789,
+   "loss_p95": 0.0,
+   "loss_max": 8.158111111111111,
+   "match_ref": 0.9841191066997519,
+   "ref_in_cands": 0.9838506182185213,
+   "extra_verified": 15070,
+   "extra_adopted": 156,
+   "n_cand_mean": 15.82679900744417,
+   "v0_subset_fail": 0,
+   "chain": 0,
+   "best_ar": 0,
+   "status": {
+    "ok": 3022,
+    "no_benefit": 938,
+    "none": 60,
+    "reference": 10
+   },
+   "maxk_max": 20.0,
+   "gen_sec_max": 2.800873899992439,
+   "timeouts": 0,
+   "M_k3b": 18,
+   "M_b4": 25,
+   "M_by_time": {
+    "2026-10-14 07:30": 4,
+    "2026-10-14 08:00": 5,
+    "2026-10-14 08:30": 3,
+    "2026-10-14 17:30": 6,
+    "2026-10-14 18:00": 9,
+    "2026-10-14 18:30": 4,
+    "2026-10-14 23:30": 4,
+    "2026-10-17 14:00": 4,
+    "2026-10-18 14:00": 4
+   },
+   "degrade_a": 0,
+   "degrade_b": 0,
+   "degrade_c": 0,
+   "degrade_examples": [],
+   "perf": {
+    "n": 305,
+    "mean": 0.43881630327888443,
+    "p95": 1.09540493999084,
+    "max": 1.7170002000057139,
+    "gen_mean": 0.34383964065522465,
+    "eval_mean": 0.09497666262365978,
+    "build_mean": 1.6894309333317021,
+    "stress_p95": 2.1902167700049175,
+    "stress_max": 2.288833999991766,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 203,
+    "over_budget": false
+   },
+   "conditions": {
+    "B1": true,
+    "B3": true,
+    "B10": true,
+    "B13": true,
+    "errors": true,
+    "no_degrade": true,
+    "p95": true,
+    "budget": true,
+    "xcheck": false
+   }
+  },
+  "V3": {
+   "M": 75,
+   "loss_gt0": 99,
+   "loss_gt1": 64,
+   "missing": 4,
+   "loss_median": 1.5899999999994634,
+   "loss_p95": 0.0,
+   "loss_max": 8.158111111111111,
+   "match_ref": 0.9734491315136476,
+   "ref_in_cands": 0.9730002523340904,
+   "extra_verified": 9970,
+   "extra_adopted": 98,
+   "n_cand_mean": 14.543672456575683,
+   "v0_subset_fail": 0,
+   "chain": 0,
+   "best_ar": 0,
+   "status": {
+    "ok": 3014,
+    "no_benefit": 945,
+    "none": 61,
+    "reference": 10
+   },
+   "maxk_max": 40.0,
+   "gen_sec_max": 3.5108495999884326,
+   "timeouts": 0,
+   "M_k3b": 34,
+   "M_b4": 41,
+   "M_by_time": {
+    "2026-10-14 07:30": 8,
+    "2026-10-14 08:00": 11,
+    "2026-10-14 08:30": 6,
+    "2026-10-14 17:30": 7,
+    "2026-10-14 18:00": 12,
+    "2026-10-14 18:30": 7,
+    "2026-10-14 23:30": 6,
+    "2026-10-17 14:00": 9,
+    "2026-10-18 14:00": 9
+   },
+   "degrade_a": 0,
+   "degrade_b": 0,
+   "degrade_c": 0,
+   "degrade_examples": [],
+   "perf": {
+    "n": 305,
+    "mean": 0.40693592196731204,
+    "p95": 0.9433879799995343,
+    "max": 1.9189686000026995,
+    "gen_mean": 0.31577322000010727,
+    "eval_mean": 0.09116270196720477,
+    "build_mean": 1.8054414833313785,
+    "stress_p95": 1.9493250799998338,
+    "stress_max": 2.4818754000007175,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 178,
+    "over_budget": false
+   },
+   "conditions": {
+    "B1": true,
+    "B3": true,
+    "B10": true,
+    "B13": true,
+    "errors": true,
+    "no_degrade": true,
+    "p95": true,
+    "budget": true,
+    "xcheck": false
+   }
+  },
+  "V4": {
+   "M": 20,
+   "loss_gt0": 31,
+   "loss_gt1": 17,
+   "missing": 0,
+   "loss_median": 1.4089999999998781,
+   "loss_p95": 0.0,
+   "loss_max": 8.158111111111111,
+   "match_ref": 0.9918114143920596,
+   "ref_in_cands": 0.991672975018925,
+   "extra_verified": 29285,
+   "extra_adopted": 175,
+   "n_cand_mean": 19.541439205955335,
+   "v0_subset_fail": 0,
+   "chain": 0,
+   "best_ar": 0,
+   "status": {
+    "ok": 3036,
+    "no_benefit": 927,
+    "none": 58,
+    "reference": 9
+   },
+   "maxk_max": 40.0,
+   "gen_sec_max": 5.7849360999971395,
+   "timeouts": 0,
+   "M_k3b": 4,
+   "M_b4": 16,
+   "M_by_time": {
+    "2026-10-14 07:30": 4,
+    "2026-10-14 08:00": 3,
+    "2026-10-14 08:30": 2,
+    "2026-10-14 17:30": 3,
+    "2026-10-14 18:00": 4,
+    "2026-10-14 18:30": 2,
+    "2026-10-14 23:30": 0,
+    "2026-10-17 14:00": 1,
+    "2026-10-18 14:00": 1
+   },
+   "degrade_a": 0,
+   "degrade_b": 0,
+   "degrade_c": 0,
+   "degrade_examples": [],
+   "perf": {
+    "n": 305,
+    "mean": 0.6336530695081074,
+    "p95": 1.3539835800038418,
+    "max": 2.840478500002064,
+    "gen_mean": 0.522440280984194,
+    "eval_mean": 0.11121278852391336,
+    "build_mean": 1.7376842999995763,
+    "stress_p95": 2.8433080499991767,
+    "stress_max": 3.2517184000025736,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 270,
+    "over_budget": false
+   },
+   "conditions": {
+    "B1": true,
+    "B3": true,
+    "B10": true,
+    "B13": true,
+    "errors": true,
+    "no_degrade": true,
+    "p95": true,
+    "budget": true,
+    "xcheck": false
+   }
+  },
+  "V5": {
+   "M": 71,
+   "loss_gt0": 97,
+   "loss_gt1": 54,
+   "missing": 4,
+   "loss_median": 1.3383333333331393,
+   "loss_p95": 0.0,
+   "loss_max": 11.212833333333492,
+   "match_ref": 0.9739454094292804,
+   "ref_in_cands": 0.9735049205147616,
+   "extra_verified": 11284,
+   "extra_adopted": 109,
+   "n_cand_mean": 14.7575682382134,
+   "v0_subset_fail": 0,
+   "chain": 0,
+   "best_ar": 0,
+   "status": {
+    "ok": 3022,
+    "no_benefit": 937,
+    "none": 61,
+    "reference": 10
+   },
+   "maxk_max": 20.0,
+   "gen_sec_max": 3.0926640999969095,
+   "timeouts": 0,
+   "M_k3b": 31,
+   "M_b4": 40,
+   "M_by_time": {
+    "2026-10-14 07:30": 8,
+    "2026-10-14 08:00": 11,
+    "2026-10-14 08:30": 6,
+    "2026-10-14 17:30": 6,
+    "2026-10-14 18:00": 12,
+    "2026-10-14 18:30": 6,
+    "2026-10-14 23:30": 6,
+    "2026-10-17 14:00": 8,
+    "2026-10-18 14:00": 8
+   },
+   "degrade_a": 0,
+   "degrade_b": 0,
+   "degrade_c": 0,
+   "degrade_examples": [],
+   "perf": {
+    "n": 305,
+    "mean": 0.4961878760660556,
+    "p95": 1.3408102799992778,
+    "max": 2.0982760000042617,
+    "gen_mean": 0.2432725252456234,
+    "eval_mean": 0.25291535082043215,
+    "build_mean": 2.0241723333335053,
+    "stress_p95": 2.800970955003868,
+    "stress_max": 3.16501560001052,
+    "rss_max_mb": null,
+    "errors": 0,
+    "batch_sec": 223,
+    "over_budget": false
+   },
+   "conditions": {
+    "B1": true,
+    "B3": true,
+    "B10": true,
+    "B13": true,
+    "errors": true,
+    "no_degrade": true,
+    "p95": true,
+    "budget": true,
+    "xcheck": false
+   }
+  }
+ },
+ "errors_quality": 0,
+ "error_examples": [],
+ "audit": {
+  "sets": {
+   "D1": 98,
+   "D2": 14,
+   "D3": 6,
+   "D4": 142,
+   "D5": 1,
+   "D6": 200
+  },
+  "k40_better": 11,
+  "k40_n": 420,
+  "k80_better": 1,
+  "k80_n": 21,
+  "k40_examples": [
+   {
+    "key": [
+     "2026-10-14",
+     "07:30",
+     "회기",
+     "한성백제"
+    ],
+    "ref": 44.920999999999935,
+    "audit": 42.873500000000035,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "08:00",
+     "신이문",
+     "구반포"
+    ],
+    "ref": 45.22433333333311,
+    "audit": 44.99099999999976,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "08:00",
+     "회기",
+     "한성백제"
+    ],
+    "ref": 44.521000000000186,
+    "audit": 40.473499999999945,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "08:30",
+     "회기",
+     "한성백제"
+    ],
+    "ref": 45.621000000000095,
+    "audit": 40.973499999999945,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "17:30",
+     "회기",
+     "한성백제"
+    ],
+    "ref": 46.62099999999987,
+    "audit": 43.073500000000195,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "18:00",
+     "서강대",
+     "석촌고분"
+    ],
+    "ref": 49.01999999999998,
+    "audit": 48.85333333333324,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "18:00",
+     "신이문",
+     "구반포"
+    ],
+    "ref": 46.4409999999998,
+    "audit": 46.33266666666668,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "18:00",
+     "회기",
+     "한성백제"
+    ],
+    "ref": 45.32099999999991,
+    "audit": 41.17350000000033,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "18:30",
+     "회기",
+     "한성백제"
+    ],
+    "ref": 46.12099999999987,
+    "audit": 41.97350000000006,
+    "better": true
+   },
+   {
+    "key": [
+     "2026-10-14",
+     "23:30",
+     "김포공항",
+     "쌍문"
+    ],
+    "ref": null,
+    "audit": 68.40000000000009,
+    "better": true
+   }
+  ]
+ },
+ "targets": {
+  "D1": {
+   "V0": 68,
+   "V1": 91,
+   "V2": 75,
+   "V3": 71,
+   "V4": 79,
+   "V5": 75,
+   "n": 98
+  },
+  "D2": {
+   "V0": 0,
+   "V1": 7,
+   "V2": 6,
+   "V3": 1,
+   "V4": 8,
+   "V5": 7,
+   "n": 14
+  },
+  "D3": {
+   "V0": 0,
+   "V1": 0,
+   "V2": 6,
+   "V3": 6,
+   "V4": 6,
+   "V5": 2,
+   "n": 6
+  },
+  "D4": {
+   "V0": 0,
+   "V1": 64,
+   "V2": 33,
+   "V3": 19,
+   "V4": 46,
+   "V5": 9,
+   "n": 142
+  },
+  "D5": {
+   "V0": 0,
+   "V1": 1,
+   "V2": 1,
+   "V3": 0,
+   "V4": 1,
+   "V5": 0,
+   "n": 1
+  },
+  "D6": {
+   "V0": 198,
+   "V1": 198,
+   "V2": 200,
+   "V3": 198,
+   "V4": 200,
+   "V5": 198,
+   "n": 200
+  }
+ },
+ "named": {
+  "2026-10-14 08:00 홍대입구→망우": {
+   "V0": {
+    "best_exp": 46.94166666666672,
+    "status": "ok"
+   },
+   "V1": {
+    "best_exp": 46.94166666666672,
+    "status": "ok"
+   },
+   "V2": {
+    "best_exp": 42.5,
+    "status": "ok"
+   },
+   "V3": {
+    "best_exp": 42.5,
+    "status": "ok"
+   },
+   "V4": {
+    "best_exp": 42.5,
+    "status": "ok"
+   },
+   "V5": {
+    "best_exp": 46.94166666666672,
+    "status": "ok"
+   }
+  },
+  "2026-10-14 18:00 홍대입구→망우": {
+   "V0": {
+    "best_exp": 43.87833333333333,
+    "status": "ok"
+   },
+   "V1": {
+    "best_exp": 43.87833333333333,
+    "status": "ok"
+   },
+   "V2": {
+    "best_exp": 42.5,
+    "status": "ok"
+   },
+   "V3": {
+    "best_exp": 42.5,
+    "status": "ok"
+   },
+   "V4": {
+    "best_exp": 42.5,
+    "status": "ok"
+   },
+   "V5": {
+    "best_exp": 43.87833333333333,
+    "status": "ok"
+   }
+  },
+  "2026-10-17 14:00 홍대입구→망우": {
+   "V0": {
+    "best_exp": 46.995000000000005,
+    "status": "ok"
+   },
+   "V1": {
+    "best_exp": 46.995000000000005,
+    "status": "ok"
+   },
+   "V2": {
+    "best_exp": 42.75,
+    "status": "ok"
+   },
+   "V3": {
+    "best_exp": 42.75,
+    "status": "ok"
+   },
+   "V4": {
+    "best_exp": 42.75,
+    "status": "ok"
+   },
+   "V5": {
+    "best_exp": 46.995000000000005,
+    "status": "ok"
+   }
+  },
+  "2026-10-18 14:00 홍대입구→망우": {
+   "V0": {
+    "best_exp": 46.995000000000005,
+    "status": "ok"
+   },
+   "V1": {
+    "best_exp": 46.995000000000005,
+    "status": "ok"
+   },
+   "V2": {
+    "best_exp": 42.75,
+    "status": "ok"
+   },
+   "V3": {
+    "best_exp": 42.75,
+    "status": "ok"
+   },
+   "V4": {
+    "best_exp": 42.75,
+    "status": "ok"
+   },
+   "V5": {
+    "best_exp": 46.995000000000005,
+    "status": "ok"
+   }
+  },
+  "2026-10-14 23:30 청담→회기": {
+   "V0": {
+    "best_exp": 36.911666666666406,
+    "status": "ok"
+   },
+   "V1": {
+    "best_exp": 36.911666666666406,
+    "status": "ok"
+   },
+   "V2": {
+    "best_exp": 32.4083333333333,
+    "status": "ok"
+   },
+   "V3": {
+    "best_exp": 32.4083333333333,
+    "status": "ok"
+   },
+   "V4": {
+    "best_exp": 32.4083333333333,
+    "status": "ok"
+   },
+   "V5": {
+    "best_exp": 32.4083333333333,
+    "status": "ok"
+   }
+  },
+  "2026-10-14 23:30 월계→도곡": {
+   "V0": {
+    "best_exp": NaN,
+    "status": "none"
+   },
+   "V1": {
+    "best_exp": NaN,
+    "status": "none"
+   },
+   "V2": {
+    "best_exp": 51.68333333333385,
+    "status": "ok"
+   },
+   "V3": {
+    "best_exp": 51.68333333333385,
+    "status": "ok"
+   },
+   "V4": {
+    "best_exp": 51.68333333333385,
+    "status": "ok"
+   },
+   "V5": {
+    "best_exp": 51.68333333333385,
+    "status": "ok"
+   }
+  },
+  "2026-10-14 08:00 수색→강남구청": {
+   "V0": {
+    "best_exp": 50.471000000000004,
+    "status": "ok"
+   },
+   "V1": {
+    "best_exp": 45.89999999999998,
+    "status": "ok"
+   },
+   "V2": {
+    "best_exp": 45.89999999999998,
+    "status": "ok"
+   },
+   "V3": {
+    "best_exp": 50.471000000000004,
+    "status": "ok"
+   },
+   "V4": {
+    "best_exp": 45.89999999999998,
+    "status": "ok"
+   },
+   "V5": {
+    "best_exp": 50.471000000000004,
+    "status": "ok"
+   }
+  }
+ },
+ "adopt": {
+  "choice": "V0",
+  "why": "I = ∅ (자격 통과 방법 중 V0 보다 놓침이 적은 방법 없음)",
+  "E": []
+ },
+ "eligible": {
+  "V0": false,
+  "V1": false,
+  "V2": false,
+  "V3": false,
+  "V4": false,
+  "V5": false
+ }
+}
