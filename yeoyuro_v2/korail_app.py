@@ -12,6 +12,9 @@ yeoyuro_v2/korail_app.py — 광역철도 확장(코레일 1호선)을 앱에 �
   * 확정 추천 = 연결 확인 후보 중 기대 소요가 가장 짧은 것 (C3). 없으면 '확인하지 못함' (C4)
   * 비교 기준 = 같은 엔진에서 1~9호선만 쓴 최단 기대 소요 (A4)
 - 심야: 00:00~04:29 입력은 전날 운행일의 24:00~28:29 (엔진 parse_hhmm 과 같은 경계, D1·D-102 정정, D-103 공통 모듈)
+- 3B-3 (D-105·D-106): 같은 토글로 3-B(경의중앙·경춘·수인분당·공항철도)도 켠다 — 함수마다 include_3b 인자
+  (기본 False = 3-A 만, 기존 검사와 같음). 앱은 3-B 정차표가 있을 때만 include_3b=True. 공항철도 구간 경로는
+  열차 연결을 확인해도 '참고 경로' (확정 추천 아님, D-105 2절·B13).
 """
 from __future__ import annotations
 
@@ -38,9 +41,17 @@ def _T():
     from yeoyuro_v2 import train_timetable as T
     return T
 
-TOGGLE_LABEL = "광역철도 확장 (시범) — 코레일 1호선"
-TOGGLE_HELP = ("켜면 1호선 코레일 구간(서울 안 26개 역)을 포함한 경로를 기존 결과 아래에 따로 보여 줍니다. "
-               "코레일 구간은 혼잡도 자료가 없어 소요시간 기준으로만 비교합니다.")
+TOGGLE_LABEL = "광역철도 확장 (시범)"
+TOGGLE_HELP = ("켜면 코레일 1호선(서울 안 26개 역)과 경의중앙선·수인분당선·공항철도 구간을 포함한 경로를 기존 결과 "
+               "아래에 따로 보여 줍니다. 확장 구간은 혼잡도 자료가 없어 소요시간 기준으로만 비교합니다.")
+TOGGLE_HELP_3A_ONLY = ("켜면 코레일 1호선(서울 안 26개 역)을 포함한 경로를 기존 결과 아래에 따로 보여 줍니다. "
+                       "경의중앙선·수인분당선·공항철도는 시각표 자료가 이 환경에 없어 계산하지 않습니다.")
+K3B_MISSING = "경의중앙선·수인분당선·공항철도 시각표 자료가 이 환경에 없어 코레일 1호선만 계산합니다."
+K3B_LINE_NAMES = {"GJ": "경의중앙선", "GC": "경춘선", "SB": "수인분당선", "AR": "공항철도"}
+REFERENCE_TITLE = "참고 경로"
+AR_REFERENCE = ("공항철도 2025-12-29 시각표 기준 (2026-10-23 개정 반영 여부 미확인) — 열차 연결은 계산했지만 "
+                "현행 시각표로 확인한 확정 추천이 아닙니다.")
+SATURDAY_3B = "토요일은 경의중앙선·경춘선·수인분당선·공항철도 휴일 시각표 기준입니다."
 CARD_TITLE = "광역철도 포함 경로 (소요시간 기준)"
 BADGE_UNKNOWN = "혼잡도 미확인"
 NO_COMFORT = "혼잡도 미확인 구간이 있어 쾌적 판정을 하지 않습니다."
@@ -48,6 +59,8 @@ NOT_IN_BASE = "이 역은 1~9호선 경로 계산 대상이 아닙니다. 아래
 OFF_CLEARED = "광역철도 확장을 끄면 이 역은 선택할 수 없습니다. 출발·도착역을 다시 골라 주세요."
 NONE_FOUND = "이 시각에 이용 가능한 광역철도 확장 경로를 확인하지 못했습니다."
 NO_BENEFIT = "광역철도를 이용해도 더 빠른 경로가 없습니다."
+NO_BENEFIT_WITH_REF = ("확정 추천할 수 있는 광역철도 경로 중에는 더 빠른 경로가 없습니다. "
+                       "공항철도를 이용한 참고 경로는 아래에 따로 보여 드립니다.")
 BASIS_EXPECTED = ("기대 소요 = 첫 승차 대기 제외(R4) + 갈아타는 역의 대기는 그 시각 30분 평균 대기(E)로 계산한 값입니다.")
 BASIS_TIMETABLE = ("시각표 확인 = 입력 시각 뒤 첫 열차부터 실제 열차번호로 이어 탄 결과입니다(첫 대기 포함). "
                    "두 값은 다를 수 있습니다.")
@@ -72,7 +85,32 @@ def korail_codes() -> frozenset:
     """코레일 구간 역코드 (서울역~청량리 150~158 은 서울교통공사 구간이라 혼잡도가 있음)."""
     return frozenset(c for c in _K().SCOPE if c >= 1000)
 
-LINE_ORDER = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+LINE_ORDER = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "GJ", "SB", "AR"]
+
+
+def k3b_ready(repo_root: Path | None = None) -> bool:
+    """3-B 정차표가 있는가 (없으면 앱은 3-A 만). 엔진 모듈을 불러오지 않고 파일만 본다 (끔 격리)."""
+    base = Path(repo_root) if repo_root else Path(__file__).resolve().parents[1]
+    return (base / "data" / "marts" / "v2" / "korail_3b" / "stop_times.parquet").exists()
+
+
+def _k3b_stations() -> dict:
+    """3-B 역 → 노선 묶음 목록 (노선도·역 목록용, 경춘선은 상봉·망우 승강장 노드만 따로)."""
+    from yeoyuro_v2 import korail_3b as K3
+    out: dict = {}
+    for g in ("GJ", "SB", "AR"):
+        for n in K3.ORDER[g]:
+            out.setdefault(n, [])
+            if g not in out[n]:
+                out[n].append(g)
+    return out
+
+
+def _k3b_uids(name: str, groups) -> list:
+    u = [f"{g}_{name}" for g in groups]
+    if name in ("상봉", "망우"):
+        u.append(f"GC_{name}")
+    return u
 
 
 # ---------------------------------------------------------------------- 역 목록 (B)
@@ -84,10 +122,13 @@ def _scope_names() -> list[str]:
     return out
 
 
-def korail_only_stations(display: pd.DataFrame) -> list[str]:
-    """지금 앱 목록에 없는 코레일 1호선 역 (B2). 순서 = 코레일 범위 정의 순서."""
+def korail_only_stations(display: pd.DataFrame, include_3b: bool = False) -> list[str]:
+    """지금 앱 목록에 없는 확장 역 (B2). 코레일 1호선 범위 순서, include_3b 면 뒤에 3-B 전용 역 (D-105 A1)."""
     have = set(display["station_key"])
-    return [n for n in _scope_names() if n not in have]
+    out = [n for n in _scope_names() if n not in have]
+    if include_3b:
+        out += [n for n in _k3b_stations() if n not in have and n not in out]
+    return out
 
 
 def common_stations(display: pd.DataFrame) -> list[str]:
@@ -105,7 +146,7 @@ def _sorted_lines(lines) -> str:
     return ",".join(sorted(set(xs), key=lambda x: (LINE_ORDER.index(x) if x in LINE_ORDER else 99, x)))
 
 
-def extended_display(display: pd.DataFrame) -> pd.DataFrame:
+def extended_display(display: pd.DataFrame, include_3b: bool = False) -> pd.DataFrame:
     """켬일 때 쓰는 역 목록 복사본. 원본은 건드리지 않는다.
 
     - 공통 역 8곳: available_lines 에 '1' 만 더함
@@ -132,11 +173,37 @@ def extended_display(display: pd.DataFrame) -> pd.DataFrame:
         rows.append(row)
     if rows:
         d = pd.concat([d, pd.DataFrame(rows)], ignore_index=True)
+    if include_3b:                                   # 3B-3: 3-B 노선 배지·후보 노드, 3-B 전용 역 새 행
+        k3 = _k3b_stations()
+        rows = []
+        for n, groups in k3.items():
+            hit = d.index[d.station_key == n]
+            if len(hit):
+                i = hit[0]
+                d.at[i, "available_lines"] = _sorted_lines(str(d.at[i, "available_lines"]).split(",") + groups)
+                cur = [x for x in str(d.at[i, "candidate_station_uids"]).split(";") if x and x != "nan"]
+                d.at[i, "candidate_station_uids"] = ";".join(cur + [u for u in _k3b_uids(n, groups) if u not in cur])
+                if "n_lines" in d.columns:
+                    d.at[i, "n_lines"] = len(str(d.at[i, "available_lines"]).split(","))
+                if "is_transfer_station" in d.columns and len(str(d.at[i, "available_lines"]).split(",")) > 1:
+                    d.at[i, "is_transfer_station"] = True
+            else:
+                row = {c: np.nan for c in d.columns}
+                row.update({"station_key": n, "station_name": n, "display_name": n,
+                            "available_lines": _sorted_lines(groups), "candidate_station_uids": ";".join(_k3b_uids(n, groups))})
+                for c, v in (("n_lines", len(groups)), ("is_transfer_station", len(groups) > 1),
+                             ("is_event_station", False), ("is_branch_node", False),
+                             ("alias_or_note", " · ".join(K3B_LINE_NAMES[g] for g in groups) + " (광역철도 확장)")):
+                    if c in d.columns:
+                        row[c] = v
+                rows.append(row)
+        if rows:
+            d = pd.concat([d, pd.DataFrame(rows)], ignore_index=True)
     return d
 
 
-def is_korail_only(key: str | None, display: pd.DataFrame) -> bool:
-    return bool(key) and key in set(korail_only_stations(display))
+def is_korail_only(key: str | None, display: pd.DataFrame, include_3b: bool = False) -> bool:
+    return bool(key) and key in set(korail_only_stations(display, include_3b))
 
 
 # ---------------------------------------------------------------------- 운행일 (D)
@@ -201,6 +268,15 @@ class CandidateView:
     rides: list = field(default_factory=list)
     line1_splits: list = field(default_factory=list)   # [(역 이름, 연결 여유 분)]
     congestion_judgement: str = ""
+    # 3B-3: 3-B 메타데이터 (엔진 결과 그대로). 연결 상태(status)와 따로 — 공항철도면 recommendation_status = '참고 경로'
+    lines_3b: tuple = ()
+    timetable_valid_from: dict = field(default_factory=dict)
+    freshness_status: str = ""
+    recommendation_status: str = ""
+
+    @property
+    def is_reference(self) -> bool:
+        return self.recommendation_status == REFERENCE_TITLE
 
 
 @dataclass
@@ -214,6 +290,8 @@ class ExtensionPlan:
     candidates: list = field(default_factory=list)
     excluded_engine: Counter = field(default_factory=Counter)   # 엔진 단계 R3 제외 사유별 수
     excluded_train: Counter = field(default_factory=Counter)    # 열차 단위 제외(연결 불가·미확인) 사유별 수
+    reference: CandidateView | None = None   # 3B-3: 확정 추천보다 빠른(또는 확정 추천이 없을 때) 공항철도 '참고 경로'
+    status_3b: str = "off"                   # on / unavailable / off
 
     @property
     def main_reason(self) -> str | None:
@@ -264,19 +342,24 @@ class ExtensionPlanner:
     """하나의 운행 요일(day_type)에 대한 확장 경로 계산기. 앱은 요일·조회 날짜마다 하나를 만들어 둔다."""
 
     def __init__(self, root: Path, mod, sr, display: pd.DataFrame, day_type: str, query_date=None,
-                 stop_times: pd.DataFrame | None = None, repo_root: Path | None = None):
+                 stop_times: pd.DataFrame | None = None, repo_root: Path | None = None, include_3b: bool = False):
         from yeoyuro_v2 import korail_engine as KE
         T = _T()
         kw = dict(policy="step", multi_bin=True, query_date=None if query_date is None else str(query_date))
         self.day_type = day_type
         self.display = display
-        self.on = KE.KorailTDRouter(root, mod, sr, display, day_type, include_korail=True, **kw)   # k = 기본 10
+        self.include_3b = bool(include_3b)
+        self.on = KE.KorailTDRouter(root, mod, sr, display, day_type, include_korail=True,   # k = 기본 10
+                                    include_3b=self.include_3b, **kw)
         self.off = td.TDRouter(root, mod, sr, display, day_type, k=5, **kw)                      # 앱 대안 카드와 같은 설정
         if stop_times is None:
             base = Path(repo_root) if repo_root else Path(__file__).resolve().parents[1]
             stop_times = pd.read_parquet(base / "data" / "marts" / "v2" / "train_timetable" / "stop_times.parquet")
-        self.tidx = T.TrainIndex(stop_times[stop_times.day_type == day_type])
-        self._only = set(korail_only_stations(display))
+        if self.on.status_3b == "on":                        # 3-B: 엔진의 검증 색인(1~9 + 3-B)을 같이 쓴다
+            self.tidx = self.on.verify_index()
+        else:
+            self.tidx = T.TrainIndex(stop_times[stop_times.day_type == day_type])
+        self._only = set(korail_only_stations(display, self.on.status_3b == "on"))
         self._names: dict | None = None
 
     # --- 표시용 이름
@@ -289,13 +372,22 @@ class ExtensionPlanner:
                 names.setdefault(int(c), node.split("_", 1)[1].split("@")[0])
             for c, n in K.SCOPE.items():
                 names[int(c)] = n
+            if self.on.status_3b == "on":
+                from yeoyuro_v2 import korail_3b as K3
+                for n, c in K3.CODE.items():
+                    names.setdefault(int(c), n)
+                for n, (_, c) in K3.AR_CODE.items():
+                    names[int(c)] = n
             self._names = names
         return self._names
 
     def _view(self, q, ev, minute: float, with_congestion: bool = False) -> CandidateView:
         T, K = _T(), _K()
         kc = korail_codes()
-        legs = T.legs_from_path(ev, q.path)
+        if self.on.status_3b == "on":                        # 3B-2: 방향별 보행·0분 환승 연결 여유
+            legs = self.on.verification_legs(ev, q.path)
+        else:
+            legs = T.legs_from_path(ev, q.path)
         conn = T.verify_connection(self.tidx, legs, minute, self.day_type)
         names = self._code_names(ev)
         lv = []
@@ -304,8 +396,9 @@ class ExtensionPlanner:
             trace = ev.evaluate(list(q.path), minute, keep_trace=True).trace
         cong = _leg_congestion(trace, legs)
         for lg, mx in zip(legs, cong):
-            kor = any(int(c) in kc for c in (lg.codes or (lg.board_code, lg.alight_code)))
-            lv.append(LegView(lg.group, lg.board_node.split("_", 1)[1].split("@")[0],
+            k3 = lg.group in ("GJ", "GC", "GJC", "SB", "AR")
+            kor = k3 or (lg.group == "1" and any(int(c) in kc for c in (lg.codes or (lg.board_code, lg.alight_code))))
+            lv.append(LegView("GJ" if lg.group == "GJC" else lg.group, lg.board_node.split("_", 1)[1].split("@")[0],
                               lg.alight_node.split("_", 1)[1].split("@")[0], kor, None if kor else mx))
         rides = [RideView(r.train, names.get(int(r.board_code), str(r.board_code)), td.fmt_min(r.dep_min),
                           names.get(int(r.alight_code), str(r.alight_code)), td.fmt_min(r.arr_min), float(r.wait_min))
@@ -320,18 +413,25 @@ class ExtensionPlanner:
             first_wait_min=conn.first_wait_min,
             rides=rides,
             line1_splits=[(K.SCOPE.get(c, str(c)), float(s)) for c, s in (conn.line1_splits or [])],
-            congestion_judgement=getattr(q, "congestion_judgement", "") or "")
+            congestion_judgement=getattr(q, "congestion_judgement", "") or "",
+            lines_3b=tuple(getattr(q, "lines_3b", ()) or ()),
+            timetable_valid_from=dict(getattr(q, "timetable_valid_from", {}) or {}),
+            freshness_status=getattr(q, "freshness_status", "") or "",
+            recommendation_status=getattr(q, "recommendation_status", "") or "")
 
     def plan(self, origin: str, dest: str, service: ServiceDay) -> ExtensionPlan:
         m = float(service.minute)
         res = self.on.evaluate_od(origin, dest, m)
         excluded_engine = Counter(x.no_service_reason for x in getattr(self.on, "excluded", []) if x.no_service_reason)
         ev = self.on.evaluator(td.bin_index_of(m))
-        cands, excluded_train, best = [], Counter(), None
+        cands, excluded_train, best, reference = [], Counter(), None, None
         for q in res:                                    # 이미 기대 소요 순 (엔진 정렬)
             v = self._view(q, ev, m)
             if v.status != CONNECT_OK:
                 excluded_train[v.reason or v.status] += 1
+            elif v.is_reference:                         # 공항철도: 확정 추천 아님 (D-105 2절)
+                if reference is None and best is None:
+                    reference = self._view(q, ev, m, with_congestion=True)
             elif best is None:
                 v = self._view(q, ev, m, with_congestion=True)
                 best = v
@@ -344,12 +444,13 @@ class ExtensionPlanner:
             except Exception:                            # noqa: BLE001 — 기준값은 참고용
                 baseline = None
         if best is None:
-            status = "none"
+            status = "reference" if reference is not None else "none"
         elif not best.korail:
             status = "no_benefit"
         else:
             status = "ok"
-        return ExtensionPlan(origin, dest, service, status, best, baseline, cands, excluded_engine, excluded_train)
+        return ExtensionPlan(origin, dest, service, status, best, baseline, cands, excluded_engine, excluded_train,
+                             reference=reference, status_3b=self.on.status_3b)
 
 
 # ---------------------------------------------------------------------- 노선도 (B5)
@@ -372,22 +473,27 @@ def map_overlay(workbook: Path) -> dict:
         n = vn[vn["phase"] == ph]
         out[f"{tag}_nodes"] = n[["visual_node_id", "station_key", "x_px", "y_px", "is_transfer_station"]].reset_index(drop=True)
         segs = []
-        for _, g in ls[ls["phase"] == ph].groupby(["line_id", "branch_code"], sort=False):
+        for (lid, _), g in ls[ls["phase"] == ph].groupby(["line_id", "branch_code"], sort=False):
             ids = g.sort_values("path_order").visual_node_id.tolist()
             for a, b in zip(ids, ids[1:]):
                 if a in pos and b in pos:
-                    segs.append((*pos[a], *pos[b]))
-        out[f"{tag}_segs"] = pd.DataFrame(segs, columns=["x0", "y0", "x1", "y1"])
-    links = []
-    for r in tl[tl["phase"] == "3-A"].itertuples():
-        a, b = r.from_visual_node_id, r.to_visual_node_id
-        if a in pos and b in pos:
-            links.append((*pos[a], *pos[b]))
-    out["a_links"] = pd.DataFrame(links, columns=["x0", "y0", "x1", "y1"])
+                    segs.append((*pos[a], *pos[b], str(lid)))
+        out[f"{tag}_segs"] = pd.DataFrame(segs, columns=["x0", "y0", "x1", "y1", "line_id"])
+        links = []
+        for r in tl[tl["phase"] == ph].itertuples():
+            a, b = r.from_visual_node_id, r.to_visual_node_id
+            if a in pos and b in pos:
+                links.append((*pos[a], *pos[b]))
+        out[f"{tag}_links"] = pd.DataFrame(links, columns=["x0", "y0", "x1", "y1"])
     new_a = [k for k in vn[vn["phase"] == "3-A"].station_key.unique()
              if k not in set(mw.materialize(Path(workbook))["Station_Click_Areas"].station_key)]
     ca, lb = s["Station_Click_Areas"], s["Station_Labels"]
     out["a_click"] = ca[ca.station_key.isin(new_a)].reset_index(drop=True)
     out["a_labels"] = lb[lb.station_key.isin(new_a)].reset_index(drop=True)
     out["a_new_stations"] = new_a
+    base_keys = set(mw.materialize(Path(workbook))["Station_Click_Areas"].station_key)
+    new_b = [k for k in vn[vn["phase"] == "3-B"].station_key.unique() if k not in base_keys and k not in set(new_a)]
+    out["b_click"] = ca[ca.station_key.isin(new_b)].reset_index(drop=True)      # 3B-3: 켬 + 3-B 자료 있을 때만 씀
+    out["b_labels"] = lb[lb.station_key.isin(new_b)].reset_index(drop=True)
+    out["b_new_stations"] = new_b
     return out

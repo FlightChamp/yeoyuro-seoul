@@ -143,7 +143,8 @@ def test_app_off_default_and_toggle_clear():
     n_off = len(at.selectbox(key="sel_origin").options)
     at.toggle(key="ext_on").set_value(True)
     at.run()
-    assert len(at.selectbox(key="sel_origin").options) == n_off + 18
+    # D-106: 같은 토글로 3-B 전용 역도 (3-B 정차표가 있을 때만) — 코레일 1호선 18 + 3-B 18
+    assert len(at.selectbox(key="sel_origin").options) == n_off + 18 + (18 if KA.k3b_ready(ROOT) else 0)
     at.selectbox(key="sel_origin").set_value("월계")
     at.selectbox(key="sel_dest").set_value("석계")
     at.run()

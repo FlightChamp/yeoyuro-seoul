@@ -106,4 +106,4 @@ def test_app_passes_service_args():
     assert src.count("_service_clock(") >= 3
     # 확장 카드 계산기도 운행일 날짜로 만든다 (RouteScorer 는 조회 날짜의 요일로 통계 요일을 다시 정하므로,
     # 심야에 입력 날짜를 넘기면 1~9호선 구간 통계만 다음 날 요일이 된다)
-    assert "get_ext_planner(sd.timetable_day_type, str(sd.date))" in src     # D-104: 시각표 요일
+    assert "get_ext_planner(sd.timetable_day_type, str(sd.date), k3b_on())" in src     # D-104 시각표 요일, D-106 3-B
