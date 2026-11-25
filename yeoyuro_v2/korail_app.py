@@ -342,7 +342,10 @@ class ExtensionPlanner:
     """하나의 운행 요일(day_type)에 대한 확장 경로 계산기. 앱은 요일·조회 날짜마다 하나를 만들어 둔다."""
 
     def __init__(self, root: Path, mod, sr, display: pd.DataFrame, day_type: str, query_date=None,
-                 stop_times: pd.DataFrame | None = None, repo_root: Path | None = None, include_3b: bool = False):
+                 stop_times: pd.DataFrame | None = None, repo_root: Path | None = None, include_3b: bool = False,
+                 router_kw: dict | None = None):
+        """router_kw: 3B-4 민감도(B5·B8·B12)용 KorailTDRouter 추가 인자 (b_factor·u_shift·zero_walk_margin·extra_margin·
+        min_graph·k·k3b_stop_times). 앱은 넘기지 않는다 (기본 동작 불변)."""
         from yeoyuro_v2 import korail_engine as KE
         T = _T()
         kw = dict(policy="step", multi_bin=True, query_date=None if query_date is None else str(query_date))
@@ -350,7 +353,7 @@ class ExtensionPlanner:
         self.display = display
         self.include_3b = bool(include_3b)
         self.on = KE.KorailTDRouter(root, mod, sr, display, day_type, include_korail=True,   # k = 기본 10
-                                    include_3b=self.include_3b, **kw)
+                                    include_3b=self.include_3b, **kw, **(router_kw or {}))
         self.off = td.TDRouter(root, mod, sr, display, day_type, k=5, **kw)                      # 앱 대안 카드와 같은 설정
         if stop_times is None:
             base = Path(repo_root) if repo_root else Path(__file__).resolve().parents[1]
