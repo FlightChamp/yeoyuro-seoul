@@ -53,7 +53,7 @@
 완료,충정로,충정로,충정로역,"2,5",1752,1144,34.21875,39.72222222222222,12.0,bold,center,0,default_from_click_area,,0,0
 완료,용답,용답,용답역,2,2972,1204,58.046875,41.80555555555556,10.5,normal,center,0,default_from_click_area,,0,0
 완료,신답,신답,신답역,2,2972,1064,58.046875,36.94444444444444,10.5,normal,center,0,default_from_click_area,,0,0
-완료,용두,용두,용두역,2,2784,1064,54.37499999999999,36.94444444444444,10.5,normal,center,0,default_from_click_area,,0,0
+완료,용두,용두,용두역,2,2776,1064,54.21875000000001,36.94444444444444,10.5,normal,center,0,default_from_click_area,,0,0
 완료,도림천,도림천,도림천역,2,1320,1720,25.78125,59.72222222222222,10.5,normal,center,0,default_from_click_area,,0,0
 완료,양천구청,양천구청,양천구청역,2,1220,1620,23.828125,56.25,10.5,normal,center,0,default_from_click_area,,0,0
 완료,신정네거리,신정네거리,신정네거리역,2,1108,1508,21.640625,52.361111111111114,10.5,normal,center,0,default_from_click_area,,0,0
@@ -74,7 +74,7 @@
 완료,금호,금호,금호역,3,2480,1554,48.4375,53.95833333333333,10.5,normal,center,0,default_from_click_area,,0,0
 완료,옥수,옥수,옥수역,3,2480,1636,48.4375,56.80555555555556,10.5,normal,center,0,default_from_click_area,,0,0
 완료,압구정,압구정,압구정역,3,2480,1750,48.4375,60.763888888888886,10.5,normal,center,0,default_from_click_area,,0,0
-완료,신사,신사,신사역,3,2480,1820,48.4375,63.19444444444444,10.5,normal,center,0,default_from_click_area,,0,0
+완료,신사,신사,신사역,3,2480,1824,48.4375,63.33333333333333,10.5,normal,center,0,default_from_click_area,,0,0
 완료,잠원,잠원,잠원역,3,2480,1892,48.4375,65.69444444444444,10.5,normal,center,0,default_from_click_area,,0,0
 완료,고속터미널,고속터미널,고속터미널역,"3,7,9",2480,1964,48.4375,68.19444444444444,12.0,bold,center,0,default_from_click_area,,0,0
 완료,남부터미널,남부터미널,남부터미널역,3,2480,2268,48.4375,78.75,10.5,normal,center,0,default_from_click_area,,0,0
@@ -113,13 +113,13 @@
 완료,방화,방화,방화역,5,788,800,15.390625,27.77777777777778,10.5,normal,center,0,default_from_click_area,,0,0
 완료,개화산,개화산,개화산역,5,788,884,15.390625,30.694444444444446,10.5,normal,center,0,default_from_click_area,,0,0
 완료,김포공항,김포공항,김포공항역,"5,9",788,960,15.390625,33.33333333333333,10.5,normal,center,0,default_from_click_area,,0,0
-완료,송정,송정,송정역,5,788,1028,15.390625,35.69444444444444,10.5,normal,center,0,default_from_click_area,,0,0
+완료,송정,송정,송정역,5,788,1032,15.390625,35.833333333333336,10.5,normal,center,0,default_from_click_area,,0,0
 완료,마곡,마곡,마곡역,5,852,1092,16.640625,37.916666666666664,10.5,normal,center,0,default_from_click_area,,0,0
 완료,발산,발산,발산역,5,916,1156,17.890625,40.13888888888889,10.5,normal,center,0,default_from_click_area,,0,0
 완료,우장산,우장산,우장산역,5,980,1220,19.140625,42.36111111111111,10.5,normal,center,0,default_from_click_area,,0,0
 완료,화곡,화곡,화곡역,5,1044,1284,20.390625,44.583333333333336,10.5,normal,center,0,default_from_click_area,,0,0
 완료,신정,신정,신정역,5,1180,1420,23.046875,49.30555555555556,10.5,normal,center,0,default_from_click_area,,0,0
-완료,목동,목동,목동역,5,1240,1476,24.21875,51.24999999999999,10.5,normal,center,0,default_from_click_area,,0,0
+완료,목동,목동,목동역,5,1240,1478,24.21875,51.31944444444444,10.5,normal,center,0,default_from_click_area,,0,0
 완료,오목교,오목교,오목교역,5,1296,1536,25.3125,53.333333333333336,10.5,normal,center,0,default_from_click_area,,0,0
 완료,양평,양평,양평역,5,1356,1594,26.484375,55.34722222222223,10.5,normal,center,0,default_from_click_area,,0,0
 완료,영등포시장,영등포시장,영등포시장역,5,1504,1740,29.375,60.416666666666664,10.5,normal,center,0,default_from_click_area,,0,0
@@ -207,7 +207,7 @@
 완료,청담,청담,청담역,7,2846,1596,55.58593750000001,55.41666666666667,10.5,normal,center,0,default_from_click_area,,0,0
 완료,강남구청,강남구청,강남구청역,7,2776,1668,54.21875000000001,57.91666666666667,10.5,normal,center,0,default_from_click_area,,0,0
 완료,학동,학동,학동역,7,2696,1748,52.65625000000001,60.69444444444444,10.5,normal,center,0,default_from_click_area,,0,0
-완료,논현,논현,논현역,7,2618,1826,51.1328125,63.40277777777777,10.5,normal,center,0,default_from_click_area,,0,0
+완료,논현,논현,논현역,7,2618,1824,51.1328125,63.33333333333333,10.5,normal,center,0,default_from_click_area,,0,0
 완료,반포,반포,반포역,7,2554,1892,49.8828125,65.69444444444444,10.5,normal,center,0,default_from_click_area,,0,0
 완료,내방,내방,내방역,7,2340,1964,45.703125,68.19444444444444,10.5,normal,center,0,default_from_click_area,,0,0
 완료,남성,남성,남성역,7,2096,1964,40.9375,68.19444444444444,10.5,normal,center,0,default_from_click_area,,0,0
