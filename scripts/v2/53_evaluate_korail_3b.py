@@ -30,6 +30,8 @@ scripts/v2/53_evaluate_korail_3b.py — Phase 3B-4 정식 평가 B1~B13 (D-105 �
 중간에 끊기면 다시 실행: 끝난 계산(data/marts/v2/korail_3b_eval/*.parquet, git 무시)은 건너뛴다. 다시 계산은 --force.
 
 산출: reports/v2/korail_3b_eval.{md,json}
+재계산 (D-105d 사후 수정 뒤): --tag b → reports/v2/korail_3b_eval_b.{md,json}, 원자료 data/marts/v2/korail_3b_eval_b/.
+    첫 보고서(태그 없음)는 덮어쓰지 않는다. 같은 태그 보고서가 이미 있으면 멈춘다.
 """
 from __future__ import annotations
 
@@ -279,8 +281,9 @@ def jobs_for(variant, include_3b, slots, ods, chunk=8) -> list:
 
 
 def compute(name, J, workers, force, dry) -> pd.DataFrame:
-    OUT.mkdir(parents=True, exist_ok=True)
-    f = OUT / (f"{name}_dry.parquet" if dry else f"{name}.parquet")
+    out = _W.get("out_dir", OUT)
+    out.mkdir(parents=True, exist_ok=True)
+    f = out / (f"{name}_dry.parquet" if dry else f"{name}.parquet")
     if f.exists() and not force and not dry:
         print(f"  {name}: 저장본 사용 ({f.name})", flush=True)
         return pd.read_parquet(f)
@@ -366,6 +369,13 @@ def compare(a: pd.DataFrame, b: pd.DataFrame, label: str) -> dict:
     dexp = (B.best_expected - A.best_expected)[both]
     conn_ch = (A.best_status != B.best_status) & both
     tr_ch = (A.best_transfers != B.best_transfers) & both
+    # 후보 밀림: A 의 확정 추천 경로가 B 의 후보 목록에 아예 없는 건 (k 자리 경쟁, B4·B8 원인 조사)
+    pushed = []
+    for k in A[path_ch & (A.best_path != "")].index:
+        bc = json.loads(B.loc[k].cands) if isinstance(B.loc[k].cands, str) else []
+        if all(c["path"] != A.loc[k].best_path for c in bc):
+            pushed.append({"key": list(k), "a_exp": A.loc[k].best_expected, "b_exp": B.loc[k].best_expected,
+                           "b_lines": B.loc[k].best_lines, "b_n_cand": len(bc)})
     ch = A[path_ch | ref_ch].reset_index()[KEY].copy()
     ch["a_best"] = A[path_ch | ref_ch].best_path.values
     ch["b_best"] = B[path_ch | ref_ch].best_path.values
@@ -377,7 +387,11 @@ def compare(a: pd.DataFrame, b: pd.DataFrame, label: str) -> dict:
             "best_status_changed": int(conn_ch.sum()), "transfers_changed": int(tr_ch.sum()),
             "expected_diff_median": None if dexp.empty else round(float(dexp.median()), 3),
             "expected_diff_max_abs": None if dexp.empty else round(float(dexp.abs().max()), 3),
-            "examples": ch.head(12).to_dict("records")}
+            "examples": ch.head(12).to_dict("records"),
+            "a_best_missing_from_b": len(pushed),
+            "a_best_missing_worse": int(sum(1 for x in pushed if x["b_exp"] is not None and x["a_exp"] is not None
+                                            and x["b_exp"] > x["a_exp"] + 1e-6)),
+            "a_best_missing_examples": pushed[:12]}
 
 
 def _b_transfers(path) -> list[str]:
@@ -426,7 +440,8 @@ def analyze_base(base: pd.DataFrame) -> dict:
     for s in ok.excl_train:
         ex.update(json.loads(s))
     return {"plans": int(len(base)), "errors": int((base.status == "error").sum()),
-            "error_examples": base[base.status == "error"].head(5).get("err", pd.Series(dtype=str)).tolist(),
+            "error_examples": [f"{r.date} {r.hhmm} {r.o}→{r.d}: {getattr(r, 'err', '')}"
+                               for r in base[base.status == "error"].head(10).itertuples()],
             "status": ok.status.value_counts().to_dict(),
             "status_by_slot": {f"{a} {b}": g.status.value_counts().to_dict() for (a, b), g in ok.groupby(["date", "hhmm"])},
             "best_not_connected": int((has.best_status != KA.CONNECT_OK).sum()),           # B10
@@ -556,11 +571,16 @@ def b2_data() -> dict:
         v = v[~np.isnan(v)]
         rev += int((np.diff(v) < -1e-9).any())
         dup += int(t.code.duplicated().any())
+    both = st[st.arr_min.isna() & st.dep_min.isna()]
+    from yeoyuro_v2 import korail_engine as KE
     rep = json.loads((REP / "korail_3b_build.json").read_text(encoding="utf-8"))["check"]
     same_build = {"t4": rep["t4"] == {"|".join(k): v for k, v in sorted(t4.items())},
                   "rows": rep["rows"] == int(len(st)), "t5": tuple(rep["t5_gj_weekday_gt_holiday"]) == (int(wk), int(ho), bool(wk > ho))}
     return {"t4_mismatch": mism, "t5": (int(wk), int(ho), bool(wk > ho)), "rows": int(len(st)),
-            "time_reversal_trains": rev, "dup_station_trains": dup, "same_as_3b1_report": same_build}
+            "time_reversal_trains": rev, "dup_station_trains": dup, "same_as_3b1_report": same_build,
+            "both_missing_rows": int(len(both)),                                     # D-105d: 정차표 파일 안
+            "both_missing_by": {f"{a}|{b}|{c}": int(n) for (a, b, c), n in both.groupby(["day_type", "group", "code"]).size().items()},
+            "both_missing_after_load": int((KE.drop_unstopped(st).pipe(lambda x: x.arr_min.isna() & x.dep_min.isna())).sum())}
 
 
 # ---------------------------------------------------------------------- B13 앱
@@ -596,21 +616,27 @@ def _v(x, ok):
     return f"**{x}**" + ("" if ok else " ⚠")
 
 
-def write_report(S: dict, dest: Path) -> None:
+def write_report(S: dict, dest: Path, tag: str = "") -> None:
     B = S.get("base", {})
     b1, b1a, b2, b3, b7 = S.get("B1_v23", {}), S.get("B1_app", {}), S.get("B2", {}), S.get("B3", {}), S.get("B7", {})
     b5, b4, b6 = S.get("B5", {}), S.get("B4", {}), S.get("B6", {})
     cmp_ = S.get("CMP", {})
     p95 = B.get("sec_p95")
-    L = ["# Phase 3B-4 정식 평가 — D-105 B1~B13 (경의중앙·경춘·수인분당·공항철도)", "",
-         "- 규칙: [사전 등록 6절](../../docs/v2/preregistration_3b.md) D-105 (계산 전 고정) · 평가 도구 구현 기록 D-105c",
-         "- 재현: `python scripts/v2/53_evaluate_korail_3b.py --workers 8`",
+    name = NAME + (f"_{tag}" if tag else "")
+    L = ["# Phase 3B-4 정식 평가 — D-105 B1~B13 (경의중앙·경춘·수인분당·공항철도)" + (f" — 재계산 {tag}" if tag else ""), "",
+         "- 규칙: [사전 등록 6절](../../docs/v2/preregistration_3b.md) D-105 (계산 전 고정) · 평가 도구 구현 기록 D-105c"
+         + (" · 사후 수정 D-105d ([판정 기록](../../docs/v2/korail_3b_eval_verdict.md))" if tag else ""),
+         "- 재현: `python scripts/v2/53_evaluate_korail_3b.py --workers 8" + (f" --tag {tag}`" if tag else "`")]
+    if tag:
+        L.append(f"- 첫 결과 [{NAME}.md]({NAME}.md) 는 그대로 둔다 (정차표 빈칸 정차 9행·한 역 노선 셋 이어 갈아타기가 있던 계산)")
+    L += [
          f"- 표본: K3B {S.get('n_od')}쌍 × {len(SLOTS)}시각 = {B.get('plans', 0):,}건 (평일 08:00·18:00·23:30, 토·일 14:00)",
          "- 공항철도: 정밀 시각표 엔진(2025-12-29 시각표) 기준 — 집계 모델(D-108 예정) 아님. A 와 비교하는 기준은 **계획 시각표**이지 실제 운행이 아님",
-         f"- 판정 보류(B7): {'**있음 — ' + ', '.join(b7.get('hold', [])) + '**' if b7.get('hold') else '없음'}", "",
+         f"- 판정 보류(B7): {'**있음 — ' + ', '.join(b7.get('hold', [])) + '**' if b7.get('hold') else '없음'}",
+         f"- 계산 오류: {B.get('errors')}건" + (f" — {B.get('error_examples')}" if B.get('errors') else ""), "",
          "| B | 검증 | 결과 | 기준 |", "|---|---|---|---|",
          f"| B1 | 끔 보존 ① v2.3 {b1.get('cases', 0):,}건 ② 앱 W1 {b1a.get('cases', 0)}사례 | ① 불일치 {_v(b1.get('mismatch'), b1.get('mismatch') == 0)} ({b1.get('evaluated')}건 계산) ② 같음 {_v(str(b1a.get('same')) + '/' + str(b1a.get('cases')), b1a.get('same') == b1a.get('cases'))} (노선도는 D-106 층 {sorted(set(b1a.get('d106_traces_removed', [])))}개 빼고 비교) | 불일치 0 |",
-         f"| B2 | 데이터 T4·T5 | T4 불일치 {_v(len(b2.get('t4_mismatch', {})), not b2.get('t4_mismatch'))} · T5 {b2.get('t5')} · 시각 역행 {b2.get('time_reversal_trains')} · 같은 역 중복 {b2.get('dup_station_trains')} · 3B-1 보고와 같음 {b2.get('same_as_3b1_report')} | 3B-0 수치와 같음 |",
+         f"| B2 | 데이터 T4·T5 | T4 불일치 {_v(len(b2.get('t4_mismatch', {})), not b2.get('t4_mismatch'))} · T5 {b2.get('t5')} · 시각 역행 {b2.get('time_reversal_trains')} · 같은 역 중복 {b2.get('dup_station_trains')} · 3B-1 보고와 같음 {b2.get('same_as_3b1_report')} · 도착·출발 둘 다 빈칸 정차: 파일 {b2.get('both_missing_rows')}행 → 읽은 뒤 {_v(b2.get('both_missing_after_load'), b2.get('both_missing_after_load') == 0)} (D-105d) | 3B-0 수치와 같음 |",
          f"| B3 | 구조 (후보 {b3.get('candidates', 0):,}개) | 불가능한 연결 {_v(b3.get('impossible'), b3.get('impossible') == 0)} · 역 재방문 {_v(b3.get('revisit'), b3.get('revisit') == 0)} · 중복 환승 {_v(b3.get('double_transfer'), b3.get('double_transfer') == 0)} (3-B 포함 {b3.get('double_transfer_3b')}, 확정 추천 {b3.get('double_transfer_in_best')}) | 0 |",
          f"| B4 | 켬 3-A 결과 변화 (412쌍 × 평일 6시각) | 확정 추천 바뀜 {b4.get('best_changed')} / {b4.get('compared')} · 원인 {b4.get('by_cause')} | 보고 (P5) |",
          f"| B5 | 환승 민감도 | 아래 표 · C3 추가 검증 대상 {b5.get('C3', {}).get('flagged')} | 보고 |",
@@ -643,7 +669,9 @@ def write_report(S: dict, dest: Path) -> None:
           "", "## B3 중복 환승 사례", "",
           f"- 역별: {b3.get('double_transfer_by_station')}"]
     L += [f"- {x}" for x in b3.get("double_transfer_examples", [])] or ["- 없음"]
-    L += ["", "## B4 변경 예", ""] + [f"- {x}" for x in b4.get("examples", [])] + [
+    L += ["", "## B4 변경 예", "",
+          f"- 3-A 확정 추천 경로가 3-B 켬 후보 목록에서 아예 빠진 건 (k 자리 경쟁): {b4.get('a_best_missing_from_b')} · 그중 소요가 늘어난 건 {b4.get('a_best_missing_worse')}",
+          f"- 예: {b4.get('a_best_missing_examples', [])[:8]}"] + [f"- {x}" for x in b4.get("examples", [])] + [
         "", "## B7 묶음 × 시각", "", "| 시각 | 묶음 | 1시간 안 열차 | 후보 | 연결 확인 | 불가능 | 보류 |", "|---|---|---|---|---|---|---|"]
     for r in b7.get("table", []):
         L.append(f"| {r['date']} {r['hhmm']} | {r['group']} | {r['trains_within_60min']} | {r['candidates']} | "
@@ -651,7 +679,7 @@ def write_report(S: dict, dest: Path) -> None:
     L += ["", "## B8·B9·B12 변경 예", ""]
     for k in ("noGC", "nodir", "k20", "maxonly"):
         c = cmp_.get(k, {})
-        L.append(f"- {k}: 바뀜 {c.get('best_changed')} · 예 {c.get('examples', [])[:5]}")
+        L.append(f"- {k}: 바뀜 {c.get('best_changed')} · 기본 확정 추천이 그 변형 후보에 없음 {c.get('a_best_missing_from_b')} · 예 {c.get('examples', [])[:5]}")
     L += ["", "## B1 차이", ""] + ([f"- {x['case']}: {x['keys']}" for x in b1a.get("diffs", [])] or ["- 없음"])
     L += [f"- v2.3 불일치 예: {b1.get('examples')}" if b1.get("mismatch") else "- v2.3 불일치 없음"]
     L += ["", "## B13 앱 사례", ""] + [f"- {x}" for x in S.get("B13_app", {}).get("cases", [])]
@@ -660,8 +688,8 @@ def write_report(S: dict, dest: Path) -> None:
           "- 공항철도 2026-10-23 개정 반영 여부 미확인 (D-105 2절) — 공항철도 경로는 참고 경로로만",
           "- 3-B 구간 혼잡도는 결측 (P3) — 쾌적 판정 비교 대상 아님",
           "- B1 노선도 비교에서 D-106 회색 점선 층을 뺀 것은 D-105c 에 미리 기록한 방법", ""]
-    (dest / f"{NAME}.md").write_text("\n".join(str(x) for x in L) + "\n", encoding="utf-8", newline="\n")
-    (dest / f"{NAME}.json").write_text(json.dumps(S, ensure_ascii=False, indent=1, default=str) + "\n",
+    (dest / f"{name}.md").write_text("\n".join(str(x) for x in L) + "\n", encoding="utf-8", newline="\n")
+    (dest / f"{name}.json").write_text(json.dumps(S, ensure_ascii=False, indent=1, default=str) + "\n",
                                        encoding="utf-8", newline="\n")
 
 
@@ -672,7 +700,12 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--only", nargs="*", default=None, help="B1 B2 plans B4 APP 중 일부")
+    ap.add_argument("--tag", default="", help="재계산 꼬리표 (예: b → korail_3b_eval_b.md, 원자료도 따로). 첫 보고서는 덮어쓰지 않음")
     a = ap.parse_args()
+    name = NAME + (f"_{a.tag}" if a.tag else "")
+    _W["out_dir"] = OUT.parent / name
+    if a.tag and not a.dry and not a.only and (REP / f"{name}.md").exists():
+        raise SystemExit(f"{name}.md 가 이미 있습니다 — 다른 --tag 를 쓰세요 (보고서 덮어쓰기 금지)")
     if not K3B_MART.exists():
         raise SystemExit(f"3-B 상세 정차표가 없습니다: {K3B_MART} (52_build_korail_3b.py 먼저)")
     only = set(a.only or ["B1", "B2", "plans", "B4", "APP"])
@@ -682,7 +715,7 @@ def main() -> int:
         ods_k3b, slots = ods_k3b[:4] + ods_k3b[-2:], SLOTS[:2] + SLOTS[3:4]
     workers = 1 if a.dry else a.workers
     S: dict = {"n_od": len(ods_k3b), "slots": slots, "variants": {k: str(v) for k, v in VARIANTS.items()}}
-    prev = REP / f"{NAME}.json"
+    prev = REP / f"{name}.json"
     if a.only and prev.exists() and not a.dry:                  # 일부만 다시 돌리면 나머지는 지난 결과 유지
         S = {**json.loads(prev.read_text(encoding="utf-8")), **S}
     T0 = time.time()
@@ -723,12 +756,12 @@ def main() -> int:
     if a.dry:
         d = Path(tempfile.gettempdir()) / f"{NAME}_dry"
         d.mkdir(exist_ok=True)
-        write_report(S, d)
-        print(f"연습 보고서: {d / (NAME + '.md')}")
+        write_report(S, d, a.tag)
+        print(f"연습 보고서: {d / (name + '.md')}")
         print("[연습 실행] 결과는 저장하지 않았습니다 (보고 금지).")
     else:
-        write_report(S, REP)
-        print(f"저장: {REP / (NAME + '.md')}, {REP / (NAME + '.json')}")
+        write_report(S, REP, a.tag)
+        print(f"저장: {REP / (name + '.md')}, {REP / (name + '.json')}")
     return 0
 
 

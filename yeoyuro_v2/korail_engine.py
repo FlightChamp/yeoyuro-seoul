@@ -175,6 +175,36 @@ def build_pieces(day_type: str, base_nodes: set, stop_times: pd.DataFrame | None
 
 
 # ---------------------------------------------------------------------- 1b. 3-B 그래프 조각 (D-105, Phase 3B-2)
+def drop_unstopped(st: pd.DataFrame) -> pd.DataFrame:
+    """D-105d (사후): 도착·출발이 **둘 다 빈칸**인 정차 행은 '안 섬'(D-105 T1 '빈칸 = 안 섬')으로 보고 뺀다.
+    3B-1 정차표에 범위 끝 역 9행(평일)이 남아 열차 도착 시각이 비는 결함이 있었다 (3B-4 첫 결과 계산 오류 7건).
+    정차표 파일·3B-1 보고서는 그대로 두고 읽을 때 뺀다."""
+    if st is None or not len(st):
+        return st
+    return st[~(st.arr_min.isna() & st.dep_min.isna())].reset_index(drop=True)
+
+
+def _chain_line(node: str) -> str:
+    ln = node.split("_", 1)[0]
+    return "9" if ln in ("9L", "9X") else ln          # 9호선 일반↔급행 전환은 같은 노선 (기존 그래프 설계)
+
+
+def multi_line_chain(path, station_of) -> list:
+    """D-105d (사후): 같은 역에 머무는 동안 서로 다른 노선 셋 이상을 환승 간선으로 잇는 역 목록 (예: 공덕 AR→GJ→5).
+    그런 역에는 모든 노선 짝 사이 직접 환승 간선이 있으므로 이어 갈아타기는 환승 횟수만 늘리고 보행을 따로 더한다."""
+    out, cur, lines = [], None, set()
+    for n in path:
+        s = station_of(n)
+        if s != cur:
+            if len(lines) >= 3:
+                out.append(cur)
+            cur, lines = s, set()
+        lines.add(_chain_line(n))
+    if len(lines) >= 3:
+        out.append(cur)
+    return out
+
+
 def k3b_available(path: Path = K3B_MART) -> bool:
     return Path(path).exists()
 
@@ -218,7 +248,7 @@ def build_pieces_3b(day_type: str, known_nodes: set, stop_times: pd.DataFrame | 
                     evidence: pd.DataFrame | None = None, b_factor: float = B_FACTOR_DEFAULT,
                     u_shift: float = 0.0) -> KorailPieces:
     """3-B 정차표(요일 하나) → 간선·정차·환승 (D-105 4절). b_factor·u_shift 는 3B-4 민감도(B5)용."""
-    st = stop_times if stop_times is not None else pd.read_parquet(K3B_MART)
+    st = drop_unstopped(stop_times if stop_times is not None else pd.read_parquet(K3B_MART))   # D-105d
     st = st[(st.day_type == day_type) & st.group.isin(["GJ", "GC", "SB", "AR"])].sort_values(
         ["group", "train", "direction", "stop_seq"])
     name = _code_name_3b()
@@ -838,6 +868,7 @@ class KorailTDRouter(td.TDRouter):
             mart = Path(k3b_mart) if k3b_mart is not None else K3B_MART
             if src is None and k3b_available(mart):
                 src = pd.read_parquet(mart)
+            src = drop_unstopped(src)                      # D-105d: 도착·출발 둘 다 빈칸 = 안 섬
             if src is None:
                 self.status_3b = "unavailable"                 # 정차표 없음: 3-B 만 끔, 추정 열차를 만들지 않음
             else:
@@ -964,7 +995,8 @@ class KorailTDRouter(td.TDRouter):
         return T.verify_connection(self.verify_index(), self.verification_legs(ev, path), depart_min, self.day_type)
 
     def _clean(self, p):
-        """Yen 결과 → 실제 노드 경로. 기존 규칙(출발·도착 같은 역 노드 자르기, 재방문 제외) + 구로 갈아타기 규칙."""
+        """Yen 결과 → 실제 노드 경로. 기존 규칙(출발·도착 같은 역 노드 자르기, 재방문 제외) + 구로 갈아타기 규칙
+        + D-105d 한 역 노선 셋 이어 갈아타기 제외 (켬 계산기에만 — 끔은 TDRouter 그대로)."""
         sr = self.sr
         real = [n for n in p if not sr.is_virtual(n)]
         while len(real) >= 2 and sr.station_of(real[0]) == sr.station_of(real[1]):
@@ -975,6 +1007,9 @@ class KorailTDRouter(td.TDRouter):
             return None
         if not valid_guro_transfer(real):
             self.dropped_guro = getattr(self, "dropped_guro", 0) + 1
+            return None
+        if multi_line_chain(real, sr.station_of):         # D-105d (사후, 3B-4 B3): 한 역에서 노선 셋 이어 갈아타기 제외
+            self.dropped_chain = getattr(self, "dropped_chain", 0) + 1
             return None
         return tuple(real)
 
