@@ -80,6 +80,22 @@ def _status_ko(status: str) -> str:
 
 DAY_KO = "월화수목금토일"
 
+# D-111: 광역철도 확장 켬 + 3-B 켬 계산기의 후보 탐색 설정 (사전 등록 docs/v2/preregistration_d111.md).
+# "v0" = D-105e 통과 상태 그대로, "v4" = D-110b 채택(대표 대기 합집합 + GJ·GC 유사 후보 묶기, 원시 후보 상한 40).
+# 3-B 끔 계산기는 언제나 v0. 기본값은 D-111b 판정 전까지 v0 (기준 통과 시에만 판정 패치에서 바꾼다).
+DEFAULT_CAND = "v0"
+CAND_SPECS = {"v0": {}, "v4": {"rep_union": True, "group_gc": True, "max_k_v3": 40}}
+
+
+def cand_router_kw(cand: str | None, include_3b: bool) -> tuple[str, dict]:
+    """(실제로 쓰는 설정 이름, 라우터 추가 인자). cand=None 이면 DEFAULT_CAND. 3-B 끔이면 언제나 ("v0", {})."""
+    c = DEFAULT_CAND if cand is None else str(cand)
+    if c not in CAND_SPECS:
+        raise ValueError(f"알 수 없는 후보 탐색 설정: {c!r} (가능: {sorted(CAND_SPECS)})")
+    if not include_3b:
+        return "v0", {}
+    return c, dict(CAND_SPECS[c])
+
 
 def korail_codes() -> frozenset:
     """코레일 구간 역코드 (서울역~청량리 150~158 은 서울교통공사 구간이라 혼잡도가 있음)."""
@@ -343,18 +359,21 @@ class ExtensionPlanner:
 
     def __init__(self, root: Path, mod, sr, display: pd.DataFrame, day_type: str, query_date=None,
                  stop_times: pd.DataFrame | None = None, repo_root: Path | None = None, include_3b: bool = False,
-                 router_kw: dict | None = None, keep_3a: bool = False):
+                 router_kw: dict | None = None, keep_3a: bool = False, cand: str | None = None):
         """router_kw: 3B-4 민감도(B5·B8·B12)용 KorailTDRouter 추가 인자 (b_factor·u_shift·zero_walk_margin·extra_margin·
         min_graph·k·k3b_stop_times). 앱은 넘기지 않는다 (기본 동작 불변).
-        keep_3a: D-110 V5 — 3-A 켬 계산기(3-B 끔)의 후보를 더해 같은 3-B 켬 평가기·검증기로 다시 평가 (기본 꺼짐)."""
+        keep_3a: D-110 V5 — 3-A 켬 계산기(3-B 끔)의 후보를 더해 같은 3-B 켬 평가기·검증기로 다시 평가 (기본 꺼짐).
+        cand: D-111 후보 탐색 설정 "v0"·"v4" (None = DEFAULT_CAND). 3-B 켬일 때만 쓰이고, router_kw 가 같은 키를 주면 router_kw 가 이긴다."""
         from yeoyuro_v2 import korail_engine as KE
         T = _T()
         kw = dict(policy="step", multi_bin=True, query_date=None if query_date is None else str(query_date))
         self.day_type = day_type
         self.display = display
         self.include_3b = bool(include_3b)
+        self.cand, rk = cand_router_kw(cand, self.include_3b)
+        rk.update(router_kw or {})
         self.on = KE.KorailTDRouter(root, mod, sr, display, day_type, include_korail=True,   # k = 기본 10
-                                    include_3b=self.include_3b, **kw, **(router_kw or {}))
+                                    include_3b=self.include_3b, **kw, **rk)
         self.keep_3a = bool(keep_3a)
         self._ctor = (root, mod, sr, display, day_type, kw)
         self._r3a = None

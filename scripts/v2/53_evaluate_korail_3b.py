@@ -30,6 +30,9 @@ scripts/v2/53_evaluate_korail_3b.py — Phase 3B-4 정식 평가 B1~B13 (D-105 �
 중간에 끊기면 다시 실행: 끝난 계산(data/marts/v2/korail_3b_eval/*.parquet, git 무시)은 건너뛴다. 다시 계산은 --force.
 
 산출: reports/v2/korail_3b_eval.{md,json}
+후보 탐색 (D-111a): --cand v0(기본, D-105e 재현) | v4(D-110b 채택). v4 는 --tag 필수 — D-111 정식 실행:
+    python scripts/v2/53_evaluate_korail_3b.py --workers 8 --cand v4 --tag d111
+    (3-B 켬 계산기와 앱 화면 사례(B1_app·B13_app)까지 같은 설정. 3-B 끔(B4_3a)은 언제나 v0)
 재계산 (D-105d 사후 수정 뒤): --tag b → reports/v2/korail_3b_eval_b.{md,json}, 원자료 data/marts/v2/korail_3b_eval_b/.
     첫 보고서(태그 없음)는 덮어쓰지 않는다. 같은 태그 보고서가 이미 있으면 멈춘다.
 """
@@ -133,6 +136,20 @@ def k3b_sample() -> list[tuple]:
 _W: dict = {}
 
 
+def _init_worker(cand: str) -> None:
+    """작업자 프로세스 시작 (Windows 는 새로 import 하므로 설정을 다시 넣는다, D-111a)."""
+    _W["cand"] = cand
+    KA.DEFAULT_CAND = cand
+
+
+def _rss_mb():
+    try:
+        import psutil
+        return round(psutil.Process().memory_info().rss / 2**20, 1)
+    except Exception:                                    # noqa: BLE001 — psutil 없음 = 미측정
+        return None
+
+
 def _mods():
     if "mods" not in _W:
         import station_routing as sr
@@ -145,7 +162,8 @@ def _mods():
 
 def planner(variant: str, tt_day: str, date: str, include_3b: bool = True):
     """작업자 하나 = 계산기 하나 (설정이 바뀌면 새로 만든다, 메모리)."""
-    key = (variant, tt_day, date, include_3b)
+    cand = _W.get("cand", "v0")
+    key = (variant, tt_day, date, include_3b, cand)
     if _W.get("key") != key:
         _W.pop("p", None)
         mod, sr = _mods()
@@ -157,7 +175,7 @@ def planner(variant: str, tt_day: str, date: str, include_3b: bool = True):
         disp = pd.read_csv(DATA9 / "data" / "master" / "station_display_master.csv")
         t0 = time.perf_counter()
         p = KA.ExtensionPlanner(DATA9, mod, sr, disp, tt_day, query_date=date, repo_root=ROOT,
-                                include_3b=include_3b, router_kw=rk)
+                                include_3b=include_3b, router_kw=rk, cand=cand)
         if nodir:                                     # B9: 김포공항 방향별 표를 비움 → 평가·검증 모두 최댓값 하나
             p.on.pieces.dir_transfer = {}
         _W.update(key=key, p=p, build=time.perf_counter() - t0)
@@ -232,7 +250,7 @@ def plan_task(args):
             ev = p.on.evaluator(td.bin_index_of(sd.minute))
             slack = _slacks(p, ev, b.path, sd.minute)
         rows.append({
-            "variant": variant, "include_3b": include_3b, "date": date, "hhmm": hm, "tt_day": tt_day,
+            "variant": variant, "cand": p.cand, "rss_mb": _rss_mb(), "include_3b": include_3b, "date": date, "hhmm": hm, "tt_day": tt_day,
             "day_type": sd.day_type, "o": o, "d": d, "sec": sec, "build": _W.get("build"), "status": r.status,
             "status_3b": r.status_3b, "n_cand": len(r.candidates),
             "best_path": "" if b is None else "|".join(b.path), "best_status": "" if b is None else b.status,
@@ -262,7 +280,7 @@ def run_jobs(jobs, workers) -> pd.DataFrame:
                 rows += plan_task(j)
                 done += 1
             continue
-        with Pool(min(workers, len(js))) as pool:
+        with Pool(min(workers, len(js)), initializer=_init_worker, initargs=(_W.get("cand", "v0"),)) as pool:
             for rs in pool.imap_unordered(plan_task, js, chunksize=1):
                 rows += rs
                 done += 1
@@ -627,7 +645,13 @@ def write_report(S: dict, dest: Path, tag: str = "") -> None:
          "- 규칙: [사전 등록 6절](../../docs/v2/preregistration_3b.md) D-105 (계산 전 고정) · 평가 도구 구현 기록 D-105c"
          + (" · 사후 수정 D-105d ([판정 기록](../../docs/v2/korail_3b_eval_verdict.md))" if tag else ""),
          "- 재현: `python scripts/v2/53_evaluate_korail_3b.py --workers 8" + (f" --tag {tag}`" if tag else "`")]
-    if tag:
+    cand = S.get("cand", "v0")
+    if cand != "v0":
+        L[-1] = L[-1].rstrip("`") + f" --cand {cand}`"
+        L.append(f"- 후보 탐색 **{cand}** {S.get('cand_spec')} — D-111 ([사전 등록](../../docs/v2/preregistration_d111.md)). "
+                 "3-B 켬 계산기와 앱 화면 사례만 이 설정, 3-B 끔(B4 의 3-A 쪽)은 v0. 결과 변화·G0~G4 는 55 보고서")
+        L.append(f"- 첫 결과 [{NAME}.md]({NAME}.md) 와 재계산 [{NAME}_b.md]({NAME}_b.md)(D-105e 판정 기준) 는 그대로 둔다")
+    elif tag:
         L.append(f"- 첫 결과 [{NAME}.md]({NAME}.md) 는 그대로 둔다 (정차표 빈칸 정차 9행·한 역 노선 셋 이어 갈아타기가 있던 계산)")
     L += [
          f"- 표본: K3B {S.get('n_od')}쌍 × {len(SLOTS)}시각 = {B.get('plans', 0):,}건 (평일 08:00·18:00·23:30, 토·일 14:00)",
@@ -701,7 +725,12 @@ def main() -> int:
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--only", nargs="*", default=None, help="B1 B2 plans B4 APP 중 일부")
     ap.add_argument("--tag", default="", help="재계산 꼬리표 (예: b → korail_3b_eval_b.md, 원자료도 따로). 첫 보고서는 덮어쓰지 않음")
+    ap.add_argument("--cand", choices=sorted(KA.CAND_SPECS), default="v0",
+                    help="3-B 켬 후보 탐색 설정 (D-111a). v0 = D-105e 그대로, v4 = D-110b 채택. v0 이 아니면 --tag 필수")
     a = ap.parse_args()
+    if a.cand != "v0" and not a.tag:
+        raise SystemExit("--cand v0 가 아니면 --tag 를 주세요 (첫 보고서·재계산 b 덮어쓰기 금지). 예: --cand v4 --tag d111")
+    _init_worker(a.cand)                                    # 이 프로세스(작업자 1·앱 화면 사례)도 같은 설정
     name = NAME + (f"_{a.tag}" if a.tag else "")
     _W["out_dir"] = OUT.parent / name
     if a.tag and not a.dry and not a.only and (REP / f"{name}.md").exists():
@@ -714,7 +743,8 @@ def main() -> int:
     if a.dry:
         ods_k3b, slots = ods_k3b[:4] + ods_k3b[-2:], SLOTS[:2] + SLOTS[3:4]
     workers = 1 if a.dry else a.workers
-    S: dict = {"n_od": len(ods_k3b), "slots": slots, "variants": {k: str(v) for k, v in VARIANTS.items()}}
+    S: dict = {"n_od": len(ods_k3b), "slots": slots, "variants": {k: str(v) for k, v in VARIANTS.items()},
+               "cand": a.cand, "cand_spec": KA.CAND_SPECS[a.cand]}
     prev = REP / f"{name}.json"
     if a.only and prev.exists() and not a.dry:                  # 일부만 다시 돌리면 나머지는 지난 결과 유지
         S = {**json.loads(prev.read_text(encoding="utf-8")), **S}

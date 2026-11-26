@@ -32,7 +32,6 @@ import importlib.util
 import json
 import math
 import random
-import subprocess
 import sys
 import tempfile
 import time
@@ -101,13 +100,14 @@ def inputs() -> dict:
 
 
 def config_hash(dry: bool) -> dict:
-    head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    """이어 계산해도 되는지 보는 설정 지문. D-111a: 현재 커밋(HEAD)은 넣지 않는다 — 보고서만 커밋해도 해시가 바뀌어
+    이어하기가 막히던 결함 (D-110 판정 기록 1절). 실행에 쓰는 파일 해시·정차표·방법 정의만 넣는다."""
     mart = KE.K3B_MART
     sha = hashlib.sha256(mart.read_bytes()).hexdigest() if mart.exists() else ""
     me = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:12]
     eng = hashlib.sha256((ROOT / "yeoyuro_v2" / "korail_engine.py").read_bytes()).hexdigest()[:12]
     app = hashlib.sha256((ROOT / "yeoyuro_v2" / "korail_app.py").read_bytes()).hexdigest()[:12]
-    d = {"head": head, "k3b_sha256": sha, "script": me, "engine": eng, "app": app,
+    d = {"k3b_sha256": sha, "script": me, "engine": eng, "app": app,
          "methods": json.dumps(METHODS, sort_keys=True), "dry": dry}
     d["hash"] = hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:16]
     return d
@@ -150,7 +150,8 @@ def _planner(tt_day: str, date: str, router_kw: dict | None = None, keep_3a: boo
     mod, sr = _mods()
     disp = pd.read_csv(DATA9 / "data" / "master" / "station_display_master.csv")
     return KA.ExtensionPlanner(DATA9, mod, sr, disp, tt_day, query_date=date, repo_root=ROOT, include_3b=True,
-                               router_kw=router_kw or {}, keep_3a=keep_3a)
+                               router_kw=router_kw or {}, keep_3a=keep_3a,
+                               cand="v0")          # D-111a: 앱 기본값이 바뀌어도 D-110 방법 정의(router_kw)가 그대로 재현되게
 
 
 def exp_planner(tt_day: str, date: str):
@@ -625,6 +626,16 @@ def adopt(M: dict, elig: dict, p95: dict, extra: dict) -> dict:
     return {"choice": T[0], "E": E, "I": Iset, "M_best": Mb, "Delta": D, "C": C, "p_min": pmin, "T_final": T}
 
 
+def v0_paths(df: pd.DataFrame) -> dict:
+    """(date, hhmm, o, d) → V0 후보 경로 집합. D-111a: 행마다 df.set_index().loc 하던 것을 한 번에 (보고서 단계 속도)."""
+    out = {}
+    for k, ps in zip(zip(df.date, df.hhmm, df.o, df.d), df.paths):
+        if k in out:
+            raise ValueError(f"질의 키 중복: {k}")
+        out[k] = set(json.loads(ps)["V0"])
+    return out
+
+
 def report(dry: bool) -> dict:
     ins = inputs()
     df = load_quality(dry)
@@ -644,6 +655,7 @@ def report(dry: bool) -> dict:
     elapsed_q = sum(x["elapsed_sec"] for x in S["runlog"].get("quality", []))
     S["quality_elapsed_sec"] = elapsed_q
     keys_k3b, keys_b4 = set(ins["k3b"]), set(ins["b4"])
+    v0p = v0_paths(df)
     M, elig, p95, extra, rows = {}, {}, {}, {}, {}
     errors_q = int(df.error.astype(bool).sum())
     for mid in IDS:
@@ -659,7 +671,7 @@ def report(dry: bool) -> dict:
              "ref_in_cands": float(x.has_ref_path.dropna().mean()) if x.has_ref_path.notna().any() else None,
              "extra_verified": extra[mid],
              "extra_adopted": int(sum(1 for z in x.itertuples() if z.best and mid != "V0" and z.best not in
-                                      set(json.loads(df.set_index(key).loc[(z.date, z.hhmm, z.o, z.d)].paths)["V0"]))),
+                                      v0p[(z.date, z.hhmm, z.o, z.d)])),
              "n_cand_mean": float(x.n_cand.mean()), "v0_subset_fail": int((~x.v0_subset).sum()),
              "chain": int(x.chain.sum()), "best_ar": int(x.best_lines.fillna("").str.contains("AR").sum()),
              "status": x.status.value_counts().to_dict(), "maxk_max": float(x.maxk.max()) if x.maxk.notna().any() else None,
