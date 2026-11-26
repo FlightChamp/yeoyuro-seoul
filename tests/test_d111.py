@@ -165,3 +165,47 @@ def test_55_compare_frames(m55):
     assert C["status_transitions"] == {"ok→none": 1}
     assert C["by_group"]["GJ"] == {"changed": 1, "n": 1}
     assert C["by_slot"]["d 08:00"] == {"changed": 1, "n": 2}
+
+
+# ---------------------------------------------------------------------- D-111c G5 도구 (56)
+@pytest.fixture(scope="module")
+def m56():
+    return _load("m56_t111", "scripts/v2/56_check_d111_g5.py")
+
+
+def _g5_side(**over):
+    c = {"case": "a", "texts": {"x": True}, "base_card_same_as_off": True, "exceptions": [], "search_sec": 1.0}
+    s = {"off_screens": {"k1": {"map": "aa"}}, "on_screens": {"o1": {"map": "bb"}},
+         "APP": {"W3": {"dup_on": 0, "cleared_on_off": True, "dest_kept": True, "flash": True, "exceptions": [],
+                        "added_n": 36}, "W4": {"off_dotted": 1}, "W6_W7": [c]},
+         "W5": {"x": 1}, "old_W1": {"same": 0}, "old_H6_H7": {"day_same": 0}}
+    s.update(over)
+    return s
+
+
+def test_56_judge(m56):
+    P = {"W2": {"errors": 0, "best_not_connected": 0}, "H9": {"errors": 0, "best_not_connected_after": 0}}
+    a = _g5_side()
+    assert m56.judge(a, json.loads(json.dumps(a)), P)["gates"]["pass"]
+    b = _g5_side(off_screens={"k1": {"map": "zz"}})
+    J = m56.judge(a, b, P)
+    assert not J["gates"]["S1"] and J["S1_diff"] == ["k1"] and not J["gates"]["pass"]
+    b = _g5_side(on_screens={"o1": {"map": "zz"}})                  # 켬 화면 전체 지문은 보고만
+    J = m56.judge(a, b, P)
+    assert J["gates"]["pass"] and J["on_screens_changed"] == ["o1"]
+    b = json.loads(json.dumps(a))
+    b["APP"]["W6_W7"][0]["search_sec"] = 9.9                        # 시간 값은 비교 안 함
+    assert m56.judge(a, b, P)["gates"]["pass"]
+    b["APP"]["W6_W7"][0]["texts"] = {"x": False}
+    assert not m56.judge(a, b, P)["gates"]["S2"]
+    bad = {"W2": {"errors": 0, "best_not_connected": 1}, "H9": P["H9"]}
+    assert not m56.judge(a, a, bad)["gates"]["S5"]
+
+
+def test_56_strip_and_planners(m56):
+    assert m56.strip_sec({"a_sec": 1, "b": [{"c_sec": 2, "d": 3}]}) == {"b": [{"d": 3}]}
+    assert m56.planners_ok("v4", [[False, "v0"], [True, "v4"]])
+    assert not m56.planners_ok("v4", [[False, "v0"], [True, "v0"]])
+    assert not m56.planners_ok("v4", [[False, "v0"]])                 # 3-B 켬 계산기가 없으면 확인 못 함
+    assert not m56.planners_ok("v4", [[False, "v4"], [True, "v4"]])   # 3-B 끔은 언제나 v0
+    assert m56.planners_ok("v0", [[True, "v0"]])
