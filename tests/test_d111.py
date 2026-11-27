@@ -209,3 +209,11 @@ def test_56_strip_and_planners(m56):
     assert not m56.planners_ok("v4", [[False, "v0"]])                 # 3-B 켬 계산기가 없으면 확인 못 함
     assert not m56.planners_ok("v4", [[False, "v4"], [True, "v4"]])   # 3-B 끔은 언제나 v0
     assert m56.planners_ok("v0", [[True, "v0"]])
+
+
+def test_56_pool_uses_own_tasks(m56):
+    """D-111d: 작업자 풀에는 56 자신의 맨 위 함수만 넘긴다 (importlib 로 부른 49·51 함수는 Windows spawn 에서 피클 실패)."""
+    src = (ROOT / "scripts" / "v2" / "56_check_d111_g5.py").read_text(encoding="utf-8")
+    assert "run_w2(" not in src and "run_pool(" not in src
+    assert 'get_context("spawn")' in src
+    assert m56._w2_task.__module__ == m56._h9_task.__module__ == m56._pool_rows.__module__

@@ -20,7 +20,7 @@ S1~S5 가 모두 맞으면 G5(49·51 부분) 통과. S1~S4 에서 차이가 나�
 실행 (사용자 PC, 판정 패치가 부름, 약 30~40분 (미확인), 작업자 8개면 메모리 약 4~6GB (미확인))
 ----
     python scripts/v2/56_check_d111_g5.py --workers 8
-    python scripts/v2/56_check_d111_g5.py --dry          # 연습 (사례·표본 몇 개만, 임시 폴더, 보고 금지)
+    python scripts/v2/56_check_d111_g5.py --dry          # 연습 (사례·표본 몇 개만, 작업자 2개 spawn, 임시 폴더, 보고 금지)
 
 산출: reports/v2/d111_g5.{md,json} (이미 있으면 멈춤). 종료 코드 0 = 통과, 2 = 보류·미달, 1 = 실행 오류.
 """
@@ -155,6 +155,42 @@ def planners_ok(cand: str, seen: list) -> bool:
 
 
 # ---------------------------------------------------------------------- 3-B 끔 계산기 (W2·H9, 한 번)
+# D-111d: 작업자에 넘기는 함수는 이 파일의 맨 위 함수여야 한다 (Windows spawn 은 importlib 로 부른 모듈의 함수를
+# 피클하지 못함 — D-103b 와 같은 문제). 작업자 안에서 49·51 을 한 번 불러 그 작업 함수를 그대로 부른다.
+_WM: dict = {}
+
+
+def _wmod(key: str):
+    if key not in _WM:
+        rel = {"49": "scripts/v2/49_check_korail_app.py", "51": "scripts/v2/51_check_holidays.py"}[key]
+        _WM[key] = _load(f"m{key}_g5w", rel)
+    return _WM[key]
+
+
+def _w2_task(args):
+    return _wmod("49").w2_task(args)
+
+
+def _h9_task(args):
+    return _wmod("51").h9_task(args)
+
+
+def _pool_rows(fn, jobs, workers: int, label: str) -> list:
+    """작업자 풀 (언제나 spawn — Windows 와 같은 방식이라 검증 환경에서도 같은 조건으로 시험된다)."""
+    import multiprocessing as mp
+    rows, t0 = [], time.time()
+    if workers <= 1:
+        for j in jobs:
+            rows += fn(j)
+        return rows
+    with mp.get_context("spawn").Pool(min(workers, len(jobs))) as pool:
+        for i, rs in enumerate(pool.imap_unordered(fn, jobs, chunksize=1), 1):
+            rows += rs
+            if i % max(1, len(jobs) // 10) == 0:
+                print(f"    {label} {i}/{len(jobs)} ({time.time() - t0:.0f}초)", flush=True)
+    return rows
+
+
 def planners(workers: int, dry: bool) -> dict:
     import pandas as pd
     m49 = _load("m49_g5p", "scripts/v2/49_check_korail_app.py")
@@ -165,12 +201,12 @@ def planners(workers: int, dry: bool) -> dict:
     if dry:
         ods, times = ods[:4], m49.W2_TIMES[::20]
     t0 = time.time()
-    w2 = m49.analyze_w2(m49.run_w2(ods, times, 1 if dry else workers))
+    w2 = m49.analyze_w2(pd.DataFrame(_pool_rows(_w2_task, [(o, d, times) for o, d in ods], workers, "W2")))
     print(f"    W2 {len(ods)}쌍 × {len(times)}시각 ({time.time() - t0:.0f}초)", flush=True)
     t0 = time.time()
     h9o = ods[:3] if dry else ods
-    df_b = m51.run_pool([("before", o, d) for o, d in h9o], 1 if dry else workers)
-    df_a = m51.run_pool([("after", o, d) for o, d in h9o], 1 if dry else workers)
+    df_b = pd.DataFrame(_pool_rows(_h9_task, [("before", o, d) for o, d in h9o], workers, "H9 전"))   # 51 처럼 요일별 풀
+    df_a = pd.DataFrame(_pool_rows(_h9_task, [("after", o, d) for o, d in h9o], workers, "H9 후"))
     h9 = m51.analyze_h9(pd.concat([df_b, df_a], ignore_index=True))
     print(f"    H9 {len(h9o)}쌍 × 3 ({time.time() - t0:.0f}초)", flush=True)
     return {"W2": strip_sec({k: v for k, v in w2.items() if k != "error_examples"}) | {"error_examples": w2.get("error_examples")},
@@ -240,7 +276,7 @@ def main() -> int:
                 print(f"[실행 오류] {cand} 프로세스 기본값 {res[cand]['default_seen']} · 만들어진 계산기 {res[cand]['planners_seen']}")
                 return 1
     print("  3-B 끔 계산기 W2·H9", flush=True)
-    P = planners(a.workers, a.dry)
+    P = planners(2 if a.dry else a.workers, a.dry)     # 연습도 작업자 2개 spawn 풀 (D-111d)
     J = judge(res["v0"], res["v4"], P)
     S = {"v0": res["v0"], "v4": res["v4"], "P": P, "judge": J, "elapsed_sec": round(time.time() - t0), "dry": a.dry}
     write(S, dest)
