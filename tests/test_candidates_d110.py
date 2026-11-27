@@ -49,7 +49,8 @@ def _planner(**kw):
     disp = pd.read_csv(DATA9 / "data" / "master" / "station_display_master.csv")
     k3a = kw.pop("keep_3a", False)
     return KA.ExtensionPlanner(DATA9, mod, sr, disp, "weekday", query_date="2026-10-14", repo_root=ROOT,
-                               include_3b=True, router_kw=kw, keep_3a=k3a)
+                               include_3b=True, router_kw=kw, keep_3a=k3a,
+                               cand="v0")          # D-111b 뒤 앱 기본값은 v4 — D-110 검사는 V0 기준으로 고정
 
 
 @pytest.fixture(scope="module")

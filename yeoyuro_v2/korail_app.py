@@ -82,8 +82,8 @@ DAY_KO = "월화수목금토일"
 
 # D-111: 광역철도 확장 켬 + 3-B 켬 계산기의 후보 탐색 설정 (사전 등록 docs/v2/preregistration_d111.md).
 # "v0" = D-105e 통과 상태 그대로, "v4" = D-110b 채택(대표 대기 합집합 + GJ·GC 유사 후보 묶기, 원시 후보 상한 40).
-# 3-B 끔 계산기는 언제나 v0. 기본값은 D-111b 판정 전까지 v0 (기준 통과 시에만 판정 패치에서 바꾼다).
-DEFAULT_CAND = "v0"
+# 3-B 끔 계산기는 언제나 v0. 기본값 v4 = D-111b 판정 (G0~G5 통과, docs/v2/d111_verdict.md). 평가 도구(53·54·55)는 설정을 직접 준다.
+DEFAULT_CAND = "v4"
 CAND_SPECS = {"v0": {}, "v4": {"rep_union": True, "group_gc": True, "max_k_v3": 40}}
 
 

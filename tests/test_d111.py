@@ -5,7 +5,7 @@ tests/test_d111.py — D-111a 구현 (사전 등록 docs/v2/preregistration_d111
 | 검사 | 내용 |
 |---|---|
 | 설정 | v4 = rep_union·group_gc 켬, 원시 후보 상한 40, k 그대로 · 3-B 끔은 언제나 v0 · router_kw 가 이김 |
-| 기본값 | D-111b 판정 전까지 DEFAULT_CAND = "v0" (판정 패치에서 이 검사를 함께 바꾼다) |
+| 기본값 | D-111b 판정으로 DEFAULT_CAND = "v4" (판정 전에는 "v0") |
 | 53 | --cand v4 는 --tag 없이 멈춤 · 작업자 시작 함수가 설정을 넣음 |
 | 54 | 설정 해시에 HEAD 없음 · V0 후보 색인 = 예전 행마다 찾기 |
 | 55 | G0 같음 판정 · 정렬 키 · G1 식(재계산 b 보고서는 통과) · 결과 비교 |
@@ -53,7 +53,7 @@ def m55():
 
 
 def test_cand_specs():
-    assert KA.DEFAULT_CAND == "v0"                      # D-111b 판정 전 (통과하면 판정 패치에서 "v4" 로)
+    assert KA.DEFAULT_CAND == "v4"                      # D-111b 판정 (G0~G5 통과)
     assert KA.cand_router_kw("v4", True) == ("v4", {"rep_union": True, "group_gc": True, "max_k_v3": 40})
     assert KA.cand_router_kw("v4", False) == ("v0", {})            # 3-B 끔은 언제나 v0
     assert KA.cand_router_kw(None, True) == (KA.DEFAULT_CAND, dict(KA.CAND_SPECS[KA.DEFAULT_CAND]))
