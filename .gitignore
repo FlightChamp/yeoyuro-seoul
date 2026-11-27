@@ -134,3 +134,6 @@ app/streamlit/_w1_before_app.py
 
 # Phase 3-B 상세 시각표 mart (D-105 P4) — 재배포 권한 확인 전까지 저장소에 넣지 않음, 사용자 PC 에서 생성
 data/marts/v2/korail_3b/
+# D-112a: 로컬 개발 모드 표시 파일 · 3-B 운영사별 꾸러미 (비공개, 업로드 전용 — 공개 저장소에 넣지 않음)
+.yeoyuro_local_dev
+data/private/

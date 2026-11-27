@@ -167,7 +167,10 @@ def test_fill_blanks_only_touches_blank_planned_points(tmp_path):
 
 
 def test_canvas_preview(tmp_path, m_all):
-    pytest.importorskip("matplotlib")
+    try:                                   # D-112a: 설치는 됐지만 DLL 이 막힌 환경(Windows 앱 제어)도 건너뜀
+        import matplotlib  # noqa: F401
+    except ImportError as e:
+        pytest.skip(f"matplotlib 을 불러올 수 없음: {type(e).__name__}")
     from PIL import Image
     from yeoyuro_v2.map_canvas import planned_status, render_canvas
     out = render_canvas(m_all, tmp_path / "p.png")

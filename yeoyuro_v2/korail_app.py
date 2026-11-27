@@ -47,6 +47,19 @@ TOGGLE_HELP = ("켜면 코레일 1호선(서울 안 26개 역)과 경의중앙�
 TOGGLE_HELP_3A_ONLY = ("켜면 코레일 1호선(서울 안 26개 역)을 포함한 경로를 기존 결과 아래에 따로 보여 줍니다. "
                        "경의중앙선·수인분당선·공항철도는 시각표 자료가 이 환경에 없어 계산하지 않습니다.")
 K3B_MISSING = "경의중앙선·수인분당선·공항철도 시각표 자료가 이 환경에 없어 코레일 1호선만 계산합니다."
+K3B_PARTIAL = "이 환경에서는 광역철도 확장 노선 중 일부만 계산합니다: "        # D-112a: 뒤에 켜진 노선 이름
+
+
+ALL_3B = frozenset({"GJ", "GC", "SB", "AR"})
+
+
+def norm_groups(include_3b) -> frozenset:
+    """D-112a: include_3b 인자를 노선 집합으로. True = 3-B 전부(지금 동작), False·None = 없음, 집합 = 그 노선만."""
+    if include_3b is True:
+        return ALL_3B
+    if not include_3b:
+        return frozenset()
+    return frozenset(include_3b) & ALL_3B
 K3B_LINE_NAMES = {"GJ": "경의중앙선", "GC": "경춘선", "SB": "수인분당선", "AR": "공항철도"}
 REFERENCE_TITLE = "참고 경로"
 AR_REFERENCE = ("공항철도 2025-12-29 시각표 기준 (2026-10-23 개정 반영 여부 미확인) — 열차 연결은 계산했지만 "
@@ -110,11 +123,12 @@ def k3b_ready(repo_root: Path | None = None) -> bool:
     return (base / "data" / "marts" / "v2" / "korail_3b" / "stop_times.parquet").exists()
 
 
-def _k3b_stations() -> dict:
-    """3-B 역 → 노선 묶음 목록 (노선도·역 목록용, 경춘선은 상봉·망우 승강장 노드만 따로)."""
+def _k3b_stations(groups=True) -> dict:
+    """3-B 역 → 노선 묶음 목록 (노선도·역 목록용, 경춘선은 상봉·망우 승강장 노드만 따로). groups: 켜진 노선 (D-112a)."""
     from yeoyuro_v2 import korail_3b as K3
+    G = norm_groups(groups)
     out: dict = {}
-    for g in ("GJ", "SB", "AR"):
+    for g in [x for x in ("GJ", "SB", "AR") if x in G]:
         for n in K3.ORDER[g]:
             out.setdefault(n, [])
             if g not in out[n]:
@@ -122,9 +136,9 @@ def _k3b_stations() -> dict:
     return out
 
 
-def _k3b_uids(name: str, groups) -> list:
+def _k3b_uids(name: str, groups, gc: bool = True) -> list:
     u = [f"{g}_{name}" for g in groups]
-    if name in ("상봉", "망우"):
+    if gc and name in ("상봉", "망우"):
         u.append(f"GC_{name}")
     return u
 
@@ -143,7 +157,7 @@ def korail_only_stations(display: pd.DataFrame, include_3b: bool = False) -> lis
     have = set(display["station_key"])
     out = [n for n in _scope_names() if n not in have]
     if include_3b:
-        out += [n for n in _k3b_stations() if n not in have and n not in out]
+        out += [n for n in _k3b_stations(include_3b) if n not in have and n not in out]
     return out
 
 
@@ -189,8 +203,10 @@ def extended_display(display: pd.DataFrame, include_3b: bool = False) -> pd.Data
         rows.append(row)
     if rows:
         d = pd.concat([d, pd.DataFrame(rows)], ignore_index=True)
-    if include_3b:                                   # 3B-3: 3-B 노선 배지·후보 노드, 3-B 전용 역 새 행
-        k3 = _k3b_stations()
+    G = norm_groups(include_3b)
+    if G:                                            # 3B-3: 3-B 노선 배지·후보 노드, 3-B 전용 역 새 행 (D-112a: 켜진 노선만)
+        k3 = _k3b_stations(G)
+        gc = "GC" in G
         rows = []
         for n, groups in k3.items():
             hit = d.index[d.station_key == n]
@@ -198,7 +214,7 @@ def extended_display(display: pd.DataFrame, include_3b: bool = False) -> pd.Data
                 i = hit[0]
                 d.at[i, "available_lines"] = _sorted_lines(str(d.at[i, "available_lines"]).split(",") + groups)
                 cur = [x for x in str(d.at[i, "candidate_station_uids"]).split(";") if x and x != "nan"]
-                d.at[i, "candidate_station_uids"] = ";".join(cur + [u for u in _k3b_uids(n, groups) if u not in cur])
+                d.at[i, "candidate_station_uids"] = ";".join(cur + [u for u in _k3b_uids(n, groups, gc) if u not in cur])
                 if "n_lines" in d.columns:
                     d.at[i, "n_lines"] = len(str(d.at[i, "available_lines"]).split(","))
                 if "is_transfer_station" in d.columns and len(str(d.at[i, "available_lines"]).split(",")) > 1:
@@ -206,7 +222,7 @@ def extended_display(display: pd.DataFrame, include_3b: bool = False) -> pd.Data
             else:
                 row = {c: np.nan for c in d.columns}
                 row.update({"station_key": n, "station_name": n, "display_name": n,
-                            "available_lines": _sorted_lines(groups), "candidate_station_uids": ";".join(_k3b_uids(n, groups))})
+                            "available_lines": _sorted_lines(groups), "candidate_station_uids": ";".join(_k3b_uids(n, groups, gc))})
                 for c, v in (("n_lines", len(groups)), ("is_transfer_station", len(groups) > 1),
                              ("is_event_station", False), ("is_branch_node", False),
                              ("alias_or_note", " · ".join(K3B_LINE_NAMES[g] for g in groups) + " (광역철도 확장)")):
@@ -359,18 +375,36 @@ class ExtensionPlanner:
 
     def __init__(self, root: Path, mod, sr, display: pd.DataFrame, day_type: str, query_date=None,
                  stop_times: pd.DataFrame | None = None, repo_root: Path | None = None, include_3b: bool = False,
-                 router_kw: dict | None = None, keep_3a: bool = False, cand: str | None = None):
+                 router_kw: dict | None = None, keep_3a: bool = False, cand: str | None = None,
+                 k3b_stop_times: pd.DataFrame | None = None, k3b_local: bool = True):
         """router_kw: 3B-4 민감도(B5·B8·B12)용 KorailTDRouter 추가 인자 (b_factor·u_shift·zero_walk_margin·extra_margin·
         min_graph·k·k3b_stop_times). 앱은 넘기지 않는다 (기본 동작 불변).
         keep_3a: D-110 V5 — 3-A 켬 계산기(3-B 끔)의 후보를 더해 같은 3-B 켬 평가기·검증기로 다시 평가 (기본 꺼짐).
-        cand: D-111 후보 탐색 설정 "v0"·"v4" (None = DEFAULT_CAND). 3-B 켬일 때만 쓰이고, router_kw 가 같은 키를 주면 router_kw 가 이긴다."""
+        cand: D-111 후보 탐색 설정 "v0"·"v4" (None = DEFAULT_CAND). 3-B 켬일 때만 쓰이고, router_kw 가 같은 키를 주면 router_kw 가 이긴다.
+        include_3b: True(3-B 전부)·False·노선 집합 (D-112a). k3b_stop_times: 받은 정차표(공개 모드).
+        k3b_local=False 이면 로컬 3-B 파일을 절대 읽지 않는다 — 정차표가 없으면 3-B 를 끈다 (D-112 fail-closed)."""
         from yeoyuro_v2 import korail_engine as KE
         T = _T()
         kw = dict(policy="step", multi_bin=True, query_date=None if query_date is None else str(query_date))
         self.day_type = day_type
         self.display = display
-        self.include_3b = bool(include_3b)
+        G = norm_groups(include_3b)
+        k3b_src = k3b_stop_times
+        if G and k3b_src is None and not k3b_local:
+            G = frozenset()                                    # D-112: 공개 모드에서 받은 자료가 없으면 3-B 끔
+        if G and G != ALL_3B:                                  # D-112a: 켜진 노선 행만 엔진에 넘김 (부분 집합)
+            if k3b_src is None:
+                from yeoyuro_v2 import korail_engine as _KE
+                k3b_src = pd.read_parquet(_KE.K3B_MART) if _KE.k3b_available() else None
+            if k3b_src is not None:
+                k3b_src = k3b_src[k3b_src.group.isin(G)].reset_index(drop=True)
+        self.groups_3b = G
+        self.include_3b = bool(G)
         self.cand, rk = cand_router_kw(cand, self.include_3b)
+        if self.include_3b and k3b_src is not None:
+            rk["k3b_stop_times"] = k3b_src
+        if not k3b_local:
+            rk["k3b_mart"] = Path(root) / "__no_local_3b__" / "stop_times.parquet"   # 공개 모드: 로컬 파일 경로를 막음
         rk.update(router_kw or {})
         self.on = KE.KorailTDRouter(root, mod, sr, display, day_type, include_korail=True,   # k = 기본 10
                                     include_3b=self.include_3b, **kw, **rk)
@@ -530,6 +564,7 @@ def map_overlay(workbook: Path) -> dict:
     for ph, tag in (("3-A", "a"), ("3-B", "b")):
         n = vn[vn["phase"] == ph]
         out[f"{tag}_nodes"] = n[["visual_node_id", "station_key", "x_px", "y_px", "is_transfer_station"]].reset_index(drop=True)
+        out[f"{tag}_nodes_line"] = n["line_id"].astype(str).tolist()          # D-112a: 노선별 실선·점선 (표 자체는 그대로)
         segs = []
         for (lid, _), g in ls[ls["phase"] == ph].groupby(["line_id", "branch_code"], sort=False):
             ids = g.sort_values("path_order").visual_node_id.tolist()
@@ -537,12 +572,14 @@ def map_overlay(workbook: Path) -> dict:
                 if a in pos and b in pos:
                     segs.append((*pos[a], *pos[b], str(lid)))
         out[f"{tag}_segs"] = pd.DataFrame(segs, columns=["x0", "y0", "x1", "y1", "line_id"])
-        links = []
+        links, link_line = [], []
         for r in tl[tl["phase"] == ph].itertuples():
             a, b = r.from_visual_node_id, r.to_visual_node_id
             if a in pos and b in pos:
                 links.append((*pos[a], *pos[b]))
+                link_line.append(str(r.to_line_id))
         out[f"{tag}_links"] = pd.DataFrame(links, columns=["x0", "y0", "x1", "y1"])
+        out[f"{tag}_links_line"] = link_line
     new_a = [k for k in vn[vn["phase"] == "3-A"].station_key.unique()
              if k not in set(mw.materialize(Path(workbook))["Station_Click_Areas"].station_key)]
     ca, lb = s["Station_Click_Areas"], s["Station_Labels"]

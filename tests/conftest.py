@@ -11,3 +11,10 @@ import pytest
 @pytest.fixture(autouse=True)
 def _clear_force_degrade(monkeypatch):
     monkeypatch.delenv("YEOYURO_FORCE_DEGRADE", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _data_mode_local(monkeypatch):
+    """D-112a: 테스트는 기본으로 로컬 개발 모드 (지금 동작 = 로컬 3-B 파일이 있으면 3-B 전부).
+    공개 모드를 검사하는 테스트는 monkeypatch.setenv("YEOYURO_DATA_MODE", "public") 로 그 안에서만 바꾼다."""
+    monkeypatch.setenv("YEOYURO_DATA_MODE", "local")

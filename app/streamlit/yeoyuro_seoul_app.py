@@ -63,6 +63,7 @@ for extra in (ROOT, ROOT / "scripts", ROOT / "app" / "streamlit"):
 
 from yeoyuro_v2 import provenance as _PV  # noqa: E402 — 계산 출처 기록 (D-075)
 from yeoyuro_v2 import korail_app as _KA  # noqa: E402 — 광역철도 확장 토글 (D-101, 기본 끔)
+from yeoyuro_v2 import data_release as _DR  # noqa: E402 — 3-B 정차표 실행 모드·공개 정책 (D-112)
 from yeoyuro_v2.service_day import service_clock as _service_clock  # noqa: E402 — 심야 운행일 (D-103)
 
 st.set_page_config(page_title="여유로 서울", page_icon="🚇", layout="wide",
@@ -587,9 +588,26 @@ def _seed(widget_key: str, default=None):
 # --------------------------------------------------------------------------
 # 광역철도 확장 (D-101, 사전 등록 9절) — 기본 끔. 끄면 아래 함수들은 화면에 아무 영향이 없다.
 # --------------------------------------------------------------------------
-def k3b_on() -> bool:
-    """3-B(경의중앙·수인분당·공항철도) 정차표가 이 환경에 있는가 — 없으면 같은 토글로 3-A 만 켠다 (D-106)."""
-    return _KA.k3b_ready(ROOT)
+def _secrets() -> dict:
+    """Streamlit Secrets (공개 모드에서만 읽음). 없거나 읽지 못하면 빈 값 — 내용은 어디에도 출력하지 않는다."""
+    try:
+        return st.secrets.to_dict()
+    except Exception:                                    # noqa: BLE001 — Secrets 파일 없음 등
+        return {}
+
+
+@st.cache_resource(show_spinner=False)
+def _k3b_source():
+    """D-112: 로컬 개발 모드 = 로컬 정차표 그대로, 공개 모드 = 정책(config/data_release.toml)을 통과한 노선만 받음.
+    공개 모드는 로컬 3-B 파일을 읽지 않는다 (fail-closed). 실패 이유는 일반 코드로만 남는다."""
+    if _DR.resolve_mode(ROOT) == "local":
+        return _DR.resolve_k3b(ROOT, environ={_DR.ENV_MODE: "local"})
+    return _DR.resolve_k3b(ROOT, secrets=_secrets(), environ={_DR.ENV_MODE: "public"})
+
+
+def k3b_on() -> frozenset:
+    """켜진 3-B 노선 집합 (비어 있으면 같은 토글로 3-A 만 켠다, D-106). D-112a: 노선별."""
+    return _k3b_source().groups
 
 
 def _korail_only_names() -> set:
@@ -633,8 +651,10 @@ def get_ext_planner(day_type: str, query_date: str, include_3b: bool = False):
     from yeoyuro_v2.line9 import register_v1_directions
     mod = sr.load_scorer_class(ROOT)
     register_v1_directions(mod)
+    src = _k3b_source()
     return _KA.ExtensionPlanner(DATA_ROOT, mod, sr, load_mart("station_display_master", "data/master"),
-                                day_type, query_date=query_date, repo_root=ROOT, include_3b=include_3b)
+                                day_type, query_date=query_date, repo_root=ROOT, include_3b=include_3b,
+                                k3b_stop_times=src.stop_times, k3b_local=(src.mode == "local"))
 
 
 @st.cache_data(show_spinner=False)
@@ -674,9 +694,12 @@ def ext_bundle(bundle: dict, stamp: float, on: bool = True, with_3b: bool = Fals
     lb = bundle["map_labels"]
     b["map_labels"] = pd.concat([lb, ov["a_labels"][[c for c in lb.columns if c in ov["a_labels"].columns]]],
                                 ignore_index=True)
-    if not with_3b:
+    G = _KA.norm_groups(with_3b)
+    if not G:
         b["planned_b_segs"], b["planned_b_nodes"] = ov["b_segs"], ov["b_nodes"]
         return b
+    if G != _KA.ALL_3B:                                   # D-112a: 켜진 노선만 실선, 나머지 3-B 는 회색 점선
+        return _ext_bundle_partial(b, ov, G)
     # 3-B 실선 (노선 색) + 노드 + 환승 연결 + 새 역 클릭·역명
     b["map_visual_nodes"] = pd.concat([b["map_visual_nodes"], ov["b_nodes"]], ignore_index=True)
     sg = ov["b_segs"].copy()
@@ -697,6 +720,37 @@ def ext_bundle(bundle: dict, stamp: float, on: bool = True, with_3b: bool = Fals
     b["map_labels"] = pd.concat([b["map_labels"], ov["b_labels"][[c for c in lb.columns if c in ov["b_labels"].columns]]],
                                 ignore_index=True)
     b["planned_b_segs"], b["planned_b_nodes"] = None, None
+    return b
+
+
+def _ext_bundle_partial(b: dict, ov: dict, G: frozenset) -> dict:
+    """3-B 일부 노선만 켜졌을 때 (D-112 5절). 노선도는 GJ·SB·AR 만 그린다 (경춘선은 GJ 선 위 — 배지만)."""
+    draw = {g for g in ("GJ", "SB", "AR") if g in G}
+    seg_on = ov["b_segs"].line_id.astype(str).isin(draw)
+    node_on = pd.Series([x in draw for x in ov.get("b_nodes_line", [])], index=ov["b_nodes"].index, dtype=bool)
+    link_on = pd.Series([x in draw for x in ov.get("b_links_line", [])], index=ov["b_links"].index, dtype=bool)
+    b["map_visual_nodes"] = pd.concat([b["map_visual_nodes"], ov["b_nodes"][node_on]], ignore_index=True)
+    sg = ov["b_segs"][seg_on].copy()
+    sg["color"] = sg.line_id.map(lambda x: LINE_COLORS.get(str(x), PLANNED_LINE))
+    b["map_line_segments"] = pd.concat([b["map_line_segments"], sg], ignore_index=True)
+    if b.get("map_transfer_links") is not None and len(ov.get("b_links", [])):
+        tl = ov["b_links"][link_on].copy()
+        tl["connector_visible"] = True
+        b["map_transfer_links"] = pd.concat([b["map_transfer_links"], tl], ignore_index=True)
+    k3 = _KA.extended_display(load_mart("station_display_master", "data/master"), G).set_index("station_key")
+    on_st = set(_KA._k3b_stations(G))
+    ca = b["map_click_areas"].copy()
+    hit = ca.station_key.isin(k3.index)
+    ca.loc[hit, "available_lines"] = ca.loc[hit, "station_key"].map(lambda k: k3.at[k, "available_lines"])
+    bc = ov["b_click"][ov["b_click"].station_key.isin(on_st)][[c for c in ca.columns if c in ov["b_click"].columns]].copy()
+    if "available_lines" in bc.columns:
+        bc["available_lines"] = bc.station_key.map(lambda k: k3.at[k, "available_lines"] if k in k3.index else "")
+    b["map_click_areas"] = pd.concat([ca, bc], ignore_index=True)
+    lb = b["map_labels"]
+    bl = ov["b_labels"][ov["b_labels"].station_key.isin(on_st)]
+    b["map_labels"] = pd.concat([lb, bl[[c for c in lb.columns if c in bl.columns]]], ignore_index=True)
+    b["planned_b_segs"] = ov["b_segs"][~seg_on].reset_index(drop=True)
+    b["planned_b_nodes"] = ov["b_nodes"][~node_on].reset_index(drop=True)
     return b
 
 
@@ -1625,6 +1679,9 @@ def page_route():
                   on_change=_on_ext_toggle)
         if ext_on() and not k3b_on():
             st.caption(_KA.K3B_MISSING)
+        elif ext_on() and k3b_on() != _KA.ALL_3B:          # D-112a: 일부 노선만 켜짐
+            st.caption(_KA.K3B_PARTIAL + " · ".join(_KA.K3B_LINE_NAMES[g] for g in ("GJ", "GC", "SB", "AR")
+                                                     if g in k3b_on()))
         if st.session_state.get("ext_flash"):
             st.warning(st.session_state["ext_flash"])
             st.session_state["ext_flash"] = None
