@@ -1,0 +1,1332 @@
+{
+ "v0": {
+  "cand": "v0",
+  "default_seen": "v0",
+  "off_screens": {
+   "상봉 건대입구 2026-10-14 08:00 calm": {
+    "metrics": "58ffa7ab9c3722d1",
+    "captions": "3236e275b20ab694",
+    "markdown": "f764c6ff11d034bf",
+    "info": "4f53cda18c2baa0c",
+    "warning": "230cbdf52af79756",
+    "options": "32a2ad96f5e683a0",
+    "map": "8d7df4da4f678cdd",
+    "exceptions": []
+   },
+   "신림 강남 2026-10-14 08:15 calm": {
+    "metrics": "9aea2c7839c24dab",
+    "captions": "30741e785bf678fe",
+    "markdown": "1000d8744b7f0608",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "ca8ca384044d9dab",
+    "exceptions": []
+   },
+   "강변 여의도 2026-10-14 08:30 calm": {
+    "metrics": "bd80d02561602f90",
+    "captions": "414b1690cccf6373",
+    "markdown": "26627e746685767e",
+    "info": "21606da7fd2f7cd7",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "96376168195204bc",
+    "exceptions": []
+   },
+   "노원 수유 2026-10-14 08:00 calm": {
+    "metrics": "5538cdaef7dd5164",
+    "captions": "add3e84cee942b41",
+    "markdown": "1a579258196f9f6b",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "b0d6b352cb165aa7",
+    "exceptions": []
+   },
+   "가양 고속터미널 2026-10-14 08:00 calm": {
+    "metrics": "f52d564df133a18c",
+    "captions": "81a4373b2c665622",
+    "markdown": "007fd65dc3669f42",
+    "info": "4f53cda18c2baa0c",
+    "warning": "230cbdf52af79756",
+    "options": "32a2ad96f5e683a0",
+    "map": "94695181c65cb4a3",
+    "exceptions": []
+   },
+   "김포공항 종합운동장 2026-10-14 08:00 calm": {
+    "metrics": "a8d977ec2b590b11",
+    "captions": "0842f4edbce50539",
+    "markdown": "ac4e6b3153cf67d8",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "fd7030b2e95da470",
+    "exceptions": []
+   },
+   "석촌 잠실 2026-10-14 18:00 calm": {
+    "metrics": "0e5134243ae32d05",
+    "captions": "f07eb6f39d490d7f",
+    "markdown": "fb390500f0ef2c38",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "da8146f3c6728322",
+    "exceptions": []
+   },
+   "서울역 잠실 2026-10-14 18:00 calm": {
+    "metrics": "8f475cceb129e230",
+    "captions": "cf57746ac47c993f",
+    "markdown": "b9fa9acf78b014a9",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "3290750806c06978",
+    "exceptions": []
+   },
+   "신림 강남 2026-10-14 08:15 fast": {
+    "metrics": "9aea2c7839c24dab",
+    "captions": "30741e785bf678fe",
+    "markdown": "14de88d3f93dc3b9",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "ca8ca384044d9dab",
+    "exceptions": []
+   },
+   "서울역 잠실 2026-10-14 18:00 min_transfer": {
+    "metrics": "8f475cceb129e230",
+    "captions": "cf57746ac47c993f",
+    "markdown": "fe84cc0be702c61c",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "3290750806c06978",
+    "exceptions": []
+   },
+   "공덕 여의나루 2025-09-27 18:00 calm": {
+    "metrics": "08cd5946faa6341e",
+    "captions": "5f83dd172e93f540",
+    "markdown": "18df57b0cb818636",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "8d3d1d656b0b56c3",
+    "exceptions": []
+   },
+   "신도림 석계 2026-11-25 08:00 calm": {
+    "metrics": "4d44ecea05354a34",
+    "captions": "56ab45d9092e88ed",
+    "markdown": "079ecedca745172f",
+    "info": "21606da7fd2f7cd7",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "33a09608dcf29b2e",
+    "exceptions": []
+   },
+   "가산디지털단지 창동 2026-11-25 23:30 fast": {
+    "metrics": "dbbc2f6d12f2aaff",
+    "captions": "3c384d58d2b28add",
+    "markdown": "93e7ba87b22afd07",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "6d66283d5cf8a735",
+    "exceptions": []
+   },
+   "노량진 온수 2026-11-28 00:30 calm": {
+    "metrics": "686f8b152c3daf8a",
+    "captions": "6c9f176ddcdf001d",
+    "markdown": "de4143cd3dcdea1d",
+    "info": "4f53cda18c2baa0c",
+    "warning": "77cc53d48a05a569",
+    "options": "32a2ad96f5e683a0",
+    "map": "70fc596923bcfdec",
+    "exceptions": []
+   },
+   "신림 강남 2026-05-01 08:00 calm": {
+    "metrics": "698392464f8698db",
+    "captions": "53a16d48873f58cd",
+    "markdown": "27a0758322442520",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "ca8ca384044d9dab",
+    "exceptions": []
+   },
+   "홍대입구 잠실 2025-06-03 18:00 calm": {
+    "metrics": "8e9ee0507dc7ff21",
+    "captions": "e1f72b520593c123",
+    "markdown": "12c1f1ec7b9e4d7d",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "f332f424bc38f53a",
+    "exceptions": []
+   },
+   "상봉 건대입구 2026-05-02 00:30 calm": {
+    "metrics": "c34fd351e76d2f2d",
+    "captions": "c1fbef6caf75e4f1",
+    "markdown": "ceadd90017406fce",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "8d7df4da4f678cdd",
+    "exceptions": []
+   }
+  },
+  "on_screens": {
+   "신도림 석계 2026-11-25 08:00 calm": {
+    "metrics": "f8b1ea2a6e7df0e5",
+    "captions": "2835fbf7e512d5c6",
+    "markdown": "d18522d7a9c639c4",
+    "info": "21606da7fd2f7cd7",
+    "warning": "4f53cda18c2baa0c",
+    "options": "6559a7738745d869",
+    "map": "d0a322883fbb5182",
+    "exceptions": []
+   },
+   "가산디지털단지 월계 2026-11-25 08:00 calm": {
+    "metrics": "461f9a36f1abf67b",
+    "captions": "1d68baa9ed3c43a3",
+    "markdown": "302864681764f0c1",
+    "info": "62b0e6d3bdbc1aee",
+    "warning": "4f53cda18c2baa0c",
+    "options": "6559a7738745d869",
+    "map": "2bff79c0a3529d55",
+    "exceptions": []
+   },
+   "금천구청 월계 2026-11-28 00:30 calm": {
+    "metrics": "4f53cda18c2baa0c",
+    "captions": "868b6097792738a8",
+    "markdown": "633583cb72e5e38e",
+    "info": "62b0e6d3bdbc1aee",
+    "warning": "a99be520e682d714",
+    "options": "6559a7738745d869",
+    "map": "f9d03a6c18dd592a",
+    "exceptions": []
+   }
+  },
+  "APP": {
+   "W3": {
+    "off": 270,
+    "on": 306,
+    "added_n": 36,
+    "label_changed": [
+     "① 개봉",
+     "① 광운대",
+     "① 구로",
+     "① 구일",
+     "① 금천구청",
+     "① 남영",
+     "① 녹천",
+     "① 대방",
+     "① 도봉",
+     "① 독산",
+     "① 방학",
+     "① 신이문",
+     "① 영등포",
+     "① 오류동",
+     "① 외대앞",
+     "① 용산",
+     "① 월계",
+     "① 회기",
+     "①② 신도림",
+     "①④ 창동",
+     "①⑤ 신길",
+     "①⑥ 석계",
+     "①⑦ 가산디지털단지",
+     "①⑦ 도봉산",
+     "①⑦ 온수",
+     "①⑨ 노량진",
+     "가좌",
+     "가천대",
+     "개포동",
+     "구룡",
+     "대모산입구",
+     "망우",
+     "서강대",
+     "서빙고",
+     "서울숲",
+     "수색",
+     "압구정로데오",
+     "야탑",
+     "양원",
+     "응봉",
+     "중랑",
+     "태평",
+     "한남",
+     "한티"
+    ],
+    "dup_on": 0,
+    "cleared_on_off": true,
+    "dest_kept": true,
+    "flash": true,
+    "exceptions": [],
+    "common_badge": {
+     "노량진": "1,9",
+     "신길": "1,5",
+     "신도림": "1,2",
+     "가산디지털단지": "1,7",
+     "온수": "1,7",
+     "석계": "1,6",
+     "창동": "1,4",
+     "도봉산": "1,7"
+    }
+   },
+   "W4": {
+    "traces": 17,
+    "planned_b_dotted": 0,
+    "planned_b_nodes_trace": 0,
+    "planned_b_clickable": false,
+    "click_keys": 306,
+    "new_stations_clickable": [
+     "개봉",
+     "광운대",
+     "구로",
+     "구일",
+     "금천구청",
+     "남영",
+     "녹천",
+     "대방",
+     "도봉",
+     "독산",
+     "방학",
+     "신이문",
+     "영등포",
+     "오류동",
+     "외대앞",
+     "용산",
+     "월계",
+     "회기"
+    ],
+    "off_dotted": 1
+   },
+   "W6_W7": [
+    {
+     "case": "신도림→석계 2026-11-25 08:00",
+     "texts": {
+      "기대 소요 기준": true,
+      "시각표 기준": true,
+      "시각표 고정": true,
+      "운행일": true,
+      "혼잡도 미확인": true,
+      "쾌적 판정 안 함": true,
+      "확인 못함": false,
+      "1~9호선 대상 아님": false
+     },
+     "base_card_same_as_off": true,
+     "exceptions": []
+    },
+    {
+     "case": "가산디지털단지→월계 2026-11-25 08:00",
+     "texts": {
+      "기대 소요 기준": true,
+      "시각표 기준": true,
+      "시각표 고정": true,
+      "운행일": true,
+      "혼잡도 미확인": true,
+      "쾌적 판정 안 함": true,
+      "확인 못함": false,
+      "1~9호선 대상 아님": true
+     },
+     "base_card_same_as_off": true,
+     "exceptions": []
+    },
+    {
+     "case": "금천구청→월계 2026-11-28 00:30",
+     "texts": {
+      "기대 소요 기준": true,
+      "시각표 기준": true,
+      "시각표 고정": true,
+      "운행일": true,
+      "혼잡도 미확인": false,
+      "쾌적 판정 안 함": false,
+      "확인 못함": true,
+      "1~9호선 대상 아님": true
+     },
+     "base_card_same_as_off": true,
+     "exceptions": []
+    }
+   ]
+  },
+  "W5": {
+   "sat_0030": {
+    "service_date": "2026-11-27",
+    "day_type": "weekday",
+    "minute": 1470.0,
+    "label": "운행일 기준: 11월 27일(금) 심야",
+    "status": "none",
+    "reason": "운행 종료"
+   },
+   "gumcheon_2300": {
+    "status": "ok",
+    "best_trains": [
+     "K7038",
+     "K224"
+    ],
+    "best_arrive": "00:18",
+    "top_status": "연결 확인",
+    "excluded_train": {
+     "막차 종료": 10
+    }
+   }
+  },
+  "old_W1": {
+   "cases": 14,
+   "same": 0,
+   "diffs": [
+    {
+     "case": "상봉 건대입구 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신림 강남 2026-10-14 08:15 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "강변 여의도 2026-10-14 08:30 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "노원 수유 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "가양 고속터미널 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "김포공항 종합운동장 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "석촌 잠실 2026-10-14 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "서울역 잠실 2026-10-14 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신림 강남 2026-10-14 08:15 fast",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "서울역 잠실 2026-10-14 18:00 min_transfer",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "공덕 여의나루 2025-09-27 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신도림 석계 2026-11-25 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "가산디지털단지 창동 2026-11-25 23:30 fast",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "노량진 온수 2026-11-28 00:30 calm",
+     "keys": [
+      "metrics",
+      "captions",
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    }
+   ]
+  },
+  "old_H6_H7": {
+   "day_cases": 14,
+   "day_same": 0,
+   "day_diffs": [
+    {
+     "case": "상봉 건대입구 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신림 강남 2026-10-14 08:15 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "강변 여의도 2026-10-14 08:30 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "노원 수유 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "가양 고속터미널 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "김포공항 종합운동장 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "석촌 잠실 2026-10-14 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "서울역 잠실 2026-10-14 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신림 강남 2026-10-14 08:15 fast",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "서울역 잠실 2026-10-14 18:00 min_transfer",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "공덕 여의나루 2025-09-27 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신도림 석계 2026-11-25 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "가산디지털단지 창동 2026-11-25 23:30 fast",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "노량진 온수 2026-11-28 00:30 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    }
+   ],
+   "holiday": [
+    {
+     "case": "신림 강남 2026-05-01 08:00 calm",
+     "changed_keys": [
+      "captions",
+      "map_spec_len",
+      "map_spec_hash"
+     ],
+     "metrics_same": true,
+     "notice": true,
+     "exceptions": []
+    },
+    {
+     "case": "홍대입구 잠실 2025-06-03 18:00 calm",
+     "changed_keys": [
+      "captions",
+      "map_spec_len",
+      "map_spec_hash"
+     ],
+     "metrics_same": true,
+     "notice": true,
+     "exceptions": []
+    },
+    {
+     "case": "상봉 건대입구 2026-05-02 00:30 calm",
+     "changed_keys": [
+      "captions",
+      "map_spec_len",
+      "map_spec_hash"
+     ],
+     "metrics_same": true,
+     "notice": true,
+     "exceptions": []
+    }
+   ]
+  },
+  "planners_seen": [
+   [
+    false,
+    "v0"
+   ],
+   [
+    true,
+    "v0"
+   ]
+  ]
+ },
+ "v4": {
+  "cand": "v4",
+  "default_seen": "v4",
+  "off_screens": {
+   "상봉 건대입구 2026-10-14 08:00 calm": {
+    "metrics": "58ffa7ab9c3722d1",
+    "captions": "3236e275b20ab694",
+    "markdown": "f764c6ff11d034bf",
+    "info": "4f53cda18c2baa0c",
+    "warning": "230cbdf52af79756",
+    "options": "32a2ad96f5e683a0",
+    "map": "8d7df4da4f678cdd",
+    "exceptions": []
+   },
+   "신림 강남 2026-10-14 08:15 calm": {
+    "metrics": "9aea2c7839c24dab",
+    "captions": "30741e785bf678fe",
+    "markdown": "1000d8744b7f0608",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "ca8ca384044d9dab",
+    "exceptions": []
+   },
+   "강변 여의도 2026-10-14 08:30 calm": {
+    "metrics": "bd80d02561602f90",
+    "captions": "414b1690cccf6373",
+    "markdown": "26627e746685767e",
+    "info": "21606da7fd2f7cd7",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "96376168195204bc",
+    "exceptions": []
+   },
+   "노원 수유 2026-10-14 08:00 calm": {
+    "metrics": "5538cdaef7dd5164",
+    "captions": "add3e84cee942b41",
+    "markdown": "1a579258196f9f6b",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "b0d6b352cb165aa7",
+    "exceptions": []
+   },
+   "가양 고속터미널 2026-10-14 08:00 calm": {
+    "metrics": "f52d564df133a18c",
+    "captions": "81a4373b2c665622",
+    "markdown": "007fd65dc3669f42",
+    "info": "4f53cda18c2baa0c",
+    "warning": "230cbdf52af79756",
+    "options": "32a2ad96f5e683a0",
+    "map": "94695181c65cb4a3",
+    "exceptions": []
+   },
+   "김포공항 종합운동장 2026-10-14 08:00 calm": {
+    "metrics": "a8d977ec2b590b11",
+    "captions": "0842f4edbce50539",
+    "markdown": "ac4e6b3153cf67d8",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "fd7030b2e95da470",
+    "exceptions": []
+   },
+   "석촌 잠실 2026-10-14 18:00 calm": {
+    "metrics": "0e5134243ae32d05",
+    "captions": "f07eb6f39d490d7f",
+    "markdown": "fb390500f0ef2c38",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "da8146f3c6728322",
+    "exceptions": []
+   },
+   "서울역 잠실 2026-10-14 18:00 calm": {
+    "metrics": "8f475cceb129e230",
+    "captions": "cf57746ac47c993f",
+    "markdown": "b9fa9acf78b014a9",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "3290750806c06978",
+    "exceptions": []
+   },
+   "신림 강남 2026-10-14 08:15 fast": {
+    "metrics": "9aea2c7839c24dab",
+    "captions": "30741e785bf678fe",
+    "markdown": "14de88d3f93dc3b9",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "ca8ca384044d9dab",
+    "exceptions": []
+   },
+   "서울역 잠실 2026-10-14 18:00 min_transfer": {
+    "metrics": "8f475cceb129e230",
+    "captions": "cf57746ac47c993f",
+    "markdown": "fe84cc0be702c61c",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "3290750806c06978",
+    "exceptions": []
+   },
+   "공덕 여의나루 2025-09-27 18:00 calm": {
+    "metrics": "08cd5946faa6341e",
+    "captions": "5f83dd172e93f540",
+    "markdown": "18df57b0cb818636",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "8d3d1d656b0b56c3",
+    "exceptions": []
+   },
+   "신도림 석계 2026-11-25 08:00 calm": {
+    "metrics": "4d44ecea05354a34",
+    "captions": "56ab45d9092e88ed",
+    "markdown": "079ecedca745172f",
+    "info": "21606da7fd2f7cd7",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "33a09608dcf29b2e",
+    "exceptions": []
+   },
+   "가산디지털단지 창동 2026-11-25 23:30 fast": {
+    "metrics": "dbbc2f6d12f2aaff",
+    "captions": "3c384d58d2b28add",
+    "markdown": "93e7ba87b22afd07",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "6d66283d5cf8a735",
+    "exceptions": []
+   },
+   "노량진 온수 2026-11-28 00:30 calm": {
+    "metrics": "686f8b152c3daf8a",
+    "captions": "6c9f176ddcdf001d",
+    "markdown": "de4143cd3dcdea1d",
+    "info": "4f53cda18c2baa0c",
+    "warning": "77cc53d48a05a569",
+    "options": "32a2ad96f5e683a0",
+    "map": "70fc596923bcfdec",
+    "exceptions": []
+   },
+   "신림 강남 2026-05-01 08:00 calm": {
+    "metrics": "698392464f8698db",
+    "captions": "53a16d48873f58cd",
+    "markdown": "27a0758322442520",
+    "info": "2cc325289a590012",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "ca8ca384044d9dab",
+    "exceptions": []
+   },
+   "홍대입구 잠실 2025-06-03 18:00 calm": {
+    "metrics": "8e9ee0507dc7ff21",
+    "captions": "e1f72b520593c123",
+    "markdown": "12c1f1ec7b9e4d7d",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "f332f424bc38f53a",
+    "exceptions": []
+   },
+   "상봉 건대입구 2026-05-02 00:30 calm": {
+    "metrics": "c34fd351e76d2f2d",
+    "captions": "c1fbef6caf75e4f1",
+    "markdown": "ceadd90017406fce",
+    "info": "4f53cda18c2baa0c",
+    "warning": "4f53cda18c2baa0c",
+    "options": "32a2ad96f5e683a0",
+    "map": "8d7df4da4f678cdd",
+    "exceptions": []
+   }
+  },
+  "on_screens": {
+   "신도림 석계 2026-11-25 08:00 calm": {
+    "metrics": "f8b1ea2a6e7df0e5",
+    "captions": "2835fbf7e512d5c6",
+    "markdown": "d18522d7a9c639c4",
+    "info": "21606da7fd2f7cd7",
+    "warning": "4f53cda18c2baa0c",
+    "options": "6559a7738745d869",
+    "map": "d0a322883fbb5182",
+    "exceptions": []
+   },
+   "가산디지털단지 월계 2026-11-25 08:00 calm": {
+    "metrics": "461f9a36f1abf67b",
+    "captions": "1d68baa9ed3c43a3",
+    "markdown": "302864681764f0c1",
+    "info": "62b0e6d3bdbc1aee",
+    "warning": "4f53cda18c2baa0c",
+    "options": "6559a7738745d869",
+    "map": "2bff79c0a3529d55",
+    "exceptions": []
+   },
+   "금천구청 월계 2026-11-28 00:30 calm": {
+    "metrics": "4f53cda18c2baa0c",
+    "captions": "868b6097792738a8",
+    "markdown": "633583cb72e5e38e",
+    "info": "62b0e6d3bdbc1aee",
+    "warning": "a99be520e682d714",
+    "options": "6559a7738745d869",
+    "map": "f9d03a6c18dd592a",
+    "exceptions": []
+   }
+  },
+  "APP": {
+   "W3": {
+    "off": 270,
+    "on": 306,
+    "added_n": 36,
+    "label_changed": [
+     "① 개봉",
+     "① 광운대",
+     "① 구로",
+     "① 구일",
+     "① 금천구청",
+     "① 남영",
+     "① 녹천",
+     "① 대방",
+     "① 도봉",
+     "① 독산",
+     "① 방학",
+     "① 신이문",
+     "① 영등포",
+     "① 오류동",
+     "① 외대앞",
+     "① 용산",
+     "① 월계",
+     "① 회기",
+     "①② 신도림",
+     "①④ 창동",
+     "①⑤ 신길",
+     "①⑥ 석계",
+     "①⑦ 가산디지털단지",
+     "①⑦ 도봉산",
+     "①⑦ 온수",
+     "①⑨ 노량진",
+     "가좌",
+     "가천대",
+     "개포동",
+     "구룡",
+     "대모산입구",
+     "망우",
+     "서강대",
+     "서빙고",
+     "서울숲",
+     "수색",
+     "압구정로데오",
+     "야탑",
+     "양원",
+     "응봉",
+     "중랑",
+     "태평",
+     "한남",
+     "한티"
+    ],
+    "dup_on": 0,
+    "cleared_on_off": true,
+    "dest_kept": true,
+    "flash": true,
+    "exceptions": [],
+    "common_badge": {
+     "노량진": "1,9",
+     "신길": "1,5",
+     "신도림": "1,2",
+     "가산디지털단지": "1,7",
+     "온수": "1,7",
+     "석계": "1,6",
+     "창동": "1,4",
+     "도봉산": "1,7"
+    }
+   },
+   "W4": {
+    "traces": 17,
+    "planned_b_dotted": 0,
+    "planned_b_nodes_trace": 0,
+    "planned_b_clickable": false,
+    "click_keys": 306,
+    "new_stations_clickable": [
+     "개봉",
+     "광운대",
+     "구로",
+     "구일",
+     "금천구청",
+     "남영",
+     "녹천",
+     "대방",
+     "도봉",
+     "독산",
+     "방학",
+     "신이문",
+     "영등포",
+     "오류동",
+     "외대앞",
+     "용산",
+     "월계",
+     "회기"
+    ],
+    "off_dotted": 1
+   },
+   "W6_W7": [
+    {
+     "case": "신도림→석계 2026-11-25 08:00",
+     "texts": {
+      "기대 소요 기준": true,
+      "시각표 기준": true,
+      "시각표 고정": true,
+      "운행일": true,
+      "혼잡도 미확인": true,
+      "쾌적 판정 안 함": true,
+      "확인 못함": false,
+      "1~9호선 대상 아님": false
+     },
+     "base_card_same_as_off": true,
+     "exceptions": []
+    },
+    {
+     "case": "가산디지털단지→월계 2026-11-25 08:00",
+     "texts": {
+      "기대 소요 기준": true,
+      "시각표 기준": true,
+      "시각표 고정": true,
+      "운행일": true,
+      "혼잡도 미확인": true,
+      "쾌적 판정 안 함": true,
+      "확인 못함": false,
+      "1~9호선 대상 아님": true
+     },
+     "base_card_same_as_off": true,
+     "exceptions": []
+    },
+    {
+     "case": "금천구청→월계 2026-11-28 00:30",
+     "texts": {
+      "기대 소요 기준": true,
+      "시각표 기준": true,
+      "시각표 고정": true,
+      "운행일": true,
+      "혼잡도 미확인": false,
+      "쾌적 판정 안 함": false,
+      "확인 못함": true,
+      "1~9호선 대상 아님": true
+     },
+     "base_card_same_as_off": true,
+     "exceptions": []
+    }
+   ]
+  },
+  "W5": {
+   "sat_0030": {
+    "service_date": "2026-11-27",
+    "day_type": "weekday",
+    "minute": 1470.0,
+    "label": "운행일 기준: 11월 27일(금) 심야",
+    "status": "none",
+    "reason": "운행 종료"
+   },
+   "gumcheon_2300": {
+    "status": "ok",
+    "best_trains": [
+     "K7038",
+     "K224"
+    ],
+    "best_arrive": "00:18",
+    "top_status": "연결 확인",
+    "excluded_train": {
+     "막차 종료": 10
+    }
+   }
+  },
+  "old_W1": {
+   "cases": 14,
+   "same": 0,
+   "diffs": [
+    {
+     "case": "상봉 건대입구 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신림 강남 2026-10-14 08:15 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "강변 여의도 2026-10-14 08:30 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "노원 수유 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "가양 고속터미널 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "김포공항 종합운동장 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "석촌 잠실 2026-10-14 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "서울역 잠실 2026-10-14 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신림 강남 2026-10-14 08:15 fast",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "서울역 잠실 2026-10-14 18:00 min_transfer",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "공덕 여의나루 2025-09-27 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신도림 석계 2026-11-25 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "가산디지털단지 창동 2026-11-25 23:30 fast",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "노량진 온수 2026-11-28 00:30 calm",
+     "keys": [
+      "metrics",
+      "captions",
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    }
+   ]
+  },
+  "old_H6_H7": {
+   "day_cases": 14,
+   "day_same": 0,
+   "day_diffs": [
+    {
+     "case": "상봉 건대입구 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신림 강남 2026-10-14 08:15 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "강변 여의도 2026-10-14 08:30 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "노원 수유 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "가양 고속터미널 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "김포공항 종합운동장 2026-10-14 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "석촌 잠실 2026-10-14 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "서울역 잠실 2026-10-14 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신림 강남 2026-10-14 08:15 fast",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "서울역 잠실 2026-10-14 18:00 min_transfer",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "공덕 여의나루 2025-09-27 18:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "신도림 석계 2026-11-25 08:00 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "가산디지털단지 창동 2026-11-25 23:30 fast",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    },
+    {
+     "case": "노량진 온수 2026-11-28 00:30 calm",
+     "keys": [
+      "map_spec_len",
+      "map_spec_hash"
+     ]
+    }
+   ],
+   "holiday": [
+    {
+     "case": "신림 강남 2026-05-01 08:00 calm",
+     "changed_keys": [
+      "captions",
+      "map_spec_len",
+      "map_spec_hash"
+     ],
+     "metrics_same": true,
+     "notice": true,
+     "exceptions": []
+    },
+    {
+     "case": "홍대입구 잠실 2025-06-03 18:00 calm",
+     "changed_keys": [
+      "captions",
+      "map_spec_len",
+      "map_spec_hash"
+     ],
+     "metrics_same": true,
+     "notice": true,
+     "exceptions": []
+    },
+    {
+     "case": "상봉 건대입구 2026-05-02 00:30 calm",
+     "changed_keys": [
+      "captions",
+      "map_spec_len",
+      "map_spec_hash"
+     ],
+     "metrics_same": true,
+     "notice": true,
+     "exceptions": []
+    }
+   ]
+  },
+  "planners_seen": [
+   [
+    false,
+    "v0"
+   ],
+   [
+    true,
+    "v4"
+   ]
+  ]
+ },
+ "P": {
+  "W2": {
+   "plans": 16892,
+   "errors": 0,
+   "status": {
+    "ok": 11925,
+    "no_benefit": 3373,
+    "none": 1594
+   },
+   "best_not_connected": 0,
+   "top_not_connected": 573,
+   "best_not_top": 48,
+   "excluded_train_reasons": {
+    "막차 종료": 6428
+   },
+   "midnight_connected": 536,
+   "korail_best": 11925,
+   "sec_mean": 0.3070799043630108,
+   "sec_p95": 0.7280342299999916,
+   "sec_max": 2.7913274999999658,
+   "error_examples": []
+  },
+  "H9": {
+   "compared": 1236,
+   "errors": 0,
+   "changed": {
+    "status": 214,
+    "best_path": 248,
+    "best_trains": 1137,
+    "expected": 553
+   },
+   "best_not_connected_after": 0,
+   "status_after": {
+    "ok": 756,
+    "none": 276,
+    "no_benefit": 204
+   }
+  }
+ },
+ "judge": {
+  "gates": {
+   "S1": true,
+   "S2": true,
+   "S3": true,
+   "S4": true,
+   "S5": true,
+   "abs_v4": true,
+   "pass": true
+  },
+  "S1_diff": [],
+  "S2_diff": {
+   "W3": false,
+   "W4": false,
+   "W6_W7": false
+  },
+  "S3_diff": false,
+  "S4_diff": {
+   "W1": false,
+   "H6_H7": false
+  },
+  "S5": {
+   "W2_errors": 0,
+   "W2_best_not_connected": 0,
+   "H9_errors": 0,
+   "H9_best_not_connected_after": 0
+  },
+  "abs_v4": {
+   "W3": true,
+   "W6_W7": true
+  },
+  "on_screens_changed": []
+ },
+ "elapsed_sec": 992,
+ "dry": false
+}
