@@ -18,7 +18,7 @@
 | [decision_log.md](decision_log.md) | 전 단계 | 작성 중 |
 | [time_dependent_routing.md](time_dependent_routing.md) | v2.0 | 초판 |
 | [temporal_shift.md](temporal_shift.md) | v2.2 | 초판 |
-| [v2_roadmap.md](v2_roadmap.md) | 전 단계 | 초판 (공모전 이후 Phase 0~4 포함) |
+| [v2_roadmap.md](v2_roadmap.md) | 전 단계 | 2026-11-28 갱신 (D-111b 뒤, 면담 시연 우선순위·로컬/공개 기능 범위) |
 | [line9.md](line9.md) | v2.6 | Phase A·B·C(정원 보정) 완료 |
 | [counterfactual.md](counterfactual.md) | Release | 초판 |
 | [app_ia.md](app_ia.md) | Release | 초판 (앱 IA 리팩토링) |
