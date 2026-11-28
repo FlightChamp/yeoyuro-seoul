@@ -61,6 +61,9 @@ for extra in (ROOT, ROOT / "scripts", ROOT / "app" / "streamlit"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 
+import module_guard as _MG  # noqa: E402 — D-113: push 뒤 옛 판 모듈이 남는 일 방지 (바뀐 저장소 모듈 다시 불러오기)
+_MG.refresh(ROOT, _MG.streamlit_clear)
+
 from yeoyuro_v2 import provenance as _PV  # noqa: E402 — 계산 출처 기록 (D-075)
 from yeoyuro_v2 import korail_app as _KA  # noqa: E402 — 광역철도 확장 토글 (D-101, 기본 끔)
 from yeoyuro_v2 import data_release as _DR  # noqa: E402 — 3-B 정차표 실행 모드·공개 정책 (D-112)
@@ -3256,4 +3259,7 @@ def main():
     globals()[VIEW_FN[(page, view)]]()
 
 
-main()
+try:
+    main()
+finally:
+    _MG.record(ROOT)          # D-113: 이번 실행에서 불러온 저장소 모듈의 파일 시각을 적어 둔다
