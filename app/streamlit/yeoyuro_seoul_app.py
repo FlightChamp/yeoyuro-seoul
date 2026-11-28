@@ -805,7 +805,9 @@ def render_extension(plan, searched: bool):
                           delta="%+.0f분" % (b.expected_min - plan.baseline_min), delta_color="inverse")
             else:
                 c3.metric("1~9호선만 이용 시", "해당 없음", help="코레일 전용 역이라 1~9호선만으로는 갈 수 없습니다.")
-            st.markdown("**✅ %s** · 환승 %d회" % (b.status, b.transfers))
+            if b.first_wait_min is not None and b.train_arrive:          # D-109 C6
+                st.caption(_KA.FIRST_WAIT_NOTE % b.first_wait_min)
+            st.markdown("**✅ %s** · 환승 %d회" % (_KA.CONNECT_LABEL.get(b.status, b.status), b.transfers))   # D-109 C1
             for lg in b.legs:
                 tag = ("<span style='background:#FFF4CC;border-radius:4px;padding:1px 6px;font-size:0.8rem'>%s</span>"
                        % _KA.BADGE_UNKNOWN) if lg.korail else (
@@ -821,7 +823,7 @@ def render_extension(plan, searched: bool):
                         st.caption("↳ 갈아타기 · 기다림 %.1f분" % r.wait_min)
                     st.markdown("`%s` %s %s → %s %s" % (r.train, r.board, r.dep, r.alight, r.arr))
                 if b.first_wait_min is not None:
-                    st.caption("첫 열차까지 기다림 %.1f분 (기대 소요에는 넣지 않음, R4)" % b.first_wait_min)
+                    st.caption(_KA.FIRST_WAIT_RIDES % b.first_wait_min)
         ref = getattr(plan, "reference", None)
         if ref is not None:                              # 공항철도: 연결은 계산했지만 확정 추천 아님 (D-105 2절·B13)
             st.markdown("**📎 %s** · 기대 소요 %.0f분 · 환승 %d회" % (_KA.REFERENCE_TITLE, ref.expected_min, ref.transfers))
@@ -836,17 +838,17 @@ def render_extension(plan, searched: bool):
                     if i:
                         st.caption("↳ 갈아타기 · 기다림 %.1f분" % r.wait_min)
                     st.markdown("`%s` %s %s → %s %s" % (r.train, r.board, r.dep, r.alight, r.arr))
-                st.caption("시각표 기준일: " + ", ".join("%s %s" % (_KA.K3B_LINE_NAMES.get(k, k), v)
-                                                     for k, v in ref.timetable_valid_from.items()))
-        if b is not None and b.lines_3b:
-            st.caption("시각표 기준일: " + ", ".join("%s %s" % (_KA.K3B_LINE_NAMES.get(k, k), v)
-                                                 for k, v in b.timetable_valid_from.items()))
+                if _KA.timetable_dates(ref):                                # D-109 C2
+                    st.caption(_KA.timetable_dates(ref))
+        if b is not None and _KA.timetable_dates(b):                   # D-109 C2: 쓰인 노선 기준일, 늘
+            st.caption(_KA.timetable_dates(b))
         n_ex = sum(plan.excluded_train.values())
-        if n_ex:
-            st.caption("확정 추천에서 뺀 후보: " + ", ".join("%s %d" % kv for kv in plan.excluded_train.most_common()))
-        st.caption(_KA.BASIS_EXPECTED)
-        st.caption(_KA.BASIS_TIMETABLE)
-        st.caption(_KA.BASIS_STATIC)
+        if n_ex:                                                         # D-109 C7
+            st.caption(_KA.EXCLUDED_PREFIX + ", ".join("%s %d" % kv for kv in plan.excluded_train.most_common()))
+        st.caption(_KA.BASIS_STATIC)                                     # D-109 C3
+        with st.expander(_KA.CALC_BASIS_TITLE):                          # D-109 C5
+            st.caption(_KA.BASIS_EXPECTED)
+            st.caption(_KA.BASIS_TIMETABLE)
 
 
 def _go(page: str, view: str | None = None):

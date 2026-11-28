@@ -74,16 +74,37 @@ NONE_FOUND = "이 시각에 이용 가능한 광역철도 확장 경로를 확�
 NO_BENEFIT = "광역철도를 이용해도 더 빠른 경로가 없습니다."
 NO_BENEFIT_WITH_REF = ("확정 추천할 수 있는 광역철도 경로 중에는 더 빠른 경로가 없습니다. "
                        "공항철도를 이용한 참고 경로는 아래에 따로 보여 드립니다.")
-BASIS_EXPECTED = ("기대 소요 = 첫 승차 대기 제외(R4) + 갈아타는 역의 대기는 그 시각 30분 평균 대기(E)로 계산한 값입니다.")
+BASIS_EXPECTED = ("기대 소요 = 첫 열차를 기다리는 시간은 빼고, 갈아타는 역에서는 그 시각 30분 평균 대기를 더해 "
+                  "계산한 값입니다.")                                  # D-109 C4: 내부 기호(R4·E) 없이
 BASIS_TIMETABLE = ("시각표 확인 = 입력 시각 뒤 첫 열차부터 실제 열차번호로 이어 탄 결과입니다(첫 대기 포함). "
                    "두 값은 다를 수 있습니다.")
-BASIS_STATIC = "정해진 시각표(2026-09-01) 기준이며 실시간 지연·운행 변경은 반영하지 않습니다."
+BASIS_STATIC = "계획 시각표 기준이며 실시간 지연·운행 변경은 반영하지 않습니다."   # D-109 C3: 날짜는 노선별 기준일 줄이 맡음
+# D-109 C2: 노선별 시각표 기준일 (1~9호선·코레일 1호선 = 서울교통공사 열차운행시각표 20260901, korail_line1.TT_FILE)
+BASE_TT_LABEL, BASE_TT_DATE = "1~9호선·코레일 1호선", "2026-09-01"
+TT_DATES_PREFIX = "시각표 기준일: "
+CALC_BASIS_TITLE = "계산 기준"                                       # D-109 C5: 펼침 제목
+FIRST_WAIT_NOTE = "시각표 확인 도착은 첫 열차까지 기다림 %.1f분을 포함합니다."   # D-109 C6
+FIRST_WAIT_RIDES = "첫 열차까지 기다림 %.1f분 (기대 소요에는 넣지 않음)"          # D-109 C4
+EXCLUDED_PREFIX = "계획 시각표상 탈 수 없어 확정 추천에서 뺀 경로: "               # D-109 C7
 HOLIDAY_EXT = ("공휴일이라 휴일 시각표로 열차 연결을 확인했습니다. 1~9호선 구간의 혼잡·배차는 공휴일 관측값이 아니라 "
                "요일 기준 통계입니다. 토요일과 겹친 공휴일의 시각표, 선거일 특별 운행은 확인하지 못했습니다.")
 HOLIDAY_BASE = ("공휴일 — 이 카드의 배차·혼잡은 요일 기준 통계입니다(공휴일 관측값·공휴일 시각표 아님).")
 OUT_OF_RANGE = "공휴일 판정은 2025~2027년만 지원합니다. 이 날짜는 요일로만 판정했습니다."
 
 CONNECT_OK, CONNECT_UNKNOWN, CONNECT_FAIL = "연결 확인", "연결 미확인", "연결 불가"
+# D-109 C1: 화면에 보이는 이름 (내부 상태 값은 위 그대로 — 테스트·평가 도구가 비교에 씀)
+CONNECT_LABEL = {CONNECT_OK: "계획 시각표로 전체 연결 확인", CONNECT_UNKNOWN: "일부 구간 연결 미확인",
+                 CONNECT_FAIL: "계획 시각표상 연결 불가"}
+
+
+def timetable_dates(c) -> str:
+    """D-109 C2: 이 경로에 쓰인 노선의 시각표 기준일 한 줄. 3-B 가 아닌 구간(1~9호선·코레일 1호선)이 있으면 그 날짜도."""
+    parts = []
+    if any(str(lg.line) not in ALL_3B for lg in getattr(c, "legs", []) or []):
+        parts.append(f"{BASE_TT_LABEL} {BASE_TT_DATE}")
+    for g, v in (getattr(c, "timetable_valid_from", {}) or {}).items():
+        parts.append(f"{K3B_LINE_NAMES.get(g, g)} {v}")
+    return TT_DATES_PREFIX + " · ".join(parts) if parts else ""
 
 
 def _status_ko(status: str) -> str:
